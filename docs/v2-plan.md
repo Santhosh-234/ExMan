@@ -82,10 +82,15 @@ The biggest drag on V2 is the **30-minute build loop**. Proposals, most valuable
 
 Phase 1 can start immediately and fixes the slowness you see now, independent of the redesign. Each phase ends in an installable build.
 
-## 8. Decisions needed
+## 8. Decisions (resolved)
 
-1. Infra #1: is an Expo (EAS) account acceptable for OTA/dev-client, or must everything stay self-hosted?
-2. Light theme in V2 or dark only (dark + AMOLED is cheaper)?
-3. Do you want cash/manual entry and multi-account in V2.0, or after the review/home redesign?
-4. Which banks/cards and UPI apps do you actually use? That decides the parser corpus and account handling priority.
-5. Per-category budgets and recurring detection: V2.0 or V2.1?
+1. **Infra**: Expo (EAS) account created; use EAS Update + dev client now. Self-hosted alternatives (own update server, GlitchTip, Firefly sync) and their privacy trade-offs are a later discussion.
+2. **Theme**: light, dark and "follow system", switchable in Settings (V2.0). Tokens must support both from the start.
+3. **V2.0 includes**: manual/cash entry and multi-account.
+4. **Accounts to support first**: Indian Bank (account + debit card), Axis Bank (account + debit card + credit card), Amazon Pay ICICI credit card. UPI apps: GPay, PhonePe, Paytm (RuPay is a card network, not a UPI app; BHIM or a RuPay card on UPI would arrive as bank SMS, to be confirmed).
+5. **V2.1**: per-category budgets, subscription/recurring detection. V2.0 vs V2.1 build times will tell us whether the infra change delivered the speedup.
+
+## 9. Status
+
+- Phase 1 (foundation) implemented: schema v4 (accounts, `msg_hash`, dismissed tombstones, indexes), single-transaction batch import with progress, virtualised optimistic Inbox, one-query Analytics, Developer screen (seed + benchmark), PR-time `check.yml`.
+- Phase 0 needs one-time steps from the account owner (see CLAUDE.md).

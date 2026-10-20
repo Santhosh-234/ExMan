@@ -66,6 +66,55 @@ const MIGRATIONS = [
   UPDATE transactions SET bank = 'INDIAN' WHERE bank IS NULL AND raw_text LIKE '%Indian Bank%';
   CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `,
+  // V2 foundation: rebuild transactions (SQLite can't alter CHECKs) to add 'dismissed' status, 'manual' source,
+  // msg_hash (idempotent imports), account_id, is_transfer, notes, updated_at. Plus accounts and hot-path indexes.
+  `
+  CREATE TABLE accounts (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('bank','card','cash')),
+    bank TEXT,
+    last4 TEXT,
+    UNIQUE (kind, bank, last4)
+  );
+  INSERT INTO accounts (name, kind) VALUES ('Cash', 'cash');
+
+  CREATE TABLE transactions_v2 (
+    id INTEGER PRIMARY KEY,
+    amount_paise INTEGER NOT NULL,
+    direction TEXT NOT NULL CHECK (direction IN ('debit','credit')),
+    merchant TEXT,
+    category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+    account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+    source TEXT NOT NULL CHECK (source IN ('sms','gpay','phonepe','paytm','manual')),
+    bank TEXT,
+    account_last4 TEXT,
+    payment_mode TEXT,
+    ts INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','confirmed','dismissed')),
+    tags TEXT NOT NULL DEFAULT '',
+    notes TEXT,
+    is_transfer INTEGER NOT NULL DEFAULT 0,
+    raw_text TEXT,
+    msg_hash TEXT,
+    synced_at INTEGER,
+    updated_at INTEGER
+  );
+  INSERT INTO transactions_v2 (id, amount_paise, direction, merchant, category_id, source, bank, account_last4,
+                               payment_mode, ts, status, tags, raw_text, synced_at)
+    SELECT id, amount_paise, direction, merchant, category_id, source, bank, account_last4,
+           payment_mode, ts, status, tags, raw_text, synced_at FROM transactions;
+  DROP TABLE transactions;
+  ALTER TABLE transactions_v2 RENAME TO transactions;
+
+  CREATE INDEX idx_txn_dedup ON transactions (amount_paise, ts);
+  CREATE INDEX idx_txn_status_ts ON transactions (status, ts DESC);
+  CREATE INDEX idx_txn_report ON transactions (status, direction, ts);
+  CREATE UNIQUE INDEX idx_txn_hash ON transactions (msg_hash);
+
+  DELETE FROM unparsed WHERE id NOT IN (SELECT MIN(id) FROM unparsed GROUP BY ts, text);
+  CREATE UNIQUE INDEX idx_unparsed_msg ON unparsed (ts, text);
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

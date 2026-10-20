@@ -12,7 +12,7 @@ export type Txn = {
   account_last4: string | null;
   payment_mode: string | null;
   ts: number;
-  status: 'pending' | 'confirmed';
+  status: 'pending' | 'confirmed' | 'dismissed';
   tags: string;
   raw_text: string | null;
 };
@@ -20,7 +20,7 @@ export type Txn = {
 export const getCategories = (db: SQLiteDatabase) =>
   db.getAllAsync<Category>('SELECT id, name, icon, color FROM categories ORDER BY id');
 
-export const getTxns = (db: SQLiteDatabase, status: 'pending' | 'confirmed', from = 0, to = 8.64e15) =>
+export const getTxns = (db: SQLiteDatabase, status: 'pending' | 'confirmed' | 'dismissed', from = 0, to = 8.64e15) =>
   db.getAllAsync<Txn>(
     'SELECT * FROM transactions WHERE status = ? AND ts >= ? AND ts < ? ORDER BY ts DESC',
     status, from, to,
@@ -91,3 +91,14 @@ export async function getSetting(db: SQLiteDatabase, key: string) {
 
 export const setSetting = (db: SQLiteDatabase, key: string, value: string) =>
   db.runAsync('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, value);
+
+/** Confirmed totals per month and direction in one scan: [{month:'2026-10', direction, total}]. */
+export const monthlyTotals = (db: SQLiteDatabase, from: number, to: number) =>
+  db.getAllAsync<{ month: string; direction: 'debit' | 'credit'; total: number }>(
+    `SELECT strftime('%Y-%m', ts / 1000, 'unixepoch', 'localtime') AS month, direction, SUM(amount_paise) AS total
+     FROM transactions WHERE status = 'confirmed' AND ts >= ? AND ts < ? GROUP BY month, direction`,
+    from, to,
+  );
+
+export const countPending = async (db: SQLiteDatabase) =>
+  (await db.getFirstAsync<{ n: number }>("SELECT COUNT(*) AS n FROM transactions WHERE status = 'pending'"))?.n ?? 0;

@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import { Bars } from '@/components/Charts';
-import { topMerchants, totalFor } from '@/db/queries';
+import { monthlyTotals, topMerchants } from '@/db/queries';
 import { monthKey, monthLabel, monthRange, rupees, shiftMonth } from '@/utils/format';
 
 export default function Analytics() {
@@ -18,8 +18,10 @@ export default function Analytics() {
     const now = monthKey(new Date());
     const months = [5, 4, 3, 2, 1, 0].map((i) => shiftMonth(now, -i));
     const lab = (m: string) => monthLabel(m).split(' ')[0];
-    setSeries(await Promise.all(months.map(async (m) => ({ label: lab(m), value: await totalFor(db, 'debit', ...monthRange(m)) }))));
-    setIncome(await Promise.all(months.map(async (m) => ({ label: lab(m), value: await totalFor(db, 'credit', ...monthRange(m)) }))));
+    const rows = await monthlyTotals(db, monthRange(months[0])[0], monthRange(now)[1]);
+    const sum = (m: string, dir: string) => rows.find((r) => r.month === m && r.direction === dir)?.total ?? 0;
+    setSeries(months.map((m) => ({ label: lab(m), value: sum(m, 'debit') })));
+    setIncome(months.map((m) => ({ label: lab(m), value: sum(m, 'credit') })));
     setMerchants(await topMerchants(db, monthRange(months[0])[0], monthRange(now)[1], 8));
   }, [db]);
   useFocusEffect(useCallback(() => void load(), [load]));

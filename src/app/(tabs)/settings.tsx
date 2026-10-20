@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { PermissionsAndroid, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { getSetting, setSetting } from '@/db/queries';
@@ -22,6 +22,7 @@ export default function Settings() {
   const [sms, setSms] = useState(false);
   const [notif, setNotif] = useState(false);
   const db = useSQLiteContext();
+  const router = useRouter();
   const [endpoint, setEndpoint] = useState('');
   const [token, setToken] = useState('');
   const [mode, setMode] = useState('rest');
@@ -76,7 +77,7 @@ export default function Settings() {
               if (!readSms) return setImportMsg('Grant "Read old SMS" first');
               setImportMsg('Importing…');
               try {
-                const n = await importHistory(db, d);
+                const n = await importHistory(db, d, (done, total) => setImportMsg(`Importing… ${done}/${total}`));
                 setImportMsg(`Added ${n} transactions to the Inbox`);
               } catch (e) {
                 setImportMsg(e instanceof Error ? e.message : 'Import failed');
@@ -122,6 +123,7 @@ export default function Settings() {
         <Text className="text-center font-semibold text-base">Save & sync now</Text>
       </Pressable>
       {status ? <Text className="mt-3 text-gray-300">{status}</Text> : null}
+      <Pressable onPress={() => router.push('/dev')} className="mt-8"><Text className="text-gray-500">Developer tools</Text></Pressable>
       <View className="h-8" />
     </ScrollView>
   );
