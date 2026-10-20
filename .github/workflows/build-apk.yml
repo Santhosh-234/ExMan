@@ -1,0 +1,33 @@
+name: Build APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - run: npm ci
+      - run: npm test
+      - run: npx tsc --noEmit
+      - run: npx expo prebuild --platform android --no-install
+      # ponytail: release is signed with the prebuild template's debug keystore. Fine for sideloading
+      # and in-place updates; swap in a real keystore secret before sharing the APK with anyone.
+      - run: ./gradlew assembleRelease
+        working-directory: android
+      - run: cp android/app/build/outputs/apk/release/app-release.apk VibeExpenses.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
+          prerelease: true
+          files: VibeExpenses.apk
