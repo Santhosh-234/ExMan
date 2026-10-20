@@ -61,6 +61,11 @@ const MIGRATIONS = [
     ts INTEGER NOT NULL
   );
   `,
+  // bank detection was missing Indian Bank; backfill old rows from their text. Key/value app settings (sync).
+  `
+  UPDATE transactions SET bank = 'INDIAN' WHERE bank IS NULL AND raw_text LIKE '%Indian Bank%';
+  CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

@@ -20,7 +20,8 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.exman.app",
       "permissions": [
-        "android.permission.RECEIVE_SMS"
+        "android.permission.RECEIVE_SMS",
+        "android.permission.READ_SMS"
       ]
     },
     "web": {
@@ -37,7 +38,8 @@
           "imageWidth": 76
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
     ],
     "experiments": {
       "typedRoutes": true,

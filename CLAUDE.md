@@ -7,12 +7,12 @@ Privacy-first, offline-first expense manager. Expo SDK 58 + Expo Router, NativeW
 - Step 2: native Kotlin module `modules/vibe-listener` (SMS BroadcastReceiver + NotificationListenerService for GPay/PhonePe/Paytm -> SharedPreferences queue). JS drains in `src/ingest/` (parse -> `isDuplicate` 60s check -> insert as `pending`). Settings tab has the permission buttons.
 - Verified on a real phone: a bank SMS lands in the Inbox correctly. Notification path (GPay/PhonePe/Paytm) NOT yet verified; notification regexes are guesses.
 - CI: `.github/workflows/build-apk.yml` builds an arm64-only release APK to GitHub Releases (~30 min; slow). Release is signed with the debug keystore.
-- Inbox tab is a temporary DEBUG list (raw txns + `unparsed` financial-looking messages), not the real UI.
+- Step 3 (written, untested on device): real Inbox (swipe confirm/dismiss, edit modal, auto-category via `src/utils/categorize.ts`), Dashboard (month nav, budget bar, SVG donut, filters, insights), Analytics (6-month bars, top merchants), Settings sync (`src/sync.ts`, custom REST or Firefly III). Indian Bank (`VM-INDBNK-S`) added to BANKS; migration 3 backfills old rows.
 
 ## Known gaps / next
-- Bank shows `?` when the SMS sender ID isn't in the BANKS list in parser.ts (add the user's bank).
-- Step 3: real Inbox (swipe, category edit, amount fix, tags, auto-category), Dashboard (budget bar, SVG pie, insights, filters), Analytics, Settings sync endpoint+token (Firefly III / custom REST).
-- Sync backend is optional, later.
+- Bank shows `?` when the SMS sender ID isn't in the BANKS list in parser.ts (add new banks there).
+- Verify Step 3 on device; notification-path regexes still unverified.
+- Firefly III setup guide: `docs/firefly-iii-setup.md` (sync untested against a real server). SMS history import in Settings (needs READ_SMS); parser corpus in `src/utils/parser.india.test.ts`.
 
 ## Working notes
 - Android 13+: sideloaded apps need "Allow restricted settings" before Notification Access can be enabled.
