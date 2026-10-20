@@ -52,6 +52,15 @@ const MIGRATIONS = [
     ('Salary', 'banknote', '#10B981'),
     ('Other', 'tag', '#6B7280');
   `,
+  // financial-looking messages the parser rejected; kept only so parser misses can be inspected
+  `
+  CREATE TABLE unparsed (
+    id INTEGER PRIMARY KEY,
+    sender TEXT NOT NULL,
+    text TEXT NOT NULL,
+    ts INTEGER NOT NULL
+  );
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

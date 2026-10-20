@@ -10,7 +10,12 @@ export async function ingest(db: SQLiteDatabase): Promise<number> {
   let added = 0;
   for (const m of drain()) {
     const t = parseMessage(m.text, { sender: m.sender, ts: m.ts });
-    if (!t) continue;
+    if (!t) {
+      // privacy: only keep messages that mention an amount; OTPs/chats are dropped
+      if (/(?:rs\.?|inr|₹)\s?\d/i.test(m.text))
+        await db.runAsync('INSERT INTO unparsed (sender, text, ts) VALUES (?, ?, ?)', m.sender, m.text, m.ts);
+      continue;
+    }
     const near = await db.getAllAsync<Row>(
       'SELECT amount_paise, direction, account_last4, ts FROM transactions WHERE amount_paise = ? AND ts BETWEEN ? AND ?',
       t.amountPaise, t.ts - 60_000, t.ts + 60_000,
