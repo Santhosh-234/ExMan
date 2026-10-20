@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "VibeExpenses",
-    "slug": "vibeexpenses",
+    "name": "ExMan",
+    "slug": "exman",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "vibeexpenses",
+    "scheme": "exman",
     "userInterfaceStyle": "dark",
     "ios": {
       "icon": "./assets/expo.icon"
@@ -18,7 +18,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.vibeexpenses.app",
+      "package": "com.exman.app",
       "permissions": [
         "android.permission.RECEIVE_SMS"
       ]

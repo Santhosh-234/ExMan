@@ -7,6 +7,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: apk
+  cancel-in-progress: true
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -16,18 +20,20 @@ jobs:
         with: { node-version: 22, cache: npm }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
       - run: npm ci
       - run: npm test
       - run: npx tsc --noEmit
       - run: npx expo prebuild --platform android --no-install
       # ponytail: release is signed with the prebuild template's debug keystore. Fine for sideloading
       # and in-place updates; swap in a real keystore secret before sharing the APK with anyone.
-      - run: ./gradlew assembleRelease
+      # ponytail: arm64 only (every modern phone); drop the flag for 32-bit/x86 devices
+      - run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
         working-directory: android
-      - run: cp android/app/build/outputs/apk/release/app-release.apk VibeExpenses.apk
+      - run: cp android/app/build/outputs/apk/release/app-release.apk ExMan.apk
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: Build ${{ github.run_number }}
           prerelease: true
-          files: VibeExpenses.apk
+          files: ExMan.apk
