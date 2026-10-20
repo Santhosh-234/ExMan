@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { getSetting, setSetting } from '@/db/queries';
+import { importHistory } from '@/ingest/run';
 import { syncNow } from '@/sync';
 
 import { notificationAccessGranted, openNotificationAccessSettings } from '../../../modules/vibe-listener';
@@ -24,16 +25,21 @@ export default function Settings() {
   const [endpoint, setEndpoint] = useState('');
   const [token, setToken] = useState('');
   const [mode, setMode] = useState('rest');
+  const [ffAccount, setFfAccount] = useState('');
   const [status, setStatus] = useState('');
+  const [readSms, setReadSms] = useState(false);
+  const [importMsg, setImportMsg] = useState('');
   // re-check when returning from the system settings screen
   useFocusEffect(
     useCallback(() => {
       PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS).then(setSms);
+      PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS).then(setReadSms);
       setNotif(notificationAccessGranted());
       (async () => {
         setEndpoint(await getSetting(db, 'sync_endpoint'));
         setToken(await getSetting(db, 'sync_token'));
         setMode((await getSetting(db, 'sync_mode')) || 'rest');
+        setFfAccount(await getSetting(db, 'sync_firefly_account'));
       })();
     }, [db]),
   );
@@ -48,7 +54,39 @@ export default function Settings() {
           setSms((await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS)) === 'granted')
         }
       />
+      <Row
+        label="Read old SMS (for import)"
+        ok={readSms}
+        onPress={async () =>
+          setReadSms((await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.READ_SMS)) === 'granted')
+        }
+      />
       <Row label="UPI app notifications" ok={notif} onPress={openNotificationAccessSettings} />
+
+      <Text className="mb-2 mt-6 text-lg font-semibold text-white">Import past SMS</Text>
+      <Text className="mb-3 text-xs text-gray-400">
+        Scans bank/card messages already in your inbox (not personal chats) and adds them to the Inbox for review.
+      </Text>
+      <View className="mb-2 flex-row">
+        {[30, 90, 365].map((d) => (
+          <Pressable
+            key={d}
+            className="mr-2 rounded-xl bg-card px-4 py-2"
+            onPress={async () => {
+              if (!readSms) return setImportMsg('Grant "Read old SMS" first');
+              setImportMsg('Importing…');
+              try {
+                const n = await importHistory(db, d);
+                setImportMsg(`Added ${n} transactions to the Inbox`);
+              } catch (e) {
+                setImportMsg(e instanceof Error ? e.message : 'Import failed');
+              }
+            }}>
+            <Text className="text-white">{d === 365 ? '1 year' : `${d} days`}</Text>
+          </Pressable>
+        ))}
+      </View>
+      {importMsg ? <Text className="mb-2 text-gray-300">{importMsg}</Text> : null}
 
       <Text className="mb-2 mt-6 text-lg font-semibold text-white">Sync (optional)</Text>
       <Text className="mb-3 text-xs text-gray-400">
@@ -62,6 +100,9 @@ export default function Settings() {
         ))}
       </View>
       <TextInput className="mb-3 rounded-xl bg-card px-3 py-2 text-white" value={endpoint} onChangeText={setEndpoint} autoCapitalize="none" autoCorrect={false} placeholder="https://your-server/endpoint" placeholderTextColor="#6B7280" />
+      {mode === 'firefly' && (
+        <TextInput className="mb-3 rounded-xl bg-card px-3 py-2 text-white" value={ffAccount} onChangeText={setFfAccount} placeholder="Firefly asset account name, e.g. Indian Bank" placeholderTextColor="#6B7280" />
+      )}
       <TextInput className="mb-3 rounded-xl bg-card px-3 py-2 text-white" value={token} onChangeText={setToken} autoCapitalize="none" autoCorrect={false} secureTextEntry placeholder="Access token" placeholderTextColor="#6B7280" />
       <Pressable
         className="rounded-xl bg-accent px-4 py-3"
@@ -70,6 +111,7 @@ export default function Settings() {
             await setSetting(db, 'sync_endpoint', endpoint.trim());
             await setSetting(db, 'sync_token', token.trim());
             await setSetting(db, 'sync_mode', mode);
+            await setSetting(db, 'sync_firefly_account', ffAccount.trim());
             setStatus('Syncing…');
             const n = await syncNow(db);
             setStatus(n ? `Synced ${n} transactions` : 'Nothing to sync');

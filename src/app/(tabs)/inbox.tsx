@@ -92,7 +92,19 @@ export default function Inbox() {
     <ScrollView className="flex-1 bg-base px-4 pt-16">
       <View className="mb-1 flex-row items-center justify-between">
         <Text className="text-2xl font-semibold text-white">Inbox</Text>
-        <Pressable onPress={load}><Text className="text-accent">Refresh</Text></Pressable>
+        <View className="flex-row">
+          {txns.length > 1 && (
+            <Pressable
+              className="mr-4"
+              onPress={async () => {
+                await db.runAsync("UPDATE transactions SET status = 'confirmed', synced_at = NULL WHERE status = 'pending' AND category_id IS NOT NULL");
+                load();
+              }}>
+              <Text className="text-accent">Confirm categorised</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={load}><Text className="text-accent">Refresh</Text></Pressable>
+        </View>
       </View>
       <Text className="mb-4 text-xs text-gray-400">Swipe right to confirm, left to dismiss, tap to edit.</Text>
       {txns.length === 0 && <Text className="mb-4 text-gray-400">All caught up.</Text>}

@@ -10,3 +10,5 @@ export const notificationAccessGranted = (): boolean => native.notificationAcces
 export const openNotificationAccessSettings = (): void => native.openNotificationAccessSettings();
 /** Fires when a message arrives while the app process is alive. */
 export const onRaw = (cb: () => void) => native.addListener('onRaw', cb);
+/** Existing inbox messages from alphanumeric senders since `sinceMs` (needs READ_SMS). */
+export const readInbox = (sinceMs: number): RawMessage[] => native.readInbox(sinceMs).map((s: string) => JSON.parse(s));

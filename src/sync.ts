@@ -16,7 +16,9 @@ export async function syncNow(db: SQLiteDatabase): Promise<number> {
   const endpoint = (await getSetting(db, 'sync_endpoint')).replace(/\/+$/, '');
   const token = await getSetting(db, 'sync_token');
   const mode = (await getSetting(db, 'sync_mode')) || 'rest';
+  const account = (await getSetting(db, 'sync_firefly_account')).trim();
   if (!endpoint) throw new Error('Set a sync endpoint first');
+  if (mode === 'firefly' && !account) throw new Error('Set the Firefly asset account name first');
 
   const rows = await db.getAllAsync<Row>(
     `SELECT t.id, t.amount_paise, t.direction, t.merchant, c.name AS category, t.bank, t.account_last4,
@@ -30,19 +32,33 @@ export async function syncNow(db: SQLiteDatabase): Promise<number> {
   if (mode === 'firefly') {
     for (const r of rows) {
       const debit = r.direction === 'debit';
+      const other = r.merchant ?? 'Unknown';
       const body = {
+        error_if_duplicate_hash: false,
         transactions: [{
           type: debit ? 'withdrawal' : 'deposit',
           date: new Date(r.ts).toISOString(),
           amount: (r.amount_paise / 100).toFixed(2),
-          description: r.merchant ?? 'Unknown',
-          ...(debit ? { destination_name: r.merchant ?? 'Unknown' } : { source_name: r.merchant ?? 'Unknown' }),
+          currency_code: 'INR',
+          description: other,
+          // Firefly needs an existing asset account on the money side; the merchant side is auto-created
+          ...(debit ? { source_name: account, destination_name: other } : { source_name: other, destination_name: account }),
           category_name: r.category ?? undefined,
           tags: r.tags ? r.tags.split(',').filter(Boolean) : undefined,
+          external_id: `exman-${r.id}`,
+          notes: [r.bank, r.account_last4 && `a/c ${r.account_last4}`, r.payment_mode].filter(Boolean).join(' · ') || undefined,
         }],
       };
       const res = await fetch(`${endpoint}/api/v1/transactions`, { method: 'POST', headers, body: JSON.stringify(body) });
-      if (!res.ok) throw new Error(`Sync failed (${res.status}) after ${rows.indexOf(r)} rows`);
+      if (!res.ok) {
+        const detail = (await res.text()).slice(0, 200);
+        // already pushed earlier (e.g. app reinstalled): treat as synced
+        if (res.status === 422 && /duplicate/i.test(detail)) {
+          await db.runAsync('UPDATE transactions SET synced_at = ? WHERE id = ?', Date.now(), r.id);
+          continue;
+        }
+        throw new Error(`Firefly rejected a row (${res.status}): ${detail}`);
+      }
       await db.runAsync('UPDATE transactions SET synced_at = ? WHERE id = ?', Date.now(), r.id);
     }
   } else {

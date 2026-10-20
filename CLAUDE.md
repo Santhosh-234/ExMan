@@ -12,7 +12,7 @@ Privacy-first, offline-first expense manager. Expo SDK 58 + Expo Router, NativeW
 ## Known gaps / next
 - Bank shows `?` when the SMS sender ID isn't in the BANKS list in parser.ts (add new banks there).
 - Verify Step 3 on device; notification-path regexes still unverified.
-- Sync backend is optional, later.
+- Firefly III setup guide: `docs/firefly-iii-setup.md` (sync untested against a real server). SMS history import in Settings (needs READ_SMS); parser corpus in `src/utils/parser.india.test.ts`.
 
 ## Working notes
 - Android 13+: sideloaded apps need "Allow restricted settings" before Notification Access can be enabled.
