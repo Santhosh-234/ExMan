@@ -91,3 +91,8 @@ test('SMS + notification for same payment are duplicates', () => {
   assert.ok(!isDuplicate(sms, { ...notif, account: '9999' }));
   assert.ok(!isDuplicate(sms, { ...notif, direction: 'credit' }));
 });
+
+test('Indian Bank sender VM-INDBNK-S is recognised', () => {
+  const r = p('Rs. 250.00 debited from a/c XX1234 on 20-10-26 to VPA zomato@icici', 'VM-INDBNK-S');
+  assert.equal(r?.bank, 'INDIAN');
+});

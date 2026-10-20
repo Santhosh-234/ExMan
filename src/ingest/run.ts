@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { drain } from '../../modules/vibe-listener';
+import { guessCategory } from '@/utils/categorize';
 import { isDuplicate, parseMessage } from '@/utils/parser';
 
 type Row = { amount_paise: number; direction: 'debit' | 'credit'; account_last4: string | null; ts: number };
@@ -24,10 +25,12 @@ export async function ingest(db: SQLiteDatabase): Promise<number> {
       isDuplicate(t, { amountPaise: r.amount_paise, direction: r.direction, account: r.account_last4, ts: r.ts }),
     );
     if (dup) continue;
+    const guess = guessCategory(t.merchant, t.direction);
+    const cat = guess ? await db.getFirstAsync<{ id: number }>('SELECT id FROM categories WHERE name = ?', guess) : null;
     await db.runAsync(
-      `INSERT INTO transactions (amount_paise, direction, merchant, source, bank, account_last4, payment_mode, ts, raw_text)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      t.amountPaise, t.direction, t.merchant, t.source, t.bank, t.account, t.mode, t.ts, m.text,
+      `INSERT INTO transactions (amount_paise, direction, merchant, category_id, source, bank, account_last4, payment_mode, ts, raw_text)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      t.amountPaise, t.direction, t.merchant, cat?.id ?? null, t.source, t.bank, t.account, t.mode, t.ts, m.text,
     );
     added++;
   }

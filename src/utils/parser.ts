@@ -38,6 +38,7 @@ const BANKS: [RegExp, string][] = [
   [/\bsbi|sbin|sbiupi/i, 'SBI'],
   [/axis/i, 'AXIS'],
   [/kotak/i, 'KOTAK'],
+  [/indbnk|indian\s*bank/i, 'INDIAN'], // sender e.g. VM-INDBNK-S
 ];
 
 const firstMatch = (res: RegExp[], text: string) => {
