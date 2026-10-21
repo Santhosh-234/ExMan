@@ -10,6 +10,7 @@ import { Button, EmptyState, Fab } from '@/ui/kit';
 import { FilterSheet } from '@/ui/FilterSheet';
 import { CategorySheet } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
+import { useRuleOffer } from '@/ui/useRuleOffer';
 import { useTheme } from '@/ui/theme';
 import { TxnRow } from '@/ui/TxnRow';
 import { type TxnFilter, EMPTY_FILTER, activeFilterCount } from '@/utils/filters';
@@ -30,7 +31,8 @@ export default function Activity() {
   const db = useSQLiteContext();
   const router = useRouter();
   const snack = useSnackbar();
-  const { account } = useLocalSearchParams<{ account?: string }>();
+  const offerRule = useRuleOffer();
+  const { account, q: qParam } = useLocalSearchParams<{ account?: string; q?: string }>();
   const { colors } = useTheme();
   const [filter, setFilter] = useState<TxnFilter>(EMPTY_FILTER);
   const [search, setSearch] = useState('');
@@ -49,6 +51,10 @@ export default function Activity() {
   useEffect(() => {
     if (account) setFilter((f) => ({ ...f, accountIds: [Number(account)] }));
   }, [account]);
+
+  useEffect(() => {
+    if (qParam) setSearch(qParam);
+  }, [qParam]);
 
   // debounce typing into the actual filter
   useEffect(() => {
@@ -103,6 +109,13 @@ export default function Activity() {
     const undo = await bulkUpdate(db, ids, patch);
     setSelected(new Set());
     await load();
+    // all selected rows from one merchant and a category was chosen: offer to remember it
+    const picked = rows.filter((r) => ids.includes(r.id));
+    const m = picked[0]?.merchant_id;
+    if (patch.category_id && m && picked.every((r) => r.merchant_id === m)) {
+      const shown = await offerRule({ merchantId: m, merchantName: picked[0].merchant, categoryId: patch.category_id, categoryName: catById.get(patch.category_id)?.name ?? 'this category', prefix: message, undo: () => void undo().then(load) });
+      if (shown) return;
+    }
     snack({ message, actionLabel: 'Undo', onAction: () => void undo().then(load) });
   };
 

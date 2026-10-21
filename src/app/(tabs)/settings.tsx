@@ -77,6 +77,15 @@ export default function Settings() {
         </Pressable>
       </Section>
 
+      <Section title="Categorisation" hint="How ExMan groups payees and picks categories.">
+        {([['/merchants', 'Merchants'], ['/rules', 'Rules']] as const).map(([href, label]) => (
+          <Pressable key={href} onPress={() => router.push(href)} accessibilityRole="button" className="mb-3 min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
+            <Text className="text-base text-fg">{label}</Text>
+            <Text className="text-accent">Open</Text>
+          </Pressable>
+        ))}
+      </Section>
+
       <Text className="mb-2 text-lg font-semibold text-fg" accessibilityRole="header">Permissions</Text>
       <Row
         label="Read bank SMS"

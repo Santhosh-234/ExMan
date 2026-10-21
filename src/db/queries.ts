@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { type TxnFilter, buildTxnQuery } from '@/utils/filters';
+import { ensureMerchant } from './merchantCore';
 
 export type Category = { id: number; name: string; icon: string; color: string };
 export type Txn = {
@@ -19,6 +20,7 @@ export type Txn = {
   raw_text: string | null;
   account_id: number | null;
   msg_hash: string | null;
+  merchant_id: number | null;
   notes: string | null;
   is_transfer: number;
   updated_at: number | null;
@@ -34,7 +36,7 @@ export type AccountStats = Account & {
   received: number;
   n: number;
 };
-export type TxnPatchFields = Partial<Pick<Txn, 'amount_paise' | 'merchant' | 'category_id' | 'tags' | 'status' | 'notes' | 'account_id' | 'is_transfer' | 'ts' | 'direction'>>;
+export type TxnPatchFields = Partial<Pick<Txn, 'amount_paise' | 'merchant' | 'category_id' | 'tags' | 'status' | 'notes' | 'account_id' | 'is_transfer' | 'ts' | 'direction' | 'merchant_id'>>;
 
 export const getCategories = (db: SQLiteDatabase) =>
   db.getAllAsync<Category>('SELECT id, name, icon, color FROM categories ORDER BY id');
@@ -47,6 +49,11 @@ export const getTxns = (db: SQLiteDatabase, status: 'pending' | 'confirmed' | 'd
 
 /** Updates fields and, for already-confirmed rows, records what changed (shown on the detail screen). */
 export async function updateTxn(db: SQLiteDatabase, id: number, f: TxnPatchFields) {
+  // editing the merchant text re-links the canonical merchant (and stores its clean name)
+  if ('merchant' in f) {
+    const m = await ensureMerchant(db, f.merchant ?? null);
+    f = { ...f, merchant: m?.name ?? f.merchant ?? null, merchant_id: m?.id ?? null };
+  }
   const keys = Object.keys(f) as (keyof TxnPatchFields)[];
   if (!keys.length) return;
   const old = await db.getFirstAsync<Txn>('SELECT * FROM transactions WHERE id = ?', id);
@@ -58,7 +65,7 @@ export async function updateTxn(db: SQLiteDatabase, id: number, f: TxnPatchField
   );
   if (old.status !== 'confirmed') return;
   for (const k of keys) {
-    if (k === 'status' || old[k] === f[k]) continue;
+    if (k === 'status' || k === 'merchant_id' || old[k] === f[k]) continue;
     await db.runAsync('INSERT INTO edit_log (txn_id, field, old_value, new_value, ts) VALUES (?, ?, ?, ?, ?)', id, k, old[k] == null ? null : String(old[k]), f[k] == null ? null : String(f[k]), now);
   }
 }

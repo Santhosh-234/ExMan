@@ -8,6 +8,7 @@ import { type Category, type Txn, getAccountNames, getCategories, getTxns, topCa
 import { Amount, Button, Chip, EmptyState, Skeleton, success, tap } from '@/ui/kit';
 import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
+import { useRuleOffer } from '@/ui/useRuleOffer';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 
@@ -101,6 +102,8 @@ export default function Review() {
   const db = useSQLiteContext();
   const router = useRouter();
   const snack = useSnackbar();
+  const offerRule = useRuleOffer();
+  const [userCat, setUserCat] = useState<number | null>(null); // category the user chose on the current card
   const { colors } = useTheme();
   const [queue, setQueue] = useState<Txn[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -126,6 +129,7 @@ export default function Review() {
   const head = queue?.[0];
   const patchHead = useCallback((p: TxnPatch) => {
     if (!head) return;
+    if (p.category_id != null && p.category_id !== head.category_id) setUserCat(p.category_id);
     setQueue((q) => q && [{ ...q[0], ...p }, ...q.slice(1)]);
     void updateTxn(db, head.id, p);
   }, [db, head]);
@@ -137,14 +141,21 @@ export default function Review() {
     setQueue((q) => q && q.slice(1));
     void updateTxn(db, t.id, { status });
     status === 'confirmed' ? success() : tap();
-    snack({
-      message: `${status === 'confirmed' ? 'Confirmed' : 'Dismissed'} ${rupees(t.amount_paise)}${t.merchant ? ` · ${t.merchant}` : ''}`,
-      onAction: () => {
-        void updateTxn(db, t.id, { status: 'pending' });
-        setQueue((q) => q && [t, ...q]);
-      },
-    });
-  }, [db, head, snack]);
+    const undo = () => {
+      void updateTxn(db, t.id, { status: 'pending' });
+      setQueue((q) => q && [t, ...q]);
+    };
+    const label = `${status === 'confirmed' ? 'Confirmed' : 'Dismissed'} ${rupees(t.amount_paise)}${t.merchant ? ` · ${t.merchant}` : ''}`;
+    const chosen = userCat;
+    setUserCat(null);
+    const plain = () => snack({ message: label, onAction: undo });
+    // the user picked a category on this card: offer to remember it for the merchant
+    if (status === 'confirmed' && chosen && t.merchant_id) {
+      const c = cats.find((x) => x.id === chosen);
+      void offerRule({ merchantId: t.merchant_id, merchantName: t.merchant, categoryId: chosen, categoryName: c?.name ?? 'this category', prefix: label, undo })
+        .then((shown) => !shown && plain());
+    } else plain();
+  }, [db, head, snack, userCat, cats, offerRule]);
 
   const confirmCategorised = async () => {
     const ids = (queue ?? []).filter((t) => t.category_id != null);
