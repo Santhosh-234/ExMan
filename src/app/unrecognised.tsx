@@ -1,0 +1,77 @@
+import { useRouter } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { ChevronLeft, MessageSquareWarning } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
+
+import { type PatternRow, type Unparsed, deletePattern, deleteUnparsed, listPatterns, listUnparsed, setPatternEnabled } from '@/db/patterns';
+import { onIngested } from '@/ingest/events';
+import { Button, Card, EmptyState } from '@/ui/kit';
+import { useSnackbar } from '@/ui/Snackbar';
+import { useTheme } from '@/ui/theme';
+
+export default function Unrecognised() {
+  const db = useSQLiteContext();
+  const router = useRouter();
+  const snack = useSnackbar();
+  const { colors } = useTheme();
+  const [msgs, setMsgs] = useState<Unparsed[] | null>(null);
+  const [patterns, setPatterns] = useState<PatternRow[]>([]);
+
+  const load = useCallback(async () => { setMsgs(await listUnparsed(db)); setPatterns(await listPatterns(db)); }, [db]);
+  useEffect(() => void load(), [load]);
+  useEffect(() => onIngested(() => void load()), [load]);
+
+  const dismiss = async (m: Unparsed) => {
+    await deleteUnparsed(db, m.id);
+    load();
+    snack({ message: 'Message removed', onAction: async () => { await db.runAsync('INSERT OR IGNORE INTO unparsed (id, sender, text, ts) VALUES (?, ?, ?, ?)', m.id, m.sender, m.text, m.ts); load(); } });
+  };
+
+  return (
+    <View className="flex-1 bg-base px-4 pt-14">
+      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
+        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
+      </Pressable>
+      <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Unrecognised messages</Text>
+      <Text className="mb-3 text-xs text-muted">Messages that mention an amount but that ExMan could not read. Teach it the format once and it will read similar messages from now on.</Text>
+
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {msgs && msgs.length === 0 && (
+          <EmptyState icon={<MessageSquareWarning size={44} color={colors.muted} />} title="Nothing to teach" body="Every money message so far was understood." />
+        )}
+        {(msgs ?? []).map((m) => (
+          <Card key={m.id} className="mb-3">
+            <Text className="text-xs text-muted">{m.sender} · {new Date(m.ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
+            <Text className="mt-1 text-fg" numberOfLines={6}>{m.text}</Text>
+            <View className="mt-3 flex-row">
+              <Button className="mr-3 flex-1" label="Teach" onPress={() => router.push(`/teach/${m.id}`)} />
+              <Button className="flex-1" variant="secondary" label="Not a transaction" onPress={() => dismiss(m)} />
+            </View>
+          </Card>
+        ))}
+
+        {patterns.length > 0 && (
+          <>
+            <Text className="mb-2 mt-4 text-lg font-semibold text-fg" accessibilityRole="header">Taught formats</Text>
+            {patterns.map((p) => (
+              <Card key={p.id} className="mb-3">
+                <View className="flex-row items-center">
+                  <View className="flex-1">
+                    <Text className="text-xs text-muted">{p.sender_key.toUpperCase()} · {p.direction === 'debit' ? 'Spent' : 'Received'} · used {p.hits}×</Text>
+                    <Text className="mt-1 text-sm text-fg" numberOfLines={3}>{p.example}</Text>
+                  </View>
+                  <Switch value={!!p.enabled} onValueChange={async (v) => { await setPatternEnabled(db, p.id, v); load(); }} trackColor={{ true: colors.accent, false: colors.surface2 }} accessibilityLabel="Format enabled" />
+                </View>
+                <Pressable onPress={async () => { await deletePattern(db, p.id); load(); snack({ message: 'Format deleted. Transactions already read are kept.' }); }} accessibilityRole="button" className="mt-2 min-h-9 justify-center">
+                  <Text className="text-danger">Delete format</Text>
+                </Pressable>
+              </Card>
+            ))}
+          </>
+        )}
+        <View className="h-10" />
+      </ScrollView>
+    </View>
+  );
+}

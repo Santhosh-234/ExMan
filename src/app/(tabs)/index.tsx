@@ -6,6 +6,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { MonthBar } from '@/components/MonthBar';
 import { type Category, type CategorySpend, type Txn, countPending, getBudget, getCategories, queryTxns, setBudget, spendByCategory, totalFor } from '@/db/queries';
+import { countUnparsed } from '@/db/patterns';
 import { acknowledgeAutoTransfers, countAutoTransfers } from '@/db/transfers';
 import { notifyIngested, onIngested } from '@/ingest/events';
 import { Button, Card, Fab, Skeleton } from '@/ui/kit';
@@ -22,6 +23,7 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [pending, setPending] = useState(0);
   const [autoTransfers, setAutoTransfers] = useState(0);
+  const [unparsed, setUnparsed] = useState(0);
   const [spend, setSpend] = useState<CategorySpend[]>([]);
   const [income, setIncome] = useState(0);
   const [prevSpent, setPrevSpent] = useState(0);
@@ -34,11 +36,11 @@ export default function Home() {
   const load = useCallback(async () => {
     const [from, to] = monthRange(month);
     const [pf, pt] = monthRange(shiftMonth(month, -1));
-    const [p, s, i, ps, b, r, c, at] = await Promise.all([
+    const [p, s, i, ps, b, r, c, at, up] = await Promise.all([
       countPending(db), spendByCategory(db, from, to), totalFor(db, 'credit', from, to), totalFor(db, 'debit', pf, pt), getBudget(db, month),
-      queryTxns(db, { from, to, transfers: 'hide' }, 0), getCategories(db), countAutoTransfers(db),
+      queryTxns(db, { from, to, transfers: 'hide' }, 0), getCategories(db), countAutoTransfers(db), countUnparsed(db),
     ]);
-    setPending(p); setAutoTransfers(at); setSpend(s); setIncome(i); setPrevSpent(ps); setBudgetState(b); setRecent(r.slice(0, 5)); setCats(c); setLoaded(true);
+    setPending(p); setAutoTransfers(at); setUnparsed(up); setSpend(s); setIncome(i); setPrevSpent(ps); setBudgetState(b); setRecent(r.slice(0, 5)); setCats(c); setLoaded(true);
   }, [db, month]);
   useFocusEffect(useCallback(() => void load(), [load]));
   useEffect(() => onIngested(() => void load()), [load]);
@@ -70,6 +72,16 @@ export default function Home() {
               <Text className="text-sm text-onaccent opacity-80">Swipe through them in seconds</Text>
             </View>
             <ChevronRight color={colors.onaccent} />
+          </Pressable>
+        )}
+
+        {unparsed > 0 && (
+          <Pressable onPress={() => router.push('/unrecognised')} accessibilityRole="button" className="mb-4 flex-row items-center rounded-3xl bg-card p-4">
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-fg">{unparsed} message{unparsed === 1 ? '' : 's'} couldn't be read</Text>
+              <Text className="mt-1 text-sm text-muted">Teach ExMan the format once and it reads similar ones from now on.</Text>
+            </View>
+            <ChevronRight color={colors.muted} />
           </Pressable>
         )}
 

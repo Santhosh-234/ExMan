@@ -132,6 +132,12 @@ function findAmount(text: string): string | null {
   return text.match(AMOUNT_BY)?.[1] ?? null;
 }
 
+/** Bank from the sender ID first, then the message text. */
+export const bankFor = (sender: string, text: string) =>
+  BANKS.find(([re]) => re.test(sender))?.[1] ?? BANKS.find(([re]) => re.test(text))?.[1] ?? null;
+export const modeFor = (text: string) => MODES.find(([re]) => re.test(text))?.[1] ?? null;
+export const sourceFor = (sender: string): Source => APP_SOURCES[sender] ?? 'sms';
+
 export function parseMessage(
   text: string,
   opts: { sender?: string; ts?: number } = {},
@@ -152,7 +158,7 @@ export function parseMessage(
   const direction = c < 0 || (d >= 0 && d < c) ? 'debit' : 'credit';
 
   const sender = opts.sender ?? '';
-  const bank = BANKS.find(([re]) => re.test(sender))?.[1] ?? BANKS.find(([re]) => re.test(text))?.[1] ?? null;
+  const bank = bankFor(sender, text);
 
   const merchant =
     direction === 'debit'
@@ -166,8 +172,8 @@ export function parseMessage(
     account: firstMatch(ACCOUNTS, text),
     bank,
     balance: extractBalance(text),
-    mode: MODES.find(([re]) => re.test(text))?.[1] ?? null,
-    source: APP_SOURCES[sender] ?? 'sms',
+    mode: modeFor(text),
+    source: sourceFor(sender),
     ts: opts.ts ?? Date.now(),
   };
 }

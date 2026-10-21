@@ -4,6 +4,7 @@ import * as Updates from 'expo-updates';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
+import { countUnparsed } from '@/db/patterns';
 import { getSetting, setSetting } from '@/db/queries';
 import { importHistory } from '@/ingest/run';
 import { syncNow } from '@/sync';
@@ -81,12 +82,14 @@ export default function Settings() {
   const [status, setStatus] = useState('');
   const [readSms, setReadSms] = useState(false);
   const [importMsg, setImportMsg] = useState('');
+  const [unparsed, setUnparsed] = useState(0);
   // re-check when returning from the system settings screen
   useFocusEffect(
     useCallback(() => {
       PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS).then(setSms);
       PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS).then(setReadSms);
       setNotif(notificationAccessGranted());
+      void countUnparsed(db).then(setUnparsed);
       (async () => {
         setEndpoint(await getSetting(db, 'sync_endpoint'));
         setToken(await getSetting(db, 'sync_token'));
@@ -116,10 +119,10 @@ export default function Settings() {
       </Section>
 
       <Section title="Categorisation" hint="How ExMan groups payees and picks categories.">
-        {([['/merchants', 'Merchants'], ['/rules', 'Rules']] as const).map(([href, label]) => (
+        {([['/merchants', 'Merchants', ''], ['/rules', 'Rules', ''], ['/categories', 'Categories', ''], ['/unrecognised', 'Unrecognised messages', unparsed ? String(unparsed) : '']] as const).map(([href, label, badge]) => (
           <Pressable key={href} onPress={() => router.push(href)} accessibilityRole="button" className="mb-3 min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
             <Text className="text-base text-fg">{label}</Text>
-            <Text className="text-accent">Open</Text>
+            <Text className={badge ? 'text-warn' : 'text-accent'}>{badge ? `${badge} to teach` : 'Open'}</Text>
           </Pressable>
         ))}
       </Section>

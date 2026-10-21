@@ -84,7 +84,7 @@ export default function Add() {
 
         <Text className="mb-2 text-xs text-muted">Category</Text>
         <View className="mb-2 flex-row flex-wrap">
-          {cats.map((c) => <Chip key={c.id} label={c.name} color={c.color} selected={cat === c.id} onPress={() => setCat(cat === c.id ? null : c.id)} />)}
+          {cats.filter((c) => !c.archived).map((c) => <Chip key={c.id} label={c.name} color={c.color} selected={cat === c.id} onPress={() => setCat(cat === c.id ? null : c.id)} />)}
         </View>
 
         <Text className="mb-2 text-xs text-muted">Account</Text>

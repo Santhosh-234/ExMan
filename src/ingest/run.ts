@@ -3,7 +3,9 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { drain, readInbox, type RawMessage } from '../../modules/vibe-listener';
 import { type MerchantCache, ensureMerchant } from '@/db/merchantCore';
 import { loadRuleIndex } from '@/db/merchants';
+import { loadPatternIndex } from '@/db/patterns';
 import { detectTransfers } from '@/db/transfers';
+import { toParsed } from '@/utils/teach';
 import { guessCategory } from '@/utils/categorize';
 import { hashMessage } from '@/utils/hash';
 import { extractBalance, isDuplicate, parseMessage } from '@/utils/parser';
@@ -18,6 +20,7 @@ type Ctx = {
   accts: Map<string, number>;
   merchants: MerchantCache;
   rules: Awaited<ReturnType<typeof loadRuleIndex>>;
+  patterns: Awaited<ReturnType<typeof loadPatternIndex>>;
 };
 
 async function makeCtx(db: SQLiteDatabase, since: number): Promise<Ctx> {
@@ -31,7 +34,7 @@ async function makeCtx(db: SQLiteDatabase, since: number): Promise<Ctx> {
   const into = new Map(rows.map((a) => [a.id, a.merged_into]));
   const final = (id: number) => { let cur = id; for (let i = 0; i < 10 && into.get(cur); i++) cur = into.get(cur)!; return cur; };
   const accts = new Map(rows.map((a) => [`${a.kind}|${a.bank}|${a.last4}`, final(a.id)]));
-  return { seen, cats, accts, merchants: new Map(), rules: await loadRuleIndex(db) };
+  return { seen, cats, accts, merchants: new Map(), rules: await loadRuleIndex(db), patterns: await loadPatternIndex(db) };
 }
 
 /** Bank + last-4 (+ card vs account) identifies an account; created on first sight. */
@@ -63,7 +66,12 @@ async function store(db: SQLiteDatabase, ctx: Ctx, m: RawMessage): Promise<boole
   if (ctx.seen.has(hash)) return false;
   ctx.seen.add(hash);
 
-  const t = parseMessage(m.text, { sender: m.sender, ts: m.ts });
+  // built-in parser first, then formats the user taught (Teach ExMan)
+  let t = parseMessage(m.text, { sender: m.sender, ts: m.ts });
+  if (!t) {
+    const taught = ctx.patterns.match(m.sender, m.text);
+    if (taught) t = toParsed(m.text, m.sender, m.ts, taught);
+  }
   if (!t) {
     // privacy: only keep messages that mention an amount; OTPs/chats are dropped
     if (/(?:rs\.?|inr|₹)\s?\d/i.test(m.text))
@@ -123,6 +131,7 @@ async function run(db: SQLiteDatabase, msgs: RawMessage[], since: number, onProg
       }
     }
   });
+  await ctx.patterns.flush(db);
   onProgress?.(msgs.length, msgs.length);
   if (added) notifyIngested();
   return added;
@@ -178,4 +187,26 @@ export async function backfillMerchants(db: SQLiteDatabase) {
     }
     await tx.runAsync("INSERT INTO settings (key, value) VALUES ('merchants_backfilled_v1', '1')");
   });
+}
+
+/**
+ * After the user teaches a format: re-run every stored unrecognised message through ingest.
+ * Messages that now parse become pending transactions and leave the unrecognised list.
+ */
+export async function reprocessUnparsed(db: SQLiteDatabase): Promise<number> {
+  const rows = await db.getAllAsync<{ id: number; sender: string; text: string; ts: number }>('SELECT id, sender, text, ts FROM unparsed ORDER BY ts ASC');
+  let added = 0;
+  await backfillHashes(db);
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const ctx = await makeCtx(tx, 0);
+    for (const r of rows) {
+      if (await store(tx, ctx, { kind: 'sms', sender: r.sender, text: r.text, ts: r.ts })) {
+        await tx.runAsync('DELETE FROM unparsed WHERE id = ?', r.id);
+        added++;
+      }
+    }
+    await ctx.patterns.flush(tx);
+  });
+  if (added) notifyIngested();
+  return added;
 }

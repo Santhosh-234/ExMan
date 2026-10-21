@@ -166,6 +166,23 @@ const MIGRATIONS = [
   ALTER TABLE transactions ADD COLUMN transfer_blocked INTEGER NOT NULL DEFAULT 0;
   CREATE INDEX idx_txn_transfer_auto ON transactions (transfer_auto) WHERE transfer_auto = 1;
   `,
+  // Teach ExMan (per-sender taught formats) and category archiving
+  `
+  CREATE TABLE patterns (
+    id INTEGER PRIMARY KEY,
+    sender_key TEXT NOT NULL,
+    direction TEXT NOT NULL CHECK (direction IN ('debit','credit')),
+    amount_re TEXT NOT NULL,
+    merchant_re TEXT,
+    account_re TEXT,
+    example TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    hits INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_patterns_sender ON patterns (sender_key);
+  ALTER TABLE categories ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

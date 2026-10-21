@@ -131,8 +131,8 @@ export default function Review() {
 
   const quick = useMemo(() => {
     const byId = new Map(cats.map((c) => [c.id, c]));
-    const ids = quickIds.length ? quickIds : cats.slice(0, 5).map((c) => c.id);
-    return ids.map((i) => byId.get(i)).filter((c): c is Category => !!c);
+    const ids = quickIds.length ? quickIds : cats.filter((c) => !c.archived).slice(0, 5).map((c) => c.id);
+    return ids.map((i) => byId.get(i)).filter((c): c is Category => !!c && !c.archived);
   }, [cats, quickIds]);
 
   const head = queue?.[0];

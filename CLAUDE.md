@@ -28,6 +28,14 @@ Privacy-first, offline-first expense manager. Expo SDK 58 + Expo Router, NativeW
 
 - V2 Phase 4c (auto transfers) done, untested on device: pure rules in `src/utils/transfers.ts` (card bill payments, "payment received" on card accounts, own-account pairs by amount/time/account, self-transfer wording), DB side `src/db/transfers.ts` (`detectTransfers` runs after each ingest insert, one-time `backfillTransfers`, `rejectTransfer` = "not a transfer" veto on both legs, `acknowledgeAutoTransfers`). Migration 8 adds transfer_auto/reason/pair_id/blocked. UI: Home "N transfers detected" card, Review banner, detail screen reason + other leg, Activity `?transfers=only`. Tests: `transfers.test.ts`, `transfers-db.test.ts`. Remaining Phase 4: Teach ExMan (+ unrecognised messages screen), custom categories, refund linking (P1).
 
+- V2 Phase 4d done, untested on device: Teach ExMan (`src/utils/teach.ts` pattern builder from tapped tokens, `src/db/patterns.ts`, migration 9 `patterns`; ingest tries taught patterns after the built-in parser; `reprocessUnparsed` re-runs stored unrecognised messages; screens `/unrecognised` and `/teach/[id]`; Home nudge + Settings row) and custom categories (`/categories`: add/rename/recolour/archive/delete-custom; `categories.archived`; pickers hide archived unless selected).
+
+## Pipeline (agreed with owner)
+1. Remaining functional work, JS-only (OTA): refund linking, Insights/budget polish, onboarding, data controls, Firefly per-account mapping, local telemetry client (queue/log/allow-list), accessibility pass.
+2. One batched native release (needs a new APK; touches package.json): biometric app lock + screenshot blocking, encrypted backup/restore + CSV export (file/share/crypto modules).
+3. Infra-dependent (owner will provision): telemetry collector VM on AWS (90d events / 12mo aggregates), release signing key, in-app APK update check.
+4. LAST, least urgent: UI overhaul — make the app look like a premium ("$5000") design: motion, animation, thematic makeover, keeping every existing feature and behaviour. Do not start until all functional items are done.
+
 ## OTA rule (learned the hard way)
 - Updates only reach an installed APK whose runtimeVersion (policy: fingerprint) matches. The fingerprint includes `package.json` (dependencies AND scripts), app.json, `modules/`, assets. So do NOT edit package.json (even the `test` script) in a JS-only change; that silently orphans every installed build. Check before merging: `npx expo-updates fingerprint:generate --platform android | grep '"hash"'` should equal the last APK's value (Build 8 = 12bf9e92160841ce7f6cb39848471acdcf259acf). A new APK is only needed when that value must change. New tests go in src/utils/ (covered by the existing test glob).
 

@@ -185,6 +185,8 @@ Priority: **P0** must ship in V2.0 · **P1** V2.0 if capacity allows · **P2** V
 - **Collector (project-owned server):** a small HTTPS service on a user-run VM (AWS) receiving batched JSON events; validates every payload against the same allow-list schema and rejects unknown fields; stores no IP addresses or user agents beyond transient request handling (reverse-proxy logs disabled or truncated); rate-limited; supports delete-by-install-ID. **Retention: raw events 90 days; aggregated counts 12 months**, enforced by a scheduled job.
 - AC: with telemetry off, zero telemetry requests are made (verifiable in the log and by network inspection); with it on, every outbound payload matches the documented allow-list schema, enforced by a unit test that fails on unknown fields.
 
+**F34. Premium UI overhaul (final item, after all functional work).** A visual and motion redesign: refined type and spacing, richer surfaces and depth, purposeful animation (screen transitions, list and card motion, charts that animate in, gesture-driven feedback), thematic polish in light and dark. Must keep every feature, flow and accessibility guarantee intact (reduce-motion respected, contrast AA). Scope and direction to be agreed before work starts.
+
 ## 9. Non-functional requirements
 
 - **Privacy:** network calls are limited to user-initiated sync, update checks, Expo OTA fetches (code only), and telemetry (F33). No third-party analytics or advertising SDKs. SMS permission is used only to read bank-style (alphanumeric) senders. Raw message text and financial values are never transmitted by telemetry; a schema allow-list test guards this.

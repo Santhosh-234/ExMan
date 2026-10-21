@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { type TxnFilter, buildTxnQuery } from '@/utils/filters';
 import { ensureMerchant } from './merchantCore';
 
-export type Category = { id: number; name: string; icon: string; color: string };
+export type Category = { id: number; name: string; icon: string; color: string; archived: number; is_custom: number };
 export type Txn = {
   id: number;
   amount_paise: number;
@@ -43,7 +43,7 @@ export type AccountStats = Account & {
 export type TxnPatchFields = Partial<Pick<Txn, 'amount_paise' | 'merchant' | 'category_id' | 'tags' | 'status' | 'notes' | 'account_id' | 'is_transfer' | 'ts' | 'direction' | 'merchant_id'>>;
 
 export const getCategories = (db: SQLiteDatabase) =>
-  db.getAllAsync<Category>('SELECT id, name, icon, color FROM categories ORDER BY id');
+  db.getAllAsync<Category>('SELECT id, name, icon, color, archived, is_custom FROM categories ORDER BY archived, id');
 
 export const getTxns = (db: SQLiteDatabase, status: 'pending' | 'confirmed' | 'dismissed', from = 0, to = 8.64e15) =>
   db.getAllAsync<Txn>(
@@ -245,4 +245,34 @@ export async function mergeAccount(db: SQLiteDatabase, source: number, target: n
       source, target,
     );
   });
+}
+
+export const CATEGORY_COLORS = ['#F59E0B', '#84CC16', '#3B82F6', '#EC4899', '#8B5CF6', '#F43F5E', '#14B8A6', '#10B981', '#06B6D4', '#F97316', '#A855F7', '#6B7280'];
+
+export const getCategoryUsage = (db: SQLiteDatabase) =>
+  db.getAllAsync<{ category_id: number; n: number }>("SELECT category_id, COUNT(*) AS n FROM transactions WHERE category_id IS NOT NULL AND status != 'dismissed' GROUP BY category_id");
+
+export async function addCategory(db: SQLiteDatabase, name: string, color: string) {
+  // names are unique; a clash (even with an archived category) is reported instead of silently merging
+  const clash = await db.getFirstAsync('SELECT 1 FROM categories WHERE lower(name) = lower(?)', name);
+  if (clash) throw new Error('A category with that name already exists');
+  return (await db.runAsync("INSERT INTO categories (name, icon, color, is_custom) VALUES (?, 'tag', ?, 1)", name, color)).lastInsertRowId;
+}
+
+export async function updateCategory(db: SQLiteDatabase, id: number, f: { name?: string; color?: string }) {
+  if (f.name != null) {
+    const clash = await db.getFirstAsync('SELECT 1 FROM categories WHERE lower(name) = lower(?) AND id != ?', f.name, id);
+    if (clash) throw new Error('A category with that name already exists');
+    await db.runAsync('UPDATE categories SET name = ? WHERE id = ?', f.name, id);
+  }
+  if (f.color != null) await db.runAsync('UPDATE categories SET color = ? WHERE id = ?', f.color, id);
+}
+
+export const setCategoryArchived = (db: SQLiteDatabase, id: number, archived: boolean) => db.runAsync('UPDATE categories SET archived = ? WHERE id = ?', archived ? 1 : 0, id);
+
+/** Custom categories only. Their transactions become uncategorised; rules pointing at it are removed (FK cascade). */
+export async function deleteCategory(db: SQLiteDatabase, id: number) {
+  const c = await db.getFirstAsync<{ is_custom: number }>('SELECT is_custom FROM categories WHERE id = ?', id);
+  if (!c?.is_custom) throw new Error('Built-in categories can be archived but not deleted');
+  await db.runAsync('DELETE FROM categories WHERE id = ?', id);
 }
