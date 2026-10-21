@@ -12,6 +12,7 @@ import { useSnackbar } from '@/ui/Snackbar';
 import { useRuleOffer } from '@/ui/useRuleOffer';
 import { rejectTransfer } from '@/db/transfers';
 import { track } from '@/telemetry';
+import { useReducedMotion } from '@/ui/motion';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 import { formatForeign } from '@/utils/currency';
@@ -35,6 +36,7 @@ type CardProps = {
 function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, onCategory, onMore, onNotTransfer }: CardProps) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
+  const reduced = useReducedMotion();
   const x = useRef(new Animated.Value(0)).current;
   const [showRaw, setShowRaw] = useState(false);
   const cb = useRef({ onConfirm, onDismiss });
@@ -42,8 +44,8 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
   const via = useRef<'swipe' | 'button'>('button');
 
   const fling = useCallback((dir: 1 | -1) => {
-    Animated.timing(x, { toValue: dir * width, duration: 160, useNativeDriver: true }).start(() => (dir > 0 ? cb.current.onConfirm(via.current) : cb.current.onDismiss(via.current)));
-  }, [x, width]);
+    Animated.timing(x, { toValue: dir * width, duration: reduced ? 0 : 160, useNativeDriver: true }).start(() => (dir > 0 ? cb.current.onConfirm(via.current) : cb.current.onDismiss(via.current)));
+  }, [x, width, reduced]);
   const flingRef = useRef(fling);
   flingRef.current = fling;
 
@@ -74,7 +76,7 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
           <Amount paise={txn.amount_paise} direction={txn.direction} approx={!!txn.currency} className="text-5xl" />
           {txn.currency && txn.foreign_minor ? <Text className="mt-1 text-sm text-muted">{formatForeign(txn.foreign_minor, txn.currency)} converted at an approximate rate. Tap the merchant to set the exact rupee amount from your statement.</Text> : null}
           <Pressable onPress={onEdit} accessibilityRole="button" accessibilityLabel="Edit merchant and amount" hitSlop={8}>
-            <Text className="mt-2 text-xl text-fg">{txn.merchant ?? 'Unknown merchant'}</Text>
+            <Text className="mt-2 text-xl text-fg" accessibilityRole="header">{txn.merchant ?? 'Unknown merchant'}</Text>
           </Pressable>
           <Text className="mt-1 text-sm text-muted">
             {[account ?? txn.bank, txn.payment_mode, when].filter(Boolean).join(' · ')}
@@ -194,7 +196,7 @@ export default function Review() {
     <View className="flex-1 bg-base px-4 pt-14">
       <View className="mb-4 flex-row items-center justify-between">
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close review"><X color={colors.fg} /></Pressable>
-        <Text className="text-base font-semibold text-fg">{queue && queue.length ? `${done + 1} of ${total}` : 'Review'}</Text>
+        <Text className="text-base font-semibold text-fg" accessibilityRole="header">{queue && queue.length ? `${done + 1} of ${total}` : 'Review'}</Text>
         <Pressable onPress={confirmCategorised} hitSlop={12} accessibilityRole="button" accessibilityLabel="Confirm all categorised"><CheckCheck color={colors.accent} /></Pressable>
       </View>
       {queue && total > 0 && (

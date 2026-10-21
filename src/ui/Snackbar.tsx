@@ -1,5 +1,7 @@
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, Text } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable, Text } from 'react-native';
+
+import { useReducedMotion } from './motion';
 
 type Snack = { message: string; actionLabel?: string; onAction?: () => void; secondLabel?: string; onSecond?: () => void };
 const Ctx = createContext<(s: Snack) => void>(() => {});
@@ -10,18 +12,21 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
   const [snack, setSnack] = useState<Snack | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const reduced = useReducedMotion();
+  const dur = reduced ? 0 : 150;
 
   const hide = useCallback(() => {
     clearTimeout(timer.current);
-    Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => setSnack(null));
-  }, [opacity]);
+    Animated.timing(opacity, { toValue: 0, duration: dur, useNativeDriver: true }).start(() => setSnack(null));
+  }, [opacity, dur]);
 
   const show = useCallback((s: Snack) => {
     clearTimeout(timer.current);
     setSnack(s);
-    Animated.timing(opacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+    AccessibilityInfo.announceForAccessibility(s.message);
+    Animated.timing(opacity, { toValue: 1, duration: dur, useNativeDriver: true }).start();
     timer.current = setTimeout(hide, s.onSecond ? 8000 : 5000);
-  }, [hide, opacity]);
+  }, [hide, opacity, dur]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -35,15 +40,17 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
           {/* same dark pill in both themes so contrast is constant */}
           <Pressable
             onPress={hide}
+            accessibilityRole="button"
+            accessibilityLabel={`${snack.message}. Tap to dismiss`}
             style={{ backgroundColor: '#1F2937', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ color: '#F3F4F6', flex: 1, fontSize: 15 }}>{snack.message}</Text>
             {snack.onSecond && (
-              <Pressable hitSlop={12} onPress={() => { snack.onSecond?.(); hide(); }}>
+              <Pressable hitSlop={12} accessibilityRole="button" accessibilityLabel={snack.secondLabel ?? 'Undo'} onPress={() => { snack.onSecond?.(); hide(); }}>
                 <Text style={{ color: '#9CA3AF', fontWeight: '600', marginLeft: 16 }}>{snack.secondLabel ?? 'Undo'}</Text>
               </Pressable>
             )}
             {snack.onAction && (
-              <Pressable hitSlop={12} onPress={() => { snack.onAction?.(); hide(); }}>
+              <Pressable hitSlop={12} accessibilityRole="button" accessibilityLabel={snack.actionLabel ?? 'Undo'} onPress={() => { snack.onAction?.(); hide(); }}>
                 <Text style={{ color: '#34D399', fontWeight: '600', marginLeft: 16 }}>{snack.actionLabel ?? 'Undo'}</Text>
               </Pressable>
             )}

@@ -56,8 +56,8 @@ export default function Dev() {
 
   return (
     <ScrollView className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()}><Text className="mb-2 text-accent">‹ Back</Text></Pressable>
-      <Text className="mb-1 text-2xl font-semibold text-fg">Developer</Text>
+      <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back"><Text className="mb-2 text-accent">‹ Back</Text></Pressable>
+      <Text className="mb-1 text-2xl font-semibold text-fg" accessibilityRole="header">Developer</Text>
       <Text className="mb-4 text-xs text-muted">Budget: any screen's data in under 100 ms at 10,000 rows.</Text>
       <View className="flex-row flex-wrap">
         <Btn label="Seed 1,000" onPress={() => seed(1000)} />

@@ -273,7 +273,7 @@ export default function Settings() {
         }}
       />
       {status ? <Text className="mt-3 text-muted">{status}</Text> : null}
-      <Pressable onPress={() => router.push('/dev')} className="mt-8"><Text className="text-muted">Developer tools</Text></Pressable>
+      <Pressable onPress={() => router.push('/dev')} accessibilityRole="button" className="mt-8"><Text className="text-muted">Developer tools</Text></Pressable>
       <View className="h-8" />
     </ScrollView>
   );

@@ -1,6 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { getRandomBytes } from 'expo-crypto';
-import { File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -37,6 +37,18 @@ async function shareFile(name: string, bytes: Uint8Array, mimeType: string) {
   try { await Sharing.shareAsync(f.uri, { mimeType, dialogTitle: name }); } finally { try { f.delete(); } catch { /* temp file */ } }
 }
 
+/** Writes the file into a folder the user picks (Downloads, Drive, a USB drive...). Returns the folder's name, or null if they backed out. */
+async function saveToFolder(name: string, bytes: Uint8Array, mimeType: string): Promise<string | null> {
+  let dir: Directory;
+  try { dir = await Directory.pickDirectoryAsync(); } catch { return null; } // cancelled
+  const f = dir.createFile(name, mimeType);
+  await f.write(bytes);
+  return dir.name || 'the folder you chose';
+}
+
+type Delivery = 'share' | 'save';
+const deliver = (how: Delivery, name: string, bytes: Uint8Array, mime: string) => (how === 'share' ? shareFile(name, bytes, mime).then(() => 'shared' as const) : saveToFolder(name, bytes, mime));
+
 export default function Backup() {
   const db = useSQLiteContext();
   const router = useRouter();
@@ -52,25 +64,27 @@ export default function Backup() {
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof readBackup>> | null>(null);
   const input = 'mb-3 min-h-12 rounded-2xl bg-card2 px-4 py-3 text-base text-fg';
 
-  const exportCsv = async () => {
+  const exportCsv = async (how: Delivery) => {
     setBusy('csv');
     try {
       const rows = await exportRows(db, ...RANGES[range]());
       if (!rows.length) return snack({ message: 'No transactions in that range' });
-      await shareFile(`ExMan-${range.toLowerCase().replace(/\s+/g, '-')}-${stamp()}.csv`, utf8Encode(toCsv(rows)), 'text/csv');
+      const where = await deliver(how, `ExMan-${range.toLowerCase().replace(/\s+/g, '-')}-${stamp()}.csv`, utf8Encode(toCsv(rows)), 'text/csv');
+      if (where && where !== 'shared') snack({ message: `Saved to ${where}` });
     } catch (e) { snack({ message: e instanceof Error ? e.message : 'Export failed' }); } finally { setBusy(''); }
   };
 
-  const backup = async () => {
+  const backup = async (how: Delivery) => {
     setErr('');
     if (pw.length < 6) return setErr('Use a password of at least 6 characters.');
     if (pw !== pw2) return setErr('The two passwords do not match.');
     setBusy('backup');
     try {
       const bytes = await makeBackup(db, pw, getRandomBytes);
-      await shareFile(`ExMan-backup-${stamp()}.exmanbak`, bytes, 'application/octet-stream');
+      const where = await deliver(how, `ExMan-backup-${stamp()}.exmanbak`, bytes, 'application/octet-stream');
+      if (!where) return; // backed out of the folder picker: nothing was saved
       setPw(''); setPw2('');
-      snack({ message: 'Backup created. Keep the file and the password safe.' });
+      snack({ message: where === 'shared' ? 'Backup shared. Keep the file and the password safe.' : `Backup saved to ${where}. Keep the file and the password safe.` });
     } catch (e) { setErr(e instanceof Error ? e.message : 'Backup failed'); } finally { setBusy(''); }
   };
 
@@ -116,7 +130,9 @@ export default function Backup() {
           <Text className="text-base font-semibold text-fg">Export to a spreadsheet (CSV)</Text>
           <Text className="mb-2 mt-1 text-sm text-muted">Transactions with dates, amounts, merchants, categories and accounts. The file is not encrypted, so share it carefully.</Text>
           <View className="flex-row flex-wrap">{(Object.keys(RANGES) as (keyof typeof RANGES)[]).map((k) => <Chip key={k} label={k} color={colors.accent} selected={range === k} onPress={() => setRange(k)} />)}</View>
-          <Button label={busy === 'csv' ? 'Preparing…' : 'Export CSV'} disabled={!!busy} onPress={exportCsv} />
+          <Text className="mb-2 text-xs text-muted">Save puts a copy in a folder you choose (Downloads, Drive...). Share sends it to another app and keeps nothing on this phone.</Text>
+          <Button label={busy === 'csv' ? 'Preparing…' : 'Save to a folder…'} disabled={!!busy} onPress={() => exportCsv('save')} />
+          <Button variant="secondary" className="mt-2" label="Share…" disabled={!!busy} onPress={() => exportCsv('share')} />
         </Card>
 
         <Card className="mb-4">
@@ -125,7 +141,8 @@ export default function Backup() {
           <TextInput className={input} value={pw} onChangeText={setPw} secureTextEntry placeholder="Password (6+ characters)" placeholderTextColor={colors.muted} autoCapitalize="none" />
           <TextInput className={input} value={pw2} onChangeText={setPw2} secureTextEntry placeholder="Repeat password" placeholderTextColor={colors.muted} autoCapitalize="none" />
           {err && !picked ? <Text className="mb-2 text-danger">{err}</Text> : null}
-          <Button label={busy === 'backup' ? 'Encrypting… (a few seconds)' : 'Create backup'} disabled={!!busy} onPress={backup} />
+          <Button label={busy === 'backup' ? 'Encrypting… (a few seconds)' : 'Save backup to a folder…'} disabled={!!busy} onPress={() => backup('save')} />
+          <Button variant="secondary" className="mt-2" label="Share backup…" disabled={!!busy} onPress={() => backup('share')} />
         </Card>
 
         <Card className="mb-10">

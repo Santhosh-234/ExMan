@@ -8,11 +8,10 @@ import { StatusBar } from 'expo-status-bar';
 import { migrate } from '@/db/schema';
 import { Ingest } from '@/ingest/Ingest';
 import { LockGate } from '@/security/LockGate';
-import { installErrorReporting } from '@/telemetry';
+import { installErrorReporting, track } from '@/telemetry';
 import { SnackbarProvider } from '@/ui/Snackbar';
 import { ThemeProvider, useTheme } from '@/ui/theme';
-
-const SCREEN_OF: [RegExp, string][] = [[/^\/$/, 'home'], [/activity/, 'activity'], [/insights/, 'insights'], [/settings/, 'settings'], [/review/, 'review'], [/txn\//, 'detail'], [/add/, 'add'], [/account/, 'accounts'], [/merchants/, 'merchants'], [/rules/, 'rules'], [/categories/, 'categories'], [/unrecognised/, 'unrecognised'], [/teach/, 'teach'], [/privacy|telemetry/, 'privacy']];
+import { screenOf } from '@/utils/screens';
 
 function Shell() {
   const { scheme, colors } = useTheme();
@@ -26,7 +25,15 @@ function Shell() {
     void db.getFirstAsync("SELECT 1 FROM settings WHERE key = 'onboarded'").then((r) => { if (!r) router.replace('/welcome'); });
   }, [db, router]);
   // only the screen's name is reported with an error, never route params
-  useEffect(() => installErrorReporting(() => SCREEN_OF.find(([re]) => re.test(path.current))?.[1] ?? 'unknown'), []);
+  useEffect(() => installErrorReporting(() => screenOf(path.current)), []);
+  // how long each screen takes to show after navigation (only the screen's name and the milliseconds are recorded)
+  useEffect(() => {
+    const t0 = Date.now();
+    let f2 = 0;
+    // two frames: the first lets the new screen render, the second is when it is first painted
+    const f1 = requestAnimationFrame(() => { f2 = requestAnimationFrame(() => track('screen_load', { screen: screenOf(current), ms: Date.now() - t0 })); });
+    return () => { cancelAnimationFrame(f1); cancelAnimationFrame(f2); };
+  }, [current]);
   return (
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />

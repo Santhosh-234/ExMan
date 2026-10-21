@@ -154,7 +154,7 @@ export default function Activity() {
               className="ml-2 flex-1 text-base text-fg" value={search} onChangeText={setSearch}
               placeholder="Search merchant, tag, amount" placeholderTextColor={colors.muted} returnKeyType="search" accessibilityLabel="Search transactions"
             />
-            {search ? <Pressable onPress={() => setSearch('')} hitSlop={10} accessibilityLabel="Clear search"><X size={18} color={colors.muted} /></Pressable> : null}
+            {search ? <Pressable onPress={() => setSearch('')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search"><X size={18} color={colors.muted} /></Pressable> : null}
           </View>
           <Pressable onPress={() => setShowFilters(true)} accessibilityRole="button" accessibilityLabel={`Filters${nFilters ? `, ${nFilters} active` : ''}`} className="h-12 w-12 items-center justify-center rounded-2xl bg-card">
             <SlidersHorizontal size={20} color={nFilters ? colors.accent : colors.muted} />

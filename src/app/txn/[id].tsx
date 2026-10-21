@@ -140,7 +140,7 @@ export default function TxnDetail() {
         <View className="mb-4 items-center">
           <Text className="text-xs uppercase tracking-wider text-muted">{t.direction === 'debit' ? 'Spent' : 'Received'}</Text>
           <Amount paise={t.amount_paise} direction={t.direction} approx={!!t.currency} className="text-5xl" />
-          <Text className="mt-2 text-xl text-fg">{t.merchant ?? 'Unknown merchant'}</Text>
+          <Text className="mt-2 text-xl text-fg" accessibilityRole="header">{t.merchant ?? 'Unknown merchant'}</Text>
           {t.is_transfer ? (
             <View className="mt-2 flex-row items-center rounded-full bg-card2 px-3 py-1"><Repeat size={14} color={colors.muted} /><Text className="ml-1 text-xs text-muted">Transfer{t.transfer_reason ? ` · ${t.transfer_reason}` : ''}, not counted in totals</Text></View>
           ) : null}
