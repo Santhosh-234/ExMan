@@ -127,6 +127,13 @@ export default function Settings() {
         ))}
       </Section>
 
+      <Section title="Privacy & data" hint="What ExMan reads, how long originals are kept, and a full wipe.">
+        <Pressable onPress={() => router.push('/privacy')} accessibilityRole="button" className="min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
+          <Text className="text-base text-fg">Privacy & data</Text>
+          <Text className="text-accent">Open</Text>
+        </Pressable>
+      </Section>
+
       <AppUpdates />
 
       <Text className="mb-2 text-lg font-semibold text-fg" accessibilityRole="header">Permissions</Text>
