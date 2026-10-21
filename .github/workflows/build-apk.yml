@@ -1,7 +1,18 @@
 name: Build APK
+# APK builds are slow (~25 min), so pushes only build when something native changed. JS/UI-only changes
+# ship through the OTA workflow (update.yml). Run this workflow manually from the Actions tab to force a build.
 on:
   push:
     branches: [main]
+    paths:
+      - 'modules/**'          # Kotlin native module
+      - 'app.json'            # permissions, plugins, updates config
+      - 'eas.json'
+      - 'package.json'        # dependencies (native libraries)
+      - 'package-lock.json'
+      - 'assets/**'           # icons and splash are bundled into the APK
+      - 'babel.config.js'
+      - 'metro.config.js'
   workflow_dispatch:
 
 permissions:
