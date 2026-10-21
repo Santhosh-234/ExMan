@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { PermissionsAndroid, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import * as Updates from 'expo-updates';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
@@ -27,6 +28,43 @@ function Row({ label, ok, onPress }: { label: string; ok: boolean; onPress: () =
       <Text className="text-base text-fg">{label}</Text>
       <Text className={ok ? 'text-accent' : 'text-warn'}>{ok ? 'Granted' : 'Tap to enable'}</Text>
     </Pressable>
+  );
+}
+
+/** Shows which build/update is running and lets the user pull a pending update without waiting for restarts. */
+function AppUpdates() {
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const running = Updates.isEmbeddedLaunch ? 'built-in version (no update applied)' : `update ${Updates.updateId?.slice(0, 8) ?? '?'} · ${Updates.createdAt?.toLocaleString('en-IN') ?? ''}`;
+  const check = async () => {
+    if (!Updates.isEnabled) return setMsg('Updates are disabled in this build.');
+    setBusy(true);
+    setMsg('Checking…');
+    try {
+      const r = await Updates.checkForUpdateAsync();
+      if (!r.isAvailable) {
+        setMsg('You have the latest update.');
+      } else {
+        setMsg('Downloading update…');
+        await Updates.fetchUpdateAsync();
+        setMsg('Restarting…');
+        await Updates.reloadAsync();
+      }
+    } catch (e) {
+      setMsg(`Update check failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Section title="App updates" hint="Updates download in the background; tap below to get the newest one now.">
+      <Card className="mb-3">
+        <Text className="text-sm text-muted">Running: <Text className="text-fg">{running}</Text></Text>
+        <Text className="mt-1 text-sm text-muted">Channel: <Text className="text-fg">{Updates.channel ?? 'none'}</Text> · Runtime: <Text className="text-fg">{Updates.runtimeVersion?.slice(0, 8) ?? 'n/a'}</Text></Text>
+      </Card>
+      <Button label={busy ? 'Working…' : 'Check for updates'} variant="secondary" disabled={busy} onPress={check} />
+      {msg ? <Text className="mt-2 text-sm text-muted">{msg}</Text> : null}
+    </Section>
   );
 }
 
@@ -85,6 +123,8 @@ export default function Settings() {
           </Pressable>
         ))}
       </Section>
+
+      <AppUpdates />
 
       <Text className="mb-2 text-lg font-semibold text-fg" accessibilityRole="header">Permissions</Text>
       <Row
