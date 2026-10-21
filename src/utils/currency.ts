@@ -32,7 +32,7 @@ export const formatForeign = (minor: number, code: string) => {
 };
 
 const CODES = CURRENCIES.map((c) => c.code).join('|');
-const NUM = String.raw`([\d,]+(?:\.\d{1,2})?)`;
+const NUM = String.raw`((?:[\d,]+(?:\.\d{1,2})?|\.\d{1,2}))`;
 // "USD 32", "32 USD", "32.50USD", and currency symbols before the number ("$32", "US$ 32", "€10", "£5")
 const BEFORE = new RegExp(String.raw`(?<![A-Za-z])(${CODES})\s?${NUM}`, 'gi');
 const AFTER = new RegExp(String.raw`${NUM}\s?(${CODES})(?![A-Za-z])`, 'gi');

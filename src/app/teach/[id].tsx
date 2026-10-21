@@ -12,10 +12,9 @@ import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 import { CURRENCIES, formatForeign, isForeign } from '@/utils/currency';
-import { type Selection, buildPattern, detectCurrency, tokenize } from '@/utils/teach';
+import { type Selection, buildPattern, NUMERIC, detectCurrency, tokenize } from '@/utils/teach';
 
 type Field = 'amount' | 'merchant' | 'account';
-const NUMERIC = /^\d[\d,]*(?:\.\d+)?$/;
 
 export default function Teach() {
   const { id } = useLocalSearchParams<{ id: string }>();

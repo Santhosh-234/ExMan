@@ -9,7 +9,7 @@ export type Pattern = { amount_re: string; merchant_re: string | null; account_r
 export type Taught = { amountPaise: number; merchant: string | null; account: string | null; direction: 'debit' | 'credit'; currency?: string };
 
 const TOKEN = /[A-Za-z]+|\d[\d,]*(?:\.\d+)?|\S/g;
-const NUMERIC = /^\d[\d,]*(?:\.\d+)?$/;
+export const NUMERIC = /^(?:\d[\d,]*(?:\.\d+)?|\.\d+)$/;
 const MAX_TEXT = 1500;
 
 /** Currency written next to a tapped amount token ("32 USD", "USD 32", "$32"), so Teach can pick it automatically. */
@@ -19,7 +19,16 @@ export function detectCurrency(text: string, tokens: Token[], amountIndex: numbe
 }
 
 export function tokenize(text: string): Token[] {
-  return [...text.slice(0, MAX_TEXT).matchAll(TOKEN)].map((m) => ({ text: m[0], start: m.index!, end: m.index! + m[0].length }));
+  const raw = [...text.slice(0, MAX_TEXT).matchAll(TOKEN)].map((m) => ({ text: m[0], start: m.index!, end: m.index! + m[0].length }));
+  // ".32" written with no integer part is one number, but only when the dot starts a word ("Rs.500" keeps its dot apart)
+  const out: Token[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const t = raw[i], n = raw[i + 1];
+    const startsWord = t.start === 0 || /\s/.test(text[t.start - 1]);
+    if (t.text === '.' && startsWord && n && n.start === t.end && /^\d+$/.test(n.text)) { out.push({ text: `.${n.text}`, start: t.start, end: n.end }); i++; }
+    else out.push(t);
+  }
+  return out;
 }
 
 /** "VM-INDBNK-S" -> "indbnk": operator prefix and DLT suffix are not part of the bank's identity. */
@@ -31,9 +40,9 @@ export function senderKey(sender: string): string {
 }
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const frag = (tokens: Token[]) => tokens.map((t) => (NUMERIC.test(t.text) ? String.raw`\d[\d,]*(?:\.\d+)?` : esc(t.text))).join(String.raw`\s*`);
+const frag = (tokens: Token[]) => tokens.map((t) => (NUMERIC.test(t.text) ? String.raw`(?:\d[\d,]*(?:\.\d+)?|\.\d+)` : esc(t.text))).join(String.raw`\s*`);
 
-const AMOUNT_CAP = String.raw`([\d,]+(?:\.\d{1,2})?)`;
+const AMOUNT_CAP = String.raw`((?:[\d,]+(?:\.\d{1,2})?|\.\d{1,2}))`;
 const ACCOUNT_CAP = String.raw`(\d{3,4})`;
 const MERCHANT_CAP = String.raw`([A-Za-z0-9][A-Za-z0-9 &'.@_/\-]*?)`;
 
