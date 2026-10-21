@@ -24,7 +24,7 @@ export async function syncNow(db: SQLiteDatabase): Promise<number> {
     `SELECT t.id, t.amount_paise, t.direction, t.merchant, c.name AS category, t.bank, t.account_last4,
             t.payment_mode, t.ts, t.tags
      FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
-     WHERE t.status = 'confirmed' AND t.synced_at IS NULL ORDER BY t.ts`,
+     WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND t.synced_at IS NULL ORDER BY t.ts`,
   );
   if (!rows.length) return 0;
   const headers = { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` };

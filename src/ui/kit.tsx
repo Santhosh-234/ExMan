@@ -1,7 +1,9 @@
 import * as Haptics from 'expo-haptics';
+import { Plus } from 'lucide-react-native';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { Animated, Modal, Pressable, Text, View, type ViewStyle } from 'react-native';
 
+import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 
 /** Black or white text, whichever reads better on a given hex background. */
@@ -111,5 +113,20 @@ export function Screen({ title, right, children }: { title: string; right?: Reac
       </View>
       {children}
     </View>
+  );
+}
+
+/** Floating action button, sits above the tab bar. */
+export function Fab({ onPress, label = 'Add transaction' }: { onPress: () => void; label?: string }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={() => { tap(); onPress(); }}
+      className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-full bg-accent"
+      style={{ elevation: 6, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } }}>
+      <Plus color={colors.onaccent} size={28} />
+    </Pressable>
   );
 }
