@@ -6,7 +6,10 @@ import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import { type PatternRow, type Unparsed, deletePattern, deleteUnparsed, listPatterns, listUnparsed, setPatternEnabled } from '@/db/patterns';
 import { onIngested } from '@/ingest/events';
-import { Button, Card, EmptyState } from '@/ui/kit';
+import { track } from '@/telemetry';
+import { maskMessage } from '@/telemetry/mask';
+import { senderKey } from '@/utils/teach';
+import { Button, Card, EmptyState, Sheet } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 
@@ -17,6 +20,7 @@ export default function Unrecognised() {
   const { colors } = useTheme();
   const [msgs, setMsgs] = useState<Unparsed[] | null>(null);
   const [patterns, setPatterns] = useState<PatternRow[]>([]);
+  const [reporting, setReporting] = useState<Unparsed | null>(null);
 
   const load = useCallback(async () => { setMsgs(await listUnparsed(db)); setPatterns(await listPatterns(db)); }, [db]);
   useEffect(() => void load(), [load]);
@@ -48,6 +52,7 @@ export default function Unrecognised() {
               <Button className="mr-3 flex-1" label="Teach" onPress={() => router.push(`/teach/${m.id}`)} />
               <Button className="flex-1" variant="secondary" label="Not a transaction" onPress={() => dismiss(m)} />
             </View>
+            <Pressable onPress={() => setReporting(m)} accessibilityRole="button" className="mt-2 min-h-9 justify-center"><Text className="text-accent">Report this format to improve ExMan</Text></Pressable>
           </Card>
         ))}
 
@@ -72,6 +77,20 @@ export default function Unrecognised() {
         )}
         <View className="h-10" />
       </ScrollView>
+
+      {reporting && (
+        <Sheet title="Report this format" onClose={() => setReporting(null)}>
+          <Text className="mb-2 text-sm text-muted">Only this masked outline would be shared: numbers, names, UPI IDs and links are removed. Your original message never leaves the phone.</Text>
+          <Text className="mb-3 rounded-2xl bg-card2 p-3 text-sm text-fg" selectable>{maskMessage(reporting.text)}</Text>
+          <Text className="mb-3 text-xs text-muted">Sender: {senderKey(reporting.sender)}</Text>
+          <Button label="Share this outline" onPress={() => {
+            const m = reporting; setReporting(null);
+            // recorded under the same allow-list and opt-out rules as all usage data; nothing is sent if that is off
+            track('gap_report', { sender_key: senderKey(m.sender).replace(/[^a-z0-9]/g, '').slice(0, 12).padEnd(3, 'x'), template: maskMessage(m.text) });
+            snack({ message: 'Thanks. Queued to share (only if usage data is on).' });
+          }} />
+        </Sheet>
+      )}
     </View>
   );
 }

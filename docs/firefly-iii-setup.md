@@ -70,6 +70,10 @@ Tap **Save & sync now**. Expected result: `Synced N transactions`.
 Only transactions you have **confirmed** in the Inbox are sent. Editing a transaction after it was synced
 marks it unsynced again, and the next sync will push it as a new entry (delete the old one in Firefly).
 
+## One Firefly account per bank (optional)
+
+By default every transaction goes to the single asset account named in Settings. If you created one asset account per bank or card in Firefly, open the account in ExMan (Settings > Accounts > Manage accounts > the account > **Firefly account…**) and enter that account's exact Firefly name. Accounts without one use the default. Transfers and card bill payments detected by ExMan are not sent.
+
 ## What gets sent
 
 Per transaction, `POST {endpoint}/api/v1/transactions`:

@@ -198,6 +198,11 @@ const MIGRATIONS = [
   `
   ALTER TABLE accounts ADD COLUMN firefly_name TEXT;
   `,
+  // a credit linked to the purchase it refunds: nets against that purchase's spending instead of counting as income
+  `
+  ALTER TABLE transactions ADD COLUMN refund_of INTEGER;
+  CREATE INDEX idx_txn_refund ON transactions (refund_of) WHERE refund_of IS NOT NULL;
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {
