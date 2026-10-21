@@ -1,3 +1,4 @@
+import { useSecurity } from '@/security/store';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft } from 'lucide-react-native';
@@ -15,6 +16,7 @@ import { monthKey, monthRange, rupees } from '@/utils/format';
 import { asOf } from '../accounts';
 
 export default function AccountDetail() {
+  useSecurity(); // re-render when "hide amounts" changes
   const { id } = useLocalSearchParams<{ id: string }>();
   const aid = Number(id);
   const db = useSQLiteContext();

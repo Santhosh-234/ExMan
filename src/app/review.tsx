@@ -1,3 +1,4 @@
+import { useSecurity } from '@/security/store';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { CheckCheck, ChevronDown, ChevronUp, X } from 'lucide-react-native';
@@ -112,6 +113,7 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
 }
 
 export default function Review() {
+  useSecurity(); // re-render when "hide amounts" changes
   const db = useSQLiteContext();
   const router = useRouter();
   const snack = useSnackbar();
