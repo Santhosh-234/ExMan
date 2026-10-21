@@ -10,7 +10,7 @@ Privacy-first, offline-first expense manager. Expo SDK 58 + Expo Router, NativeW
 - Step 3 (written, untested on device): real Inbox (swipe confirm/dismiss, edit modal, auto-category via `src/utils/categorize.ts`), Dashboard (month nav, budget bar, SVG donut, filters, insights), Analytics (6-month bars, top merchants), Settings sync (`src/sync.ts`, custom REST or Firefly III). Indian Bank (`VM-INDBNK-S`) added to BANKS; migration 3 backfills old rows.
 
 - V2 plan: `docs/v2-plan.md`. Phase 1 done (schema v4: accounts, msg_hash, dismissed tombstones; batch import; FlatList Inbox; Developer screen to seed/benchmark). Dismiss now keeps a 'dismissed' row so re-imports don't resurrect it.
-- Phase 0 (TODO, needs the Expo account owner): run `npx eas-cli login && npx eas-cli init` locally and commit the resulting `app.json` change (projectId); add `EXPO_TOKEN` as a GitHub secret. Then Claude adds expo-dev-client, expo-updates, `eas.json`, and CI jobs.
+- Phase 0: Expo project linked (projectId/owner in app.json). expo-updates (runtimeVersion=fingerprint, channel `main`) + expo-dev-client installed; `eas.json`; workflows `check.yml` (PRs), `update.yml` (OTA publish on main, runs only when repo variable OTA_ENABLED=true and secret EXPO_TOKEN exist), `build-dev-client.yml` (manual debug APK). TODO owner: add EXPO_TOKEN secret, set OTA_ENABLED=true, install one new release APK (it must contain expo-updates) before OTA works.
 
 ## Known gaps / next
 - Bank shows `?` when the SMS sender ID isn't in the BANKS list in parser.ts (add new banks there).

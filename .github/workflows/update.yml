@@ -1,0 +1,29 @@
+name: OTA update
+# Publishes JS/asset changes to installed builds in seconds-to-minutes (no APK rebuild).
+# Builds only pick it up if their native fingerprint matches (runtimeVersion policy: fingerprint);
+# native changes (Kotlin, permissions, new native deps) still need the APK workflow.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ota
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    if: ${{ vars.OTA_ENABLED == 'true' }}   # set repo variable OTA_ENABLED=true once EXPO_TOKEN secret exists
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm test
+      - run: npx tsc --noEmit
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: eas update --branch main --message "${{ github.event.head_commit.message || 'manual' }}" --non-interactive
