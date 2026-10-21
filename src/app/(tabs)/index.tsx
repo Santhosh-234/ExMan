@@ -7,7 +7,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { MonthBar } from '@/components/MonthBar';
-import { type Category, type CategorySpend, type Txn, countPending, getBudget, getCategories, queryTxns, setBudget, spendByCategory, totalFor } from '@/db/queries';
+import { dueText } from '../subscriptions';
+import { type BudgetLine, type Category, type CategorySpend, type Txn, budgetOverview, countPending, getBudget, getCategories, queryTxns, setBudget, spendByCategory, totalFor } from '@/db/queries';
 import { countUnparsed } from '@/db/patterns';
 import { acknowledgeAutoTransfers, countAutoTransfers } from '@/db/transfers';
 import { notifyIngested, onIngested } from '@/ingest/events';
@@ -15,6 +16,9 @@ import { Button, Card, Fab, Skeleton } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { TxnRow } from '@/ui/TxnRow';
 import { monthKey, monthRange, rupees, shiftMonth } from '@/utils/format';
+import { budgetStatus } from '@/utils/budgets';
+import { getRecurring } from '@/db/recurring';
+import { type Recurring } from '@/utils/recurring';
 
 export default function Home() {
   const { hide } = useSecurity(); // re-render when "hide amounts" changes
@@ -27,6 +31,8 @@ export default function Home() {
   const [pending, setPending] = useState(0);
   const [autoTransfers, setAutoTransfers] = useState(0);
   const [unparsed, setUnparsed] = useState(0);
+  const [upcoming, setUpcoming] = useState<Recurring[]>([]);
+  const [alerts, setAlerts] = useState<{ line: BudgetLine; pct: number; over: boolean; left: number }[]>([]);
   const [spend, setSpend] = useState<CategorySpend[]>([]);
   const [income, setIncome] = useState(0);
   const [prevSpent, setPrevSpent] = useState(0);
@@ -43,6 +49,13 @@ export default function Home() {
       countPending(db), spendByCategory(db, from, to), totalFor(db, 'credit', from, to), totalFor(db, 'debit', pf, pt), getBudget(db, month),
       queryTxns(db, { from, to, transfers: 'hide' }, 0), getCategories(db), countAutoTransfers(db), countUnparsed(db),
     ]);
+    // category budgets at 80% or more (current month only): shown as alerts, worst first
+    const lines = month === monthKey(new Date()) ? await budgetOverview(db, month) : [];
+    setAlerts(lines.filter((l) => l.category_id !== null).map((line) => ({ line, st: budgetStatus({ limit: line.limit, carry: line.carry, spent: line.spent, month, now: new Date() }) }))
+      .filter((x) => x.st.state !== 'ok').map((x) => ({ line: x.line, pct: x.st.pct, over: x.st.state === 'over', left: x.st.remaining })).sort((a, b) => b.pct - a.pct).slice(0, 2));
+    // subscriptions due in the next week (current month view only)
+    const rec = month === monthKey(new Date()) ? await getRecurring(db) : [];
+    setUpcoming(rec.filter((r) => r.status === 'active' && r.nextTs - Date.now() <= 7 * 864e5).slice(0, 2));
     setPending(p); setAutoTransfers(at); setUnparsed(up); setSpend(s); setIncome(i); setPrevSpent(ps); setBudgetState(b); setRecent(r.slice(0, 5)); setCats(c); setLoaded(true);
   }, [db, month]);
   useFocusEffect(useCallback(() => void load(), [load]));
@@ -82,6 +95,27 @@ export default function Home() {
             <ChevronRight color={colors.onaccent} />
           </Pressable>
         )}
+
+        {upcoming.map((r) => (
+          <Pressable key={r.merchant_id} onPress={() => router.push('/subscriptions')} accessibilityRole="button" className="mb-4 flex-row items-center rounded-3xl bg-card p-4">
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-fg">{r.merchant} · {rupees(r.amount)}</Text>
+              <Text className="text-sm text-muted">{dueText(r)}{r.priceChange ? ` · price up from ${rupees(r.priceChange.from)}` : ''}</Text>
+            </View>
+            <ChevronRight color={colors.muted} />
+          </Pressable>
+        ))}
+
+        {alerts.map((a) => (
+          <Pressable key={String(a.line.category_id)} onPress={() => router.push('/budgets')} accessibilityRole="button" className="mb-4 flex-row items-center rounded-3xl bg-card p-4">
+            <View className="mr-3 h-3 w-3 rounded-full" style={{ backgroundColor: a.over ? colors.danger : colors.warn }} />
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-fg">{a.line.name}: {a.over ? 'over budget' : `${Math.round(a.pct * 100)}% used`}</Text>
+              <Text className="text-sm text-muted">{a.over ? `${rupees(-a.left)} over its ${rupees(a.line.limit + a.line.carry)} budget` : `${rupees(a.left)} left this month`}</Text>
+            </View>
+            <ChevronRight color={colors.muted} />
+          </Pressable>
+        ))}
 
         {unparsed > 0 && (
           <Pressable onPress={() => router.push('/unrecognised')} accessibilityRole="button" className="mb-4 flex-row items-center rounded-3xl bg-card p-4">
@@ -144,6 +178,7 @@ export default function Home() {
                 {safeDaily != null && <Text className="mt-1 text-sm text-muted">Safe to spend {rupees(safeDaily)} a day for {daysLeft} more days</Text>}
               </Pressable>
             )}
+            <Pressable onPress={() => router.push('/budgets')} hitSlop={8} accessibilityRole="button" className="mt-2"><Text className="text-accent">Budgets by category ›</Text></Pressable>
 
             <View className="mt-4 flex-row border-t border-line pt-3">
               <View className="flex-1"><Text className="text-xs text-muted">Income</Text><Text className="text-lg font-semibold text-accent">{rupees(income)}</Text></View>

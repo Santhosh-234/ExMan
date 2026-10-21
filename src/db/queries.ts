@@ -1,6 +1,8 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { type TxnFilter, buildTxnQuery } from '@/utils/filters';
+import { carryOver } from '@/utils/budgets';
+import { monthRange, shiftMonth } from '@/utils/format';
 import { ensureMerchant } from './merchantCore';
 
 export type Category = { id: number; name: string; icon: string; color: string; archived: number; is_custom: number };
@@ -166,18 +168,54 @@ export const topMerchants = (db: SQLiteDatabase, from: number, to: number, limit
     from, to, limit,
   );
 
-export async function getBudget(db: SQLiteDatabase, month: string) {
-  return (
-    (await db.getFirstAsync<{ limit_paise: number }>(
-      'SELECT limit_paise FROM budgets WHERE category_id IS NULL AND month = ?', month,
-    ))?.limit_paise ?? null
+/**
+ * A budget applies from the month it was set until a later row replaces it, so it only needs setting once.
+ * A row with limit 0 means "no budget from this month on". `categoryId` null is the overall monthly budget.
+ */
+export async function getBudgetRow(db: SQLiteDatabase, categoryId: number | null, month: string) {
+  const r = await db.getFirstAsync<{ limit_paise: number; rollover: number }>(
+    'SELECT limit_paise, rollover FROM budgets WHERE category_id IS ? AND month <= ? ORDER BY month DESC LIMIT 1', categoryId, month,
   );
+  return r && r.limit_paise > 0 ? { limit: r.limit_paise, rollover: !!r.rollover } : null;
 }
 
-export async function setBudget(db: SQLiteDatabase, month: string, paise: number | null) {
+export async function setBudgetRow(db: SQLiteDatabase, categoryId: number | null, month: string, paise: number | null, rollover = false) {
   // UNIQUE(category_id, month) does not dedupe NULL category_id, so delete-then-insert
-  await db.runAsync('DELETE FROM budgets WHERE category_id IS NULL AND month = ?', month);
-  if (paise) await db.runAsync('INSERT INTO budgets (category_id, month, limit_paise) VALUES (NULL, ?, ?)', month, paise);
+  await db.runAsync('DELETE FROM budgets WHERE category_id IS ? AND month = ?', categoryId, month);
+  const prior = await db.getFirstAsync('SELECT 1 FROM budgets WHERE category_id IS ? AND month < ?', categoryId, month);
+  // clearing writes a zero row so later months stop inheriting; with nothing earlier there is nothing to override
+  if (paise || prior) await db.runAsync('INSERT INTO budgets (category_id, month, limit_paise, rollover) VALUES (?, ?, ?, ?)', categoryId, month, paise ?? 0, rollover ? 1 : 0);
+}
+
+export const getBudget = async (db: SQLiteDatabase, month: string) => (await getBudgetRow(db, null, month))?.limit ?? null;
+export const setBudget = (db: SQLiteDatabase, month: string, paise: number | null) => setBudgetRow(db, null, month, paise, false);
+
+export type BudgetLine = { category_id: number | null; name: string; color: string; limit: number; rollover: boolean; carry: number; spent: number };
+
+/** Overall budget plus every category with a budget in force for `month`, with spending and rollover applied. */
+export async function budgetOverview(db: SQLiteDatabase, month: string): Promise<BudgetLine[]> {
+  const [from, to] = monthRange(month);
+  const prevMonth = shiftMonth(month, -1);
+  const [pf, pt] = monthRange(prevMonth);
+  const spend = new Map((await spendByCategory(db, from, to)).map((c) => [c.category_id, c.total]));
+  const prevSpend = new Map((await spendByCategory(db, pf, pt)).map((c) => [c.category_id, c.total]));
+  const cats = new Map((await getCategories(db)).map((c) => [c.id, c]));
+  const ids: (number | null)[] = [null, ...(await db.getAllAsync<{ category_id: number }>('SELECT DISTINCT category_id FROM budgets WHERE category_id IS NOT NULL AND month <= ?', month)).map((r) => r.category_id)];
+  const out: BudgetLine[] = [];
+  for (const id of ids) {
+    const row = await getBudgetRow(db, id, month);
+    if (!row) continue;
+    let carry = 0;
+    if (row.rollover) {
+      const prev = await getBudgetRow(db, id, prevMonth);
+      if (prev) carry = carryOver(prev.limit, id === null ? await totalFor(db, 'debit', pf, pt) : prevSpend.get(id) ?? 0);
+    }
+    out.push({
+      category_id: id, name: id === null ? 'Overall' : cats.get(id)?.name ?? 'Category', color: id === null ? '#10B981' : cats.get(id)?.color ?? '#6B7280',
+      limit: row.limit, rollover: row.rollover, carry, spent: id === null ? await totalFor(db, 'debit', from, to) : spend.get(id) ?? 0,
+    });
+  }
+  return out;
 }
 
 export async function getSetting(db: SQLiteDatabase, key: string) {

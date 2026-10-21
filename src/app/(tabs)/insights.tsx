@@ -2,7 +2,7 @@ import { useSecurity } from '@/security/store';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import { Bars, Pie } from '@/components/Charts';
 import { MonthBar } from '@/components/MonthBar';
@@ -12,6 +12,8 @@ import { Card, Chip } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { monthKey, monthLabel, monthRange, rupees, shiftMonth } from '@/utils/format';
 import { buildCallouts } from '@/utils/insights';
+import { getRecurring, monthlyTotal } from '@/db/recurring';
+import { useRouter } from 'expo-router';
 
 export default function Insights() {
   useSecurity(); // re-render when "hide amounts" changes
@@ -23,6 +25,8 @@ export default function Insights() {
   const [range, setRange] = useState<6 | 12>(6);
   const [spend, setSpend] = useState<CategorySpend[]>([]);
   const [callouts, setCallouts] = useState<string[]>([]);
+  const router = useRouter();
+  const [subs, setSubs] = useState<{ n: number; monthly: number }>({ n: 0, monthly: 0 });
   const [filter, setFilter] = useState<number | null | 'all'>('all');
   const [series, setSeries] = useState<{ label: string; value: number }[]>([]);
   const [income, setIncome] = useState<{ label: string; value: number }[]>([]);
@@ -46,6 +50,8 @@ export default function Insights() {
     const [spent, prevSpent, inc] = await Promise.all([
       totalFor(db, 'debit', ...monthRange(month)), totalFor(db, 'debit', ...monthRange(shiftMonth(month, -1))), totalFor(db, 'credit', ...monthRange(month)),
     ]);
+    const rec = (await getRecurring(db)).filter((r) => r.status !== 'ended');
+    setSubs({ n: rec.length, monthly: monthlyTotal(rec) });
     setCallouts(buildCallouts({ spend: cur, history, spent, prevSpent, income: inc }));
   }, [db, month, range, nowKey]);
   useFocusEffect(useCallback(() => void load(), [load]));
@@ -59,6 +65,16 @@ export default function Insights() {
     <ScrollView className="flex-1 bg-base px-4 pt-14" showsVerticalScrollIndicator={false}>
       <Text className="mb-4 text-3xl font-bold text-fg" accessibilityRole="header">Insights</Text>
       <MonthBar month={month} onChange={setMonth} max={nowKey} />
+
+      {subs.n > 0 && (
+        <Pressable onPress={() => router.push('/subscriptions')} accessibilityRole="button" className="mb-4">
+          <Card>
+            <Text className="text-base font-semibold text-fg">Subscriptions</Text>
+            <Text className="mt-1 text-fg">About {rupees(subs.monthly)} a month across {subs.n} recurring payment{subs.n === 1 ? '' : 's'}</Text>
+            <Text className="mt-1 text-accent">See them all ›</Text>
+          </Card>
+        </Pressable>
+      )}
 
       {callouts.length > 0 && (
         <Card className="mb-4">
