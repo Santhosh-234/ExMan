@@ -158,6 +158,14 @@ const MIGRATIONS = [
   );
   CREATE UNIQUE INDEX idx_rules_merchant ON rules (merchant_id) WHERE kind = 'merchant';
   `,
+  // automatic transfer detection: why it was flagged, who it was paired with, and a user veto
+  `
+  ALTER TABLE transactions ADD COLUMN transfer_auto INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE transactions ADD COLUMN transfer_reason TEXT;
+  ALTER TABLE transactions ADD COLUMN transfer_pair_id INTEGER;
+  ALTER TABLE transactions ADD COLUMN transfer_blocked INTEGER NOT NULL DEFAULT 0;
+  CREATE INDEX idx_txn_transfer_auto ON transactions (transfer_auto) WHERE transfer_auto = 1;
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

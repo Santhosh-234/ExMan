@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { drain, readInbox, type RawMessage } from '../../modules/vibe-listener';
 import { type MerchantCache, ensureMerchant } from '@/db/merchantCore';
 import { loadRuleIndex } from '@/db/merchants';
+import { detectTransfers } from '@/db/transfers';
 import { guessCategory } from '@/utils/categorize';
 import { hashMessage } from '@/utils/hash';
 import { extractBalance, isDuplicate, parseMessage } from '@/utils/parser';
@@ -81,14 +82,16 @@ async function store(db: SQLiteDatabase, ctx: Ctx, m: RawMessage): Promise<boole
   const ruleCat = ctx.rules.categoryFor(merchant?.id ?? null, t.merchant);
   const guess = guessCategory(merchant?.name ?? t.merchant, t.direction);
   const accountId = await accountFor(db, ctx, t.bank, t.account, t.mode);
-  await db.runAsync(
+  const res = await db.runAsync(
     `INSERT OR IGNORE INTO transactions
        (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, payment_mode, ts, raw_text, msg_hash, merchant_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     t.amountPaise, t.direction, merchant?.name ?? t.merchant, ruleCat ?? ((guess && ctx.cats.get(guess)) || null), accountId,
     t.source, t.bank, t.account, t.mode, t.ts, m.text, hash, merchant?.id ?? null,
   );
+  if (!res.changes) return false;
   if (accountId && t.balance) await recordBalance(db, accountId, t.balance, t.ts);
+  await detectTransfers(db, [res.lastInsertRowId]);
   return true;
 }
 

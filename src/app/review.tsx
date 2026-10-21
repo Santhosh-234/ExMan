@@ -9,6 +9,7 @@ import { Amount, Button, Chip, EmptyState, Skeleton, success, tap } from '@/ui/k
 import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useRuleOffer } from '@/ui/useRuleOffer';
+import { rejectTransfer } from '@/db/transfers';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 
@@ -24,10 +25,11 @@ type CardProps = {
   onEdit: () => void;
   onCategory: (id: number) => void;
   onMore: () => void;
+  onNotTransfer: () => void;
 };
 
 /** Draggable card: right = confirm, left = dismiss. Buttons below do the same, so gestures are optional. */
-function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, onCategory, onMore }: CardProps) {
+function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, onCategory, onMore, onNotTransfer }: CardProps) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const x = useRef(new Animated.Value(0)).current;
@@ -73,6 +75,13 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
             {[account ?? txn.bank, txn.payment_mode, when].filter(Boolean).join(' · ')}
           </Text>
         </View>
+
+        {txn.is_transfer ? (
+          <View className="mt-4 rounded-2xl bg-card2 p-3">
+            <Text className="text-sm text-fg">Looks like a transfer{txn.transfer_reason ? ` (${txn.transfer_reason})` : ''}. It won't count as spending or income.</Text>
+            <Pressable onPress={onNotTransfer} accessibilityRole="button" className="mt-1 min-h-9 justify-center"><Text className="text-accent">Not a transfer</Text></Pressable>
+          </View>
+        ) : null}
 
         <Text className="mb-2 mt-6 text-xs uppercase tracking-wider text-muted">Category</Text>
         <View className="flex-row flex-wrap">
@@ -201,6 +210,12 @@ export default function Review() {
             onEdit={() => setEditing(true)}
             onCategory={(id) => patchHead({ category_id: id })}
             onMore={() => setPicking(true)}
+            onNotTransfer={async () => {
+              const t0 = head;
+              await rejectTransfer(db, t0.id);
+              setQueue((q) => q && [{ ...q[0], is_transfer: 0, transfer_reason: null, transfer_pair_id: null }, ...q.slice(1)]);
+              snack({ message: 'Unmarked. It counts in totals again.' });
+            }}
           />
           {queue.length > 1 && <Text className="mt-4 text-center text-xs text-muted">Swipe right to confirm, left to dismiss</Text>}
         </ScrollView>

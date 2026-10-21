@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { type Account, type Category, type Txn, getAccounts, getCategories, getEditLog, getTxn, updateTxn } from '@/db/queries';
+import { markTransferByUser, rejectTransfer } from '@/db/transfers';
 import { notifyIngested } from '@/ingest/events';
 import { Amount, Button, Card } from '@/ui/kit';
 import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
@@ -60,9 +61,24 @@ export default function TxnDetail() {
     }
   };
   const toggleTransfer = async () => {
-    const next = t.is_transfer ? 0 : 1;
-    await patch({ is_transfer: next });
-    snack({ message: next ? 'Marked as transfer (not counted as spending)' : 'Unmarked as transfer', actionLabel: 'Undo', onAction: () => void patch({ is_transfer: next ? 0 : 1 }) });
+    if (t.is_transfer) {
+      // "not a transfer": clears both legs and teaches the detector not to flag them again
+      const wasPair = t.transfer_pair_id;
+      await updateTxn(db, t.id, { is_transfer: 0 });
+      await rejectTransfer(db, t.id);
+      notifyIngested();
+      load();
+      snack({
+        message: wasPair ? 'Unmarked, and its other leg too. They count in totals again.' : 'Unmarked as transfer. It counts in totals again.',
+        onAction: async () => { await markTransferByUser(db, t.id); if (wasPair) await markTransferByUser(db, wasPair); notifyIngested(); load(); },
+      });
+    } else {
+      await updateTxn(db, t.id, { is_transfer: 1 });
+      await markTransferByUser(db, t.id);
+      notifyIngested();
+      load();
+      snack({ message: 'Marked as transfer (not counted as spending)', onAction: async () => { await updateTxn(db, t.id, { is_transfer: 0 }); await rejectTransfer(db, t.id); notifyIngested(); load(); } });
+    }
   };
   const remove = async () => {
     const was = t.status;
@@ -90,7 +106,7 @@ export default function TxnDetail() {
           <Amount paise={t.amount_paise} direction={t.direction} className="text-5xl" />
           <Text className="mt-2 text-xl text-fg">{t.merchant ?? 'Unknown merchant'}</Text>
           {t.is_transfer ? (
-            <View className="mt-2 flex-row items-center rounded-full bg-card2 px-3 py-1"><Repeat size={14} color={colors.muted} /><Text className="ml-1 text-xs text-muted">Transfer, not counted in totals</Text></View>
+            <View className="mt-2 flex-row items-center rounded-full bg-card2 px-3 py-1"><Repeat size={14} color={colors.muted} /><Text className="ml-1 text-xs text-muted">Transfer{t.transfer_reason ? ` · ${t.transfer_reason}` : ''}, not counted in totals</Text></View>
           ) : null}
         </View>
 
@@ -101,6 +117,11 @@ export default function TxnDetail() {
           <Row k="Mode" v={t.payment_mode ?? (t.source === 'manual' ? 'Manual entry' : 'n/a')} />
           <Row k="Source" v={t.source} />
           <Row k="Status" v={t.status} />
+          {t.is_transfer && t.transfer_pair_id ? (
+            <Pressable onPress={() => router.push(`/txn/${t.transfer_pair_id}`)} accessibilityRole="button" className="flex-row justify-between py-2">
+              <Text className="text-muted">Other leg</Text><Text className="text-accent">View ›</Text>
+            </Pressable>
+          ) : null}
           {t.tags ? <Row k="Tags" v={t.tags.split(',').join(', ')} /> : null}
           {t.notes ? <Row k="Notes" v={t.notes} /> : null}
         </Card>

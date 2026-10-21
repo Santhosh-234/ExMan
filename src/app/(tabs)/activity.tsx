@@ -32,7 +32,7 @@ export default function Activity() {
   const router = useRouter();
   const snack = useSnackbar();
   const offerRule = useRuleOffer();
-  const { account, q: qParam } = useLocalSearchParams<{ account?: string; q?: string }>();
+  const { account, q: qParam, transfers } = useLocalSearchParams<{ account?: string; q?: string; transfers?: string }>();
   const { colors } = useTheme();
   const [filter, setFilter] = useState<TxnFilter>(EMPTY_FILTER);
   const [search, setSearch] = useState('');
@@ -52,6 +52,9 @@ export default function Activity() {
     if (account) setFilter((f) => ({ ...f, accountIds: [Number(account)] }));
   }, [account]);
 
+  useEffect(() => {
+    if (transfers === 'only') setFilter((f) => ({ ...f, transfers: 'only' }));
+  }, [transfers]);
   useEffect(() => {
     if (qParam) setSearch(qParam);
   }, [qParam]);
