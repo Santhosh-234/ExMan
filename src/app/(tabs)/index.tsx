@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { MonthBar } from '@/components/MonthBar';
+import { dueText } from '../subscriptions';
 import { type BudgetLine, type Category, type CategorySpend, type Txn, budgetOverview, countPending, getBudget, getCategories, queryTxns, setBudget, spendByCategory, totalFor } from '@/db/queries';
 import { countUnparsed } from '@/db/patterns';
 import { acknowledgeAutoTransfers, countAutoTransfers } from '@/db/transfers';
@@ -16,6 +17,8 @@ import { useTheme } from '@/ui/theme';
 import { TxnRow } from '@/ui/TxnRow';
 import { monthKey, monthRange, rupees, shiftMonth } from '@/utils/format';
 import { budgetStatus } from '@/utils/budgets';
+import { getRecurring } from '@/db/recurring';
+import { type Recurring } from '@/utils/recurring';
 
 export default function Home() {
   const { hide } = useSecurity(); // re-render when "hide amounts" changes
@@ -28,6 +31,7 @@ export default function Home() {
   const [pending, setPending] = useState(0);
   const [autoTransfers, setAutoTransfers] = useState(0);
   const [unparsed, setUnparsed] = useState(0);
+  const [upcoming, setUpcoming] = useState<Recurring[]>([]);
   const [alerts, setAlerts] = useState<{ line: BudgetLine; pct: number; over: boolean; left: number }[]>([]);
   const [spend, setSpend] = useState<CategorySpend[]>([]);
   const [income, setIncome] = useState(0);
@@ -49,6 +53,9 @@ export default function Home() {
     const lines = month === monthKey(new Date()) ? await budgetOverview(db, month) : [];
     setAlerts(lines.filter((l) => l.category_id !== null).map((line) => ({ line, st: budgetStatus({ limit: line.limit, carry: line.carry, spent: line.spent, month, now: new Date() }) }))
       .filter((x) => x.st.state !== 'ok').map((x) => ({ line: x.line, pct: x.st.pct, over: x.st.state === 'over', left: x.st.remaining })).sort((a, b) => b.pct - a.pct).slice(0, 2));
+    // subscriptions due in the next week (current month view only)
+    const rec = month === monthKey(new Date()) ? await getRecurring(db) : [];
+    setUpcoming(rec.filter((r) => r.status === 'active' && r.nextTs - Date.now() <= 7 * 864e5).slice(0, 2));
     setPending(p); setAutoTransfers(at); setUnparsed(up); setSpend(s); setIncome(i); setPrevSpent(ps); setBudgetState(b); setRecent(r.slice(0, 5)); setCats(c); setLoaded(true);
   }, [db, month]);
   useFocusEffect(useCallback(() => void load(), [load]));
@@ -88,6 +95,16 @@ export default function Home() {
             <ChevronRight color={colors.onaccent} />
           </Pressable>
         )}
+
+        {upcoming.map((r) => (
+          <Pressable key={r.merchant_id} onPress={() => router.push('/subscriptions')} accessibilityRole="button" className="mb-4 flex-row items-center rounded-3xl bg-card p-4">
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-fg">{r.merchant} · {rupees(r.amount)}</Text>
+              <Text className="text-sm text-muted">{dueText(r)}{r.priceChange ? ` · price up from ${rupees(r.priceChange.from)}` : ''}</Text>
+            </View>
+            <ChevronRight color={colors.muted} />
+          </Pressable>
+        ))}
 
         {alerts.map((a) => (
           <Pressable key={String(a.line.category_id)} onPress={() => router.push('/budgets')} accessibilityRole="button" className="mb-4 flex-row items-center rounded-3xl bg-card p-4">
