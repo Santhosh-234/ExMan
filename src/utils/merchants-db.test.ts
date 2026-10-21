@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 
-import { ensureMerchant } from './merchantCore';
-import { applyRuleToExisting, getMerchantRule, loadRuleIndex, mergeMerchant, setMerchantRule } from './merchants';
-import { migrate } from './schema';
+import { ensureMerchant } from '../db/merchantCore';
+import { applyRuleToExisting, getMerchantRule, loadRuleIndex, mergeMerchant, setMerchantRule } from '../db/merchants';
+import { migrate } from '../db/schema';
 
 // Minimal expo-sqlite-shaped adapter over node:sqlite so migrations and queries run for real.
 function makeDb() {
