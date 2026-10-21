@@ -39,11 +39,24 @@
         }
       ],
       "expo-sqlite",
-      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a156edf4-09f4-4c60-b58b-ad3247d2a603"
+      }
+    },
+    "owner": "santhosh_234"
   }
 }
