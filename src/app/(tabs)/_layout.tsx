@@ -1,24 +1,28 @@
 import type { ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
-import { BarChart3, Inbox, LayoutDashboard, Settings } from 'lucide-react-native';
+import { BarChart3, Home, ListOrdered, Settings } from 'lucide-react-native';
 
-const tab = (title: string, Icon: typeof Inbox) => ({
+import { useTheme } from '@/ui/theme';
+
+const tab = (title: string, Icon: typeof Home) => ({
   title,
   tabBarIcon: ({ color, size }: { color: ColorValue; size: number }) => <Icon color={color} size={size} />,
 });
 
 export default function TabsLayout() {
+  const { colors } = useTheme();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#10B981',
-        tabBarInactiveTintColor: '#6B7280',
-        tabBarStyle: { backgroundColor: '#090D16', borderTopColor: '#1F2937' },
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.muted,
+        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.line },
+        sceneStyle: { backgroundColor: colors.bg },
       }}>
-      <Tabs.Screen name="index" options={tab('Dashboard', LayoutDashboard)} />
-      <Tabs.Screen name="inbox" options={tab('Inbox', Inbox)} />
-      <Tabs.Screen name="analytics" options={tab('Analytics', BarChart3)} />
+      <Tabs.Screen name="index" options={tab('Home', Home)} />
+      <Tabs.Screen name="activity" options={tab('Activity', ListOrdered)} />
+      <Tabs.Screen name="insights" options={tab('Insights', BarChart3)} />
       <Tabs.Screen name="settings" options={tab('Settings', Settings)} />
     </Tabs>
   );

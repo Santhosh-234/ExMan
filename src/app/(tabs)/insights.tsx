@@ -4,10 +4,10 @@ import { useCallback, useState } from 'react';
 import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import { Bars } from '@/components/Charts';
-import { topMerchants, totalFor } from '@/db/queries';
+import { monthlyTotals, topMerchants } from '@/db/queries';
 import { monthKey, monthLabel, monthRange, rupees, shiftMonth } from '@/utils/format';
 
-export default function Analytics() {
+export default function Insights() {
   const db = useSQLiteContext();
   const { width } = useWindowDimensions();
   const [series, setSeries] = useState<{ label: string; value: number }[]>([]);
@@ -18,31 +18,33 @@ export default function Analytics() {
     const now = monthKey(new Date());
     const months = [5, 4, 3, 2, 1, 0].map((i) => shiftMonth(now, -i));
     const lab = (m: string) => monthLabel(m).split(' ')[0];
-    setSeries(await Promise.all(months.map(async (m) => ({ label: lab(m), value: await totalFor(db, 'debit', ...monthRange(m)) }))));
-    setIncome(await Promise.all(months.map(async (m) => ({ label: lab(m), value: await totalFor(db, 'credit', ...monthRange(m)) }))));
+    const rows = await monthlyTotals(db, monthRange(months[0])[0], monthRange(now)[1]);
+    const sum = (m: string, dir: string) => rows.find((r) => r.month === m && r.direction === dir)?.total ?? 0;
+    setSeries(months.map((m) => ({ label: lab(m), value: sum(m, 'debit') })));
+    setIncome(months.map((m) => ({ label: lab(m), value: sum(m, 'credit') })));
     setMerchants(await topMerchants(db, monthRange(months[0])[0], monthRange(now)[1], 8));
   }, [db]);
   useFocusEffect(useCallback(() => void load(), [load]));
 
   const cw = width - 64;
   return (
-    <ScrollView className="flex-1 bg-base px-4 pt-16">
-      <Text className="mb-4 text-2xl font-semibold text-white">Analytics</Text>
+    <ScrollView className="flex-1 bg-base px-4 pt-14">
+      <Text className="mb-4 text-3xl font-bold text-fg">Insights</Text>
       <View className="mb-4 rounded-2xl bg-card p-4">
-        <Text className="mb-3 text-base font-semibold text-white">Spending, last 6 months</Text>
+        <Text className="mb-3 text-base font-semibold text-fg">Spending, last 6 months</Text>
         <Bars data={series} width={cw} />
       </View>
       <View className="mb-4 rounded-2xl bg-card p-4">
-        <Text className="mb-3 text-base font-semibold text-white">Income, last 6 months</Text>
+        <Text className="mb-3 text-base font-semibold text-fg">Income, last 6 months</Text>
         <Bars data={income} width={cw} />
       </View>
       <View className="mb-4 rounded-2xl bg-card p-4">
-        <Text className="mb-3 text-base font-semibold text-white">Top merchants (6 months)</Text>
-        {merchants.length === 0 && <Text className="text-gray-400">Nothing confirmed yet.</Text>}
+        <Text className="mb-3 text-base font-semibold text-fg">Top merchants (6 months)</Text>
+        {merchants.length === 0 && <Text className="text-muted">Nothing confirmed yet.</Text>}
         {merchants.map((m) => (
           <View key={m.merchant} className="mb-2 flex-row justify-between">
-            <Text className="text-white">{m.merchant} <Text className="text-xs text-gray-400">×{m.n}</Text></Text>
-            <Text className="text-gray-300">{rupees(m.total)}</Text>
+            <Text className="text-fg">{m.merchant} <Text className="text-xs text-muted">×{m.n}</Text></Text>
+            <Text className="text-muted">{rupees(m.total)}</Text>
           </View>
         ))}
       </View>
