@@ -70,6 +70,13 @@ export default function Settings() {
         </View>
       </Section>
 
+      <Section title="Accounts" hint="Banks, cards and cash found from your messages.">
+        <Pressable onPress={() => router.push('/accounts')} accessibilityRole="button" className="min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
+          <Text className="text-base text-fg">Manage accounts</Text>
+          <Text className="text-accent">Open</Text>
+        </Pressable>
+      </Section>
+
       <Text className="mb-2 text-lg font-semibold text-fg" accessibilityRole="header">Permissions</Text>
       <Row
         label="Read bank SMS"

@@ -25,6 +25,15 @@ export type Txn = {
 };
 
 export type Account = { id: number; name: string; kind: 'bank' | 'card' | 'cash'; bank: string | null; last4: string | null };
+export type AccountStats = Account & {
+  balance_paise: number | null;
+  balance_kind: 'balance' | 'limit' | null;
+  balance_ts: number | null;
+  archived: number;
+  spent: number;
+  received: number;
+  n: number;
+};
 export type TxnPatchFields = Partial<Pick<Txn, 'amount_paise' | 'merchant' | 'category_id' | 'tags' | 'status' | 'notes' | 'account_id' | 'is_transfer' | 'ts' | 'direction'>>;
 
 export const getCategories = (db: SQLiteDatabase) =>
@@ -60,7 +69,7 @@ export const getEditLog = (db: SQLiteDatabase, id: number) =>
     'SELECT field, old_value, new_value, ts FROM edit_log WHERE txn_id = ? ORDER BY ts DESC, id DESC', id,
   );
 export const getAccounts = (db: SQLiteDatabase) =>
-  db.getAllAsync<Account>('SELECT id, name, kind, bank, last4 FROM accounts ORDER BY kind = \'cash\' DESC, name');
+  db.getAllAsync<Account>('SELECT id, name, kind, bank, last4 FROM accounts WHERE merged_into IS NULL AND archived = 0 ORDER BY kind = \'cash\' DESC, name');
 
 /** Hand-entered transaction (cash etc.); confirmed immediately, no message to hash. */
 export async function addManualTxn(
@@ -180,3 +189,49 @@ export const topCategoryIds = async (db: SQLiteDatabase, limit = 5) =>
 
 export const getAccountNames = async (db: SQLiteDatabase) =>
   new Map((await db.getAllAsync<{ id: number; name: string }>('SELECT id, name FROM accounts')).map((a) => [a.id, a.name]));
+
+/** All visible accounts with this-period activity; archived ones included so the screen can show them dimmed. */
+export const getAccountStats = (db: SQLiteDatabase, from: number, to: number) =>
+  db.getAllAsync<AccountStats>(
+    `SELECT a.id, a.name, a.kind, a.bank, a.last4, a.balance_paise, a.balance_kind, a.balance_ts, a.archived,
+            COALESCE(SUM(CASE WHEN t.direction = 'debit' AND t.is_transfer = 0 THEN t.amount_paise END), 0) AS spent,
+            COALESCE(SUM(CASE WHEN t.direction = 'credit' AND t.is_transfer = 0 THEN t.amount_paise END), 0) AS received,
+            COUNT(t.id) AS n
+     FROM accounts a
+     LEFT JOIN transactions t ON t.account_id = a.id AND t.status = 'confirmed' AND t.ts >= ? AND t.ts < ?
+     WHERE a.merged_into IS NULL
+     GROUP BY a.id
+     ORDER BY a.archived, a.kind = 'cash' DESC, a.kind, a.name`,
+    from, to,
+  );
+
+export const getAccount = (db: SQLiteDatabase, id: number) =>
+  db.getFirstAsync<AccountStats>(
+    'SELECT id, name, kind, bank, last4, balance_paise, balance_kind, balance_ts, archived, 0 AS spent, 0 AS received, 0 AS n FROM accounts WHERE id = ?', id,
+  );
+
+export const renameAccount = (db: SQLiteDatabase, id: number, name: string) => db.runAsync('UPDATE accounts SET name = ? WHERE id = ?', name, id);
+export const setAccountArchived = (db: SQLiteDatabase, id: number, archived: boolean) => db.runAsync('UPDATE accounts SET archived = ? WHERE id = ?', archived ? 1 : 0, id);
+
+export async function addAccount(db: SQLiteDatabase, name: string, kind: Account['kind']) {
+  // bank/last4 stay NULL: hand-made accounts never match SMS, so nothing is auto-assigned to them
+  return (await db.runAsync('INSERT INTO accounts (name, kind) VALUES (?, ?)', name, kind)).lastInsertRowId;
+}
+
+/** Moves all transactions to `target`; the source stays as a hidden alias so later SMS keep resolving to the target. */
+export async function mergeAccount(db: SQLiteDatabase, source: number, target: number) {
+  if (source === target) return;
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync('UPDATE transactions SET account_id = ? WHERE account_id = ?', target, source);
+    await tx.runAsync('UPDATE accounts SET merged_into = ? WHERE id = ?', target, source);
+    // anything previously merged into the source now points at the target
+    await tx.runAsync('UPDATE accounts SET merged_into = ? WHERE merged_into = ?', target, source);
+    // keep whichever balance is newer
+    await tx.runAsync(
+      `UPDATE accounts SET balance_paise = s.balance_paise, balance_kind = s.balance_kind, balance_ts = s.balance_ts
+       FROM (SELECT balance_paise, balance_kind, balance_ts FROM accounts WHERE id = ?) AS s
+       WHERE accounts.id = ? AND s.balance_ts IS NOT NULL AND (accounts.balance_ts IS NULL OR accounts.balance_ts < s.balance_ts)`,
+      source, target,
+    );
+  });
+}

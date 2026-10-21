@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { parseMessage } from './parser';
+import { extractBalance, parseMessage } from './parser';
 
 const T = 1_760_000_000_000;
 const p = (text: string, sender: string) => parseMessage(text, { sender, ts: T });
@@ -90,3 +90,14 @@ for (const c of CASES) {
     for (const [k, v] of Object.entries(c.want)) assert.equal((r as Record<string, unknown>)[k], v, k);
   });
 }
+
+test('balance and limit extraction', () => {
+  const b = (t: string) => extractBalance(t);
+  assert.deepEqual(b('debited Rs 500 on 20-10-26. Avl Bal Rs:3000.00 -Union Bank'), { paise: 300000, kind: 'balance' });
+  assert.deepEqual(b('Rs.600.00 Dr. from A/C XXXXXX1234. AvlBal:Rs5000.00(20-10-26)'), { paise: 500000, kind: 'balance' });
+  assert.deepEqual(b('debited A/c XX1234. Bal INR 5,000.00'), { paise: 500000, kind: 'balance' });
+  assert.deepEqual(b('INR 90.00 spent on card. Avl Lmt: INR 90,000.00'), { paise: 9000000, kind: 'limit' });
+  assert.deepEqual(b('Txn of Rs.899 done. Avl bal/limit Rs.50,000.00'), { paise: 5000000, kind: 'limit' });
+  assert.equal(b('Rs 250 debited from a/c XX1234 to zomato@icici'), null);
+  assert.equal(b('Available balance in a/c XX1234 is hidden'), null);
+});

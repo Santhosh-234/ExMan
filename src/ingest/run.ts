@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { drain, readInbox, type RawMessage } from '../../modules/vibe-listener';
 import { guessCategory } from '@/utils/categorize';
 import { hashMessage } from '@/utils/hash';
-import { isDuplicate, parseMessage } from '@/utils/parser';
+import { extractBalance, isDuplicate, parseMessage } from '@/utils/parser';
 import { notifyIngested } from './events';
 
 type Near = { amount_paise: number; direction: 'debit' | 'credit'; account_last4: string | null; ts: number };
@@ -21,10 +21,11 @@ async function makeCtx(db: SQLiteDatabase, since: number): Promise<Ctx> {
       .map((r) => r.msg_hash),
   );
   const cats = new Map((await db.getAllAsync<{ id: number; name: string }>('SELECT id, name FROM categories')).map((c) => [c.name, c.id]));
-  const accts = new Map(
-    (await db.getAllAsync<{ id: number; kind: string; bank: string | null; last4: string | null }>('SELECT id, kind, bank, last4 FROM accounts'))
-      .map((a) => [`${a.kind}|${a.bank}|${a.last4}`, a.id]),
-  );
+  // an account merged into another resolves to its final target, so re-imports never resurrect it
+  const rows = await db.getAllAsync<{ id: number; kind: string; bank: string | null; last4: string | null; merged_into: number | null }>('SELECT id, kind, bank, last4, merged_into FROM accounts');
+  const into = new Map(rows.map((a) => [a.id, a.merged_into]));
+  const final = (id: number) => { let cur = id; for (let i = 0; i < 10 && into.get(cur); i++) cur = into.get(cur)!; return cur; };
+  const accts = new Map(rows.map((a) => [`${a.kind}|${a.bank}|${a.last4}`, final(a.id)]));
   return { seen, cats, accts };
 }
 
@@ -41,6 +42,14 @@ async function accountFor(db: SQLiteDatabase, ctx: Ctx, bank: string | null, las
     ctx.accts.set(key, id);
   }
   return id;
+}
+
+/** Keeps only the newest balance/limit seen for an account. */
+async function recordBalance(db: SQLiteDatabase, accountId: number, b: NonNullable<ReturnType<typeof extractBalance>>, ts: number) {
+  await db.runAsync(
+    'UPDATE accounts SET balance_paise = ?, balance_kind = ?, balance_ts = ? WHERE id = ? AND (balance_ts IS NULL OR balance_ts < ?)',
+    b.paise, b.kind, ts, accountId, ts,
+  );
 }
 
 /** Parse one raw message and store it. Returns true if a new transaction row was added. */
@@ -72,6 +81,7 @@ async function store(db: SQLiteDatabase, ctx: Ctx, m: RawMessage): Promise<boole
     t.amountPaise, t.direction, t.merchant, (guess && ctx.cats.get(guess)) || null, accountId,
     t.source, t.bank, t.account, t.mode, t.ts, m.text, hash,
   );
+  if (accountId && t.balance) await recordBalance(db, accountId, t.balance, t.ts);
   return true;
 }
 
@@ -118,4 +128,29 @@ export function ingest(db: SQLiteDatabase): Promise<number> {
 export function importHistory(db: SQLiteDatabase, days: number, onProgress?: (done: number, total: number) => void): Promise<number> {
   const since = Date.now() - days * 864e5;
   return run(db, readInbox(since), since - 120_000, onProgress);
+}
+
+/**
+ * One-time upgrade for rows saved before accounts/balances existed: link transactions to accounts by
+ * (bank, last4) and pick up the newest balance quoted in each account's messages.
+ */
+export async function backfillAccounts(db: SQLiteDatabase) {
+  const done = await db.getFirstAsync("SELECT 1 FROM settings WHERE key = 'accounts_backfilled_v1'");
+  if (done) return;
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const ctx = await makeCtx(tx, 0);
+    const rows = await tx.getAllAsync<{ id: number; bank: string | null; account_last4: string | null; payment_mode: string | null; ts: number; raw_text: string | null; account_id: number | null }>(
+      'SELECT id, bank, account_last4, payment_mode, ts, raw_text, account_id FROM transactions ORDER BY ts ASC',
+    );
+    for (const r of rows) {
+      let acct = r.account_id;
+      if (!acct) {
+        acct = await accountFor(tx, ctx, r.bank, r.account_last4, r.payment_mode);
+        if (acct) await tx.runAsync('UPDATE transactions SET account_id = ? WHERE id = ?', acct, r.id);
+      }
+      const bal = acct && r.raw_text ? extractBalance(r.raw_text) : null;
+      if (acct && bal) await recordBalance(tx, acct, bal, r.ts);
+    }
+    await tx.runAsync("INSERT INTO settings (key, value) VALUES ('accounts_backfilled_v1', '1')");
+  });
 }
