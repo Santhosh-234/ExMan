@@ -6,7 +6,8 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { MonthBar } from '@/components/MonthBar';
 import { type Category, type CategorySpend, type Txn, countPending, getBudget, getCategories, queryTxns, setBudget, spendByCategory, totalFor } from '@/db/queries';
-import { onIngested } from '@/ingest/events';
+import { acknowledgeAutoTransfers, countAutoTransfers } from '@/db/transfers';
+import { notifyIngested, onIngested } from '@/ingest/events';
 import { Button, Card, Fab, Skeleton } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { TxnRow } from '@/ui/TxnRow';
@@ -20,6 +21,7 @@ export default function Home() {
   const [month, setMonth] = useState(now);
   const [loaded, setLoaded] = useState(false);
   const [pending, setPending] = useState(0);
+  const [autoTransfers, setAutoTransfers] = useState(0);
   const [spend, setSpend] = useState<CategorySpend[]>([]);
   const [income, setIncome] = useState(0);
   const [prevSpent, setPrevSpent] = useState(0);
@@ -32,11 +34,11 @@ export default function Home() {
   const load = useCallback(async () => {
     const [from, to] = monthRange(month);
     const [pf, pt] = monthRange(shiftMonth(month, -1));
-    const [p, s, i, ps, b, r, c] = await Promise.all([
+    const [p, s, i, ps, b, r, c, at] = await Promise.all([
       countPending(db), spendByCategory(db, from, to), totalFor(db, 'credit', from, to), totalFor(db, 'debit', pf, pt), getBudget(db, month),
-      queryTxns(db, { from, to, transfers: 'hide' }, 0), getCategories(db),
+      queryTxns(db, { from, to, transfers: 'hide' }, 0), getCategories(db), countAutoTransfers(db),
     ]);
-    setPending(p); setSpend(s); setIncome(i); setPrevSpent(ps); setBudgetState(b); setRecent(r.slice(0, 5)); setCats(c); setLoaded(true);
+    setPending(p); setAutoTransfers(at); setSpend(s); setIncome(i); setPrevSpent(ps); setBudgetState(b); setRecent(r.slice(0, 5)); setCats(c); setLoaded(true);
   }, [db, month]);
   useFocusEffect(useCallback(() => void load(), [load]));
   useEffect(() => onIngested(() => void load()), [load]);
@@ -69,6 +71,17 @@ export default function Home() {
             </View>
             <ChevronRight color={colors.onaccent} />
           </Pressable>
+        )}
+
+        {autoTransfers > 0 && (
+          <View className="mb-4 rounded-3xl bg-card p-4">
+            <Text className="text-base font-semibold text-fg">{autoTransfers} transfer{autoTransfers === 1 ? '' : 's'} detected</Text>
+            <Text className="mt-1 text-sm text-muted">Moves between your own accounts and card bill payments are left out of spending and income.</Text>
+            <View className="mt-3 flex-row">
+              <Button className="mr-3 flex-1" variant="secondary" label="Review" onPress={() => router.push('/activity?transfers=only')} />
+              <Button className="flex-1" variant="secondary" label="Looks right" onPress={async () => { await acknowledgeAutoTransfers(db); notifyIngested(); }} />
+            </View>
+          </View>
         )}
 
         <MonthBar month={month} onChange={setMonth} max={now} />

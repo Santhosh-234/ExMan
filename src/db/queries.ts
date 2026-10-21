@@ -23,6 +23,10 @@ export type Txn = {
   merchant_id: number | null;
   notes: string | null;
   is_transfer: number;
+  transfer_auto: number;
+  transfer_reason: string | null;
+  transfer_pair_id: number | null;
+  transfer_blocked: number;
   updated_at: number | null;
 };
 
