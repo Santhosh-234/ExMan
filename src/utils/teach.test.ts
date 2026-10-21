@@ -107,3 +107,19 @@ test('a taught "Spent . 32 USD" format reads later messages as USD', () => {
   const p = toParsed('Spent . 7.5 USD at GITHUB', 'VM-AXISBK', 1, got);
   assert.deepEqual([p.currency, p.foreignMinor, p.amountPaise], ['USD', 750, 0]);
 });
+
+test('a leading-dot amount ".32 USD" is one tappable number and teaches a USD format', () => {
+  const text = 'Card 1234 Spent .32 USD at NETFLIX on 20Oct';
+  const toks = tokenize(text);
+  assert.ok(toks.some((t) => t.text === '.32'));
+  const i = idx(text, '.32');
+  const built = buildPattern(text, { amount: [i, i] }, 'debit', 'USD');
+  assert.ok(built.ok);
+  assert.equal(built.ok && built.preview.amountPaise, 32);
+  assert.equal(detectCurrency(text, toks, i), 'USD');
+  assert.equal(applyPattern('Card 1234 Spent .75 USD at HULU on 21Oct', built.ok ? built.pattern : (null as never))?.amountPaise, 75);
+});
+
+test('"Rs.500" keeps the dot apart from the number', () => {
+  assert.deepEqual(tokenize('Rs.500 paid').map((t) => t.text), ['Rs', '.', '500', 'paid']);
+});
