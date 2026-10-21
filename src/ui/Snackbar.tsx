@@ -1,7 +1,7 @@
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, Text } from 'react-native';
 
-type Snack = { message: string; actionLabel?: string; onAction?: () => void };
+type Snack = { message: string; actionLabel?: string; onAction?: () => void; secondLabel?: string; onSecond?: () => void };
 const Ctx = createContext<(s: Snack) => void>(() => {});
 export const useSnackbar = () => useContext(Ctx);
 
@@ -20,7 +20,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
     clearTimeout(timer.current);
     setSnack(s);
     Animated.timing(opacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
-    timer.current = setTimeout(hide, 5000);
+    timer.current = setTimeout(hide, s.onSecond ? 8000 : 5000);
   }, [hide, opacity]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -37,6 +37,11 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
             onPress={hide}
             style={{ backgroundColor: '#1F2937', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ color: '#F3F4F6', flex: 1, fontSize: 15 }}>{snack.message}</Text>
+            {snack.onSecond && (
+              <Pressable hitSlop={12} onPress={() => { snack.onSecond?.(); hide(); }}>
+                <Text style={{ color: '#9CA3AF', fontWeight: '600', marginLeft: 16 }}>{snack.secondLabel ?? 'Undo'}</Text>
+              </Pressable>
+            )}
             {snack.onAction && (
               <Pressable hitSlop={12} onPress={() => { snack.onAction?.(); hide(); }}>
                 <Text style={{ color: '#34D399', fontWeight: '600', marginLeft: 16 }}>{snack.actionLabel ?? 'Undo'}</Text>

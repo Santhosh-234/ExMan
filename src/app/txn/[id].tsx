@@ -9,6 +9,7 @@ import { notifyIngested } from '@/ingest/events';
 import { Amount, Button, Card } from '@/ui/kit';
 import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
+import { useRuleOffer } from '@/ui/useRuleOffer';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 
@@ -19,6 +20,7 @@ export default function TxnDetail() {
   const db = useSQLiteContext();
   const router = useRouter();
   const snack = useSnackbar();
+  const offerRule = useRuleOffer();
   const { colors } = useTheme();
   const [t, setT] = useState<Txn | null>(null);
   const [cats, setCats] = useState<Category[]>([]);
@@ -49,9 +51,13 @@ export default function TxnDetail() {
   };
 
   const patch = async (p: Parameters<typeof updateTxn>[2]) => {
+    const catChanged = p.category_id != null && p.category_id !== t.category_id;
     await updateTxn(db, t.id, p);
     notifyIngested();
     load();
+    if (catChanged) {
+      await offerRule({ merchantId: t.merchant_id, merchantName: t.merchant, categoryId: p.category_id!, categoryName: cats.find((c) => c.id === p.category_id)?.name ?? 'this category' });
+    }
   };
   const toggleTransfer = async () => {
     const next = t.is_transfer ? 0 : 1;

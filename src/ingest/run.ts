@@ -1,6 +1,8 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { drain, readInbox, type RawMessage } from '../../modules/vibe-listener';
+import { type MerchantCache, ensureMerchant } from '@/db/merchantCore';
+import { loadRuleIndex } from '@/db/merchants';
 import { guessCategory } from '@/utils/categorize';
 import { hashMessage } from '@/utils/hash';
 import { extractBalance, isDuplicate, parseMessage } from '@/utils/parser';
@@ -13,6 +15,8 @@ type Ctx = {
   seen: Set<string>;
   cats: Map<string, number>;
   accts: Map<string, number>;
+  merchants: MerchantCache;
+  rules: Awaited<ReturnType<typeof loadRuleIndex>>;
 };
 
 async function makeCtx(db: SQLiteDatabase, since: number): Promise<Ctx> {
@@ -26,7 +30,7 @@ async function makeCtx(db: SQLiteDatabase, since: number): Promise<Ctx> {
   const into = new Map(rows.map((a) => [a.id, a.merged_into]));
   const final = (id: number) => { let cur = id; for (let i = 0; i < 10 && into.get(cur); i++) cur = into.get(cur)!; return cur; };
   const accts = new Map(rows.map((a) => [`${a.kind}|${a.bank}|${a.last4}`, final(a.id)]));
-  return { seen, cats, accts };
+  return { seen, cats, accts, merchants: new Map(), rules: await loadRuleIndex(db) };
 }
 
 /** Bank + last-4 (+ card vs account) identifies an account; created on first sight. */
@@ -72,14 +76,17 @@ async function store(db: SQLiteDatabase, ctx: Ctx, m: RawMessage): Promise<boole
   );
   if (near.some((r) => isDuplicate(t, { amountPaise: r.amount_paise, direction: r.direction, account: r.account_last4, ts: r.ts }))) return false;
 
-  const guess = guessCategory(t.merchant, t.direction);
+  // user rules first (merchant, then keyword), then the built-in keyword guesses
+  const merchant = await ensureMerchant(db, t.merchant, ctx.merchants);
+  const ruleCat = ctx.rules.categoryFor(merchant?.id ?? null, t.merchant);
+  const guess = guessCategory(merchant?.name ?? t.merchant, t.direction);
   const accountId = await accountFor(db, ctx, t.bank, t.account, t.mode);
   await db.runAsync(
     `INSERT OR IGNORE INTO transactions
-       (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, payment_mode, ts, raw_text, msg_hash)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    t.amountPaise, t.direction, t.merchant, (guess && ctx.cats.get(guess)) || null, accountId,
-    t.source, t.bank, t.account, t.mode, t.ts, m.text, hash,
+       (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, payment_mode, ts, raw_text, msg_hash, merchant_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    t.amountPaise, t.direction, merchant?.name ?? t.merchant, ruleCat ?? ((guess && ctx.cats.get(guess)) || null), accountId,
+    t.source, t.bank, t.account, t.mode, t.ts, m.text, hash, merchant?.id ?? null,
   );
   if (accountId && t.balance) await recordBalance(db, accountId, t.balance, t.ts);
   return true;
@@ -152,5 +159,20 @@ export async function backfillAccounts(db: SQLiteDatabase) {
       if (acct && bal) await recordBalance(tx, acct, bal, r.ts);
     }
     await tx.runAsync("INSERT INTO settings (key, value) VALUES ('accounts_backfilled_v1', '1')");
+  });
+}
+
+/** One-time: group existing transactions under canonical merchants (clean names, shared merchant_id). */
+export async function backfillMerchants(db: SQLiteDatabase) {
+  const done = await db.getFirstAsync("SELECT 1 FROM settings WHERE key = 'merchants_backfilled_v1'");
+  if (done) return;
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const cache: MerchantCache = new Map();
+    const rows = await tx.getAllAsync<{ id: number; merchant: string }>('SELECT id, merchant FROM transactions WHERE merchant IS NOT NULL AND merchant_id IS NULL');
+    for (const r of rows) {
+      const m = await ensureMerchant(tx, r.merchant, cache);
+      if (m) await tx.runAsync('UPDATE transactions SET merchant_id = ?, merchant = ? WHERE id = ?', m.id, m.name, r.id);
+    }
+    await tx.runAsync("INSERT INTO settings (key, value) VALUES ('merchants_backfilled_v1', '1')");
   });
 }

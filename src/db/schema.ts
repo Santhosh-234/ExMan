@@ -136,6 +136,28 @@ const MIGRATIONS = [
   ALTER TABLE accounts ADD COLUMN merged_into INTEGER REFERENCES accounts(id);
   CREATE INDEX idx_txn_account ON transactions (account_id, ts DESC);
   `,
+  // merchants (canonical payees) and user rules; merged merchants keep a hidden alias like accounts do
+  `
+  CREATE TABLE merchants (
+    id INTEGER PRIMARY KEY,
+    key TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    merged_into INTEGER REFERENCES merchants(id)
+  );
+  ALTER TABLE transactions ADD COLUMN merchant_id INTEGER REFERENCES merchants(id);
+  CREATE INDEX idx_txn_merchant ON transactions (merchant_id);
+
+  CREATE TABLE rules (
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('merchant','keyword')),
+    merchant_id INTEGER REFERENCES merchants(id) ON DELETE CASCADE,
+    keyword TEXT,
+    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX idx_rules_merchant ON rules (merchant_id) WHERE kind = 'merchant';
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

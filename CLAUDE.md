@@ -19,6 +19,8 @@ Privacy-first, offline-first expense manager. Expo SDK 58 + Expo Router, NativeW
 
 - V2 Phase 4a (accounts) done, untested on device: `/accounts` + `/account/[id]` (reached from Settings > Manage accounts): per-account month spent/received, latest balance or available card limit parsed from SMS (`extractBalance` in parser.ts; stored on `accounts`, newest wins), rename, archive, merge (source kept as hidden alias via `merged_into` so re-imports resolve to the target), add manual account. Migration 6 + `backfillAccounts()` (runs once at launch) links old transactions to accounts. Activity accepts `?account=<id>`. JS-only, so OTA applies. Next in Phase 4: merchants + learned rules, auto transfers, Teach ExMan, custom categories.
 
+- V2 Phase 4b (merchants + rules) done, untested on device: `src/utils/merchants.ts` (normalise payee spellings, brand table), migration 7 (`merchants`, `rules`, `transactions.merchant_id`), `src/db/merchantCore.ts` (ensureMerchant, no deps) and `src/db/merchants.ts` (rules, merge, rename, apply-to-existing with undo). Ingest assigns canonical merchant + category from rules (merchant rule > keyword rule > built-in guess); one-time `backfillMerchants()` rewrites existing names. After a manual category change the app offers "Always put X under Y?" (`useRuleOffer`). Screens `/merchants`, `/rules` under Settings > Categorisation. DB tests use node:sqlite (`src/db/merchants.test.ts`). Still to do in Phase 4: automatic transfer detection, Teach ExMan, custom categories.
+
 ## Known gaps / next
 - Bank shows `?` when the SMS sender ID isn't in the BANKS list in parser.ts (add new banks there).
 - Verify Step 3 on device; notification-path regexes still unverified.
