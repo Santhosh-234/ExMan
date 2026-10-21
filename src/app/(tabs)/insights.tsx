@@ -1,14 +1,16 @@
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import { Bars, Pie } from '@/components/Charts';
 import { MonthBar } from '@/components/MonthBar';
-import { type CategorySpend, monthlyTotals, spendByCategory, topMerchants } from '@/db/queries';
-import { Chip } from '@/ui/kit';
+import { type CategorySpend, monthlyTotals, spendByCategory, topMerchants, totalFor } from '@/db/queries';
+import { onIngested } from '@/ingest/events';
+import { Card, Chip } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { monthKey, monthLabel, monthRange, rupees, shiftMonth } from '@/utils/format';
+import { buildCallouts } from '@/utils/insights';
 
 export default function Insights() {
   const db = useSQLiteContext();
@@ -16,31 +18,54 @@ export default function Insights() {
   const { colors } = useTheme();
   const nowKey = monthKey(new Date());
   const [month, setMonth] = useState(nowKey);
+  const [range, setRange] = useState<6 | 12>(6);
   const [spend, setSpend] = useState<CategorySpend[]>([]);
+  const [callouts, setCallouts] = useState<string[]>([]);
   const [filter, setFilter] = useState<number | null | 'all'>('all');
   const [series, setSeries] = useState<{ label: string; value: number }[]>([]);
   const [income, setIncome] = useState<{ label: string; value: number }[]>([]);
+  const [saved, setSaved] = useState<{ label: string; value: number }[]>([]);
   const [merchants, setMerchants] = useState<{ merchant: string; total: number; n: number }[]>([]);
 
   const load = useCallback(async () => {
-    const now = monthKey(new Date());
-    const months = [5, 4, 3, 2, 1, 0].map((i) => shiftMonth(now, -i));
+    const months = Array.from({ length: range }, (_, i) => shiftMonth(nowKey, -(range - 1 - i)));
     const lab = (m: string) => monthLabel(m).split(' ')[0];
-    const rows = await monthlyTotals(db, monthRange(months[0])[0], monthRange(now)[1]);
+    const rows = await monthlyTotals(db, monthRange(months[0])[0], monthRange(nowKey)[1]);
     const sum = (m: string, dir: string) => rows.find((r) => r.month === m && r.direction === dir)?.total ?? 0;
     setSeries(months.map((m) => ({ label: lab(m), value: sum(m, 'debit') })));
     setIncome(months.map((m) => ({ label: lab(m), value: sum(m, 'credit') })));
-    setSpend(await spendByCategory(db, ...monthRange(month)));
-    setMerchants(await topMerchants(db, monthRange(months[0])[0], monthRange(now)[1], 8));
-  }, [db, month]);
-  useFocusEffect(useCallback(() => void load(), [load]));
+    setSaved(months.map((m) => ({ label: lab(m), value: Math.max(0, sum(m, 'credit') - sum(m, 'debit')) })));
+    setMerchants(await topMerchants(db, monthRange(months[0])[0], monthRange(nowKey)[1], 8));
 
+    // the selected month, plus the three months before it for "vs your average"
+    const cur = await spendByCategory(db, ...monthRange(month));
+    setSpend(cur);
+    const history = await Promise.all([1, 2, 3].map((i) => spendByCategory(db, ...monthRange(shiftMonth(month, -i)))));
+    const [spent, prevSpent, inc] = await Promise.all([
+      totalFor(db, 'debit', ...monthRange(month)), totalFor(db, 'debit', ...monthRange(shiftMonth(month, -1))), totalFor(db, 'credit', ...monthRange(month)),
+    ]);
+    setCallouts(buildCallouts({ spend: cur, history, spent, prevSpent, income: inc }));
+  }, [db, month, range, nowKey]);
+  useFocusEffect(useCallback(() => void load(), [load]));
+  useEffect(() => onIngested(() => void load()), [load]);
+
+  const shown = useMemo(() => (filter === 'all' ? spend : spend.filter((s) => s.category_id === filter)), [spend, filter]);
   const cw = width - 64;
+  const rangeLabel = range === 6 ? '6 months' : '12 months';
+
   return (
-    <ScrollView className="flex-1 bg-base px-4 pt-14">
+    <ScrollView className="flex-1 bg-base px-4 pt-14" showsVerticalScrollIndicator={false}>
       <Text className="mb-4 text-3xl font-bold text-fg" accessibilityRole="header">Insights</Text>
       <MonthBar month={month} onChange={setMonth} max={nowKey} />
-      <View className="mb-4 rounded-2xl bg-card p-4">
+
+      {callouts.length > 0 && (
+        <Card className="mb-4">
+          <Text className="mb-2 text-base font-semibold text-fg">This month</Text>
+          {callouts.map((c) => <Text key={c} className="mb-1.5 text-fg">• {c}</Text>)}
+        </Card>
+      )}
+
+      <Card className="mb-4">
         <Text className="mb-3 text-base font-semibold text-fg">By category</Text>
         <View className="mb-2 flex-row flex-wrap">
           <Chip label="All" selected={filter === 'all'} color={colors.accent} onPress={() => setFilter('all')} />
@@ -50,9 +75,9 @@ export default function Insights() {
           <Text className="text-muted">Nothing confirmed this month.</Text>
         ) : (
           <View className="items-center">
-            <Pie data={(filter === 'all' ? spend : spend.filter((s) => s.category_id === filter)).map((s) => ({ label: s.name, value: s.total, color: s.color }))} />
+            <Pie data={shown.map((s) => ({ label: s.name, value: s.total, color: s.color }))} label={`Spending in ${monthLabel(month)}`} />
             <View className="mt-3 w-full">
-              {(filter === 'all' ? spend : spend.filter((s) => s.category_id === filter)).map((s) => (
+              {shown.map((s) => (
                 <View key={String(s.category_id)} className="mb-1.5 flex-row items-center justify-between">
                   <View className="flex-row items-center"><View className="mr-2 h-3 w-3 rounded-full" style={{ backgroundColor: s.color }} /><Text className="text-fg">{s.name}</Text></View>
                   <Text className="text-muted">{rupees(s.total)}</Text>
@@ -61,17 +86,30 @@ export default function Insights() {
             </View>
           </View>
         )}
+      </Card>
+
+      <View className="mb-2 flex-row items-center justify-between">
+        <Text className="text-lg font-semibold text-fg" accessibilityRole="header">Trends</Text>
+        <View className="flex-row">
+          <Chip label="6M" selected={range === 6} color={colors.accent} onPress={() => setRange(6)} />
+          <Chip label="12M" selected={range === 12} color={colors.accent} onPress={() => setRange(12)} />
+        </View>
       </View>
-      <View className="mb-4 rounded-2xl bg-card p-4">
-        <Text className="mb-3 text-base font-semibold text-fg">Spending, last 6 months</Text>
-        <Bars data={series} width={cw} />
-      </View>
-      <View className="mb-4 rounded-2xl bg-card p-4">
-        <Text className="mb-3 text-base font-semibold text-fg">Income, last 6 months</Text>
-        <Bars data={income} width={cw} />
-      </View>
-      <View className="mb-4 rounded-2xl bg-card p-4">
-        <Text className="mb-3 text-base font-semibold text-fg">Top merchants (6 months)</Text>
+      <Card className="mb-4">
+        <Text className="mb-3 text-base font-semibold text-fg">Spending, last {rangeLabel}</Text>
+        <Bars data={series} width={cw} label={`Spending, last ${rangeLabel}`} />
+      </Card>
+      <Card className="mb-4">
+        <Text className="mb-3 text-base font-semibold text-fg">Income, last {rangeLabel}</Text>
+        <Bars data={income} width={cw} label={`Income, last ${rangeLabel}`} />
+      </Card>
+      <Card className="mb-4">
+        <Text className="mb-1 text-base font-semibold text-fg">Saved, last {rangeLabel}</Text>
+        <Text className="mb-3 text-xs text-muted">Income minus spending, per month (never below zero).</Text>
+        <Bars data={saved} width={cw} label={`Saved, last ${rangeLabel}`} />
+      </Card>
+      <Card className="mb-4">
+        <Text className="mb-3 text-base font-semibold text-fg">Top merchants ({rangeLabel})</Text>
         {merchants.length === 0 && <Text className="text-muted">Nothing confirmed yet.</Text>}
         {merchants.map((m) => (
           <View key={m.merchant} className="mb-2 flex-row justify-between">
@@ -79,7 +117,7 @@ export default function Insights() {
             <Text className="text-muted">{rupees(m.total)}</Text>
           </View>
         ))}
-      </View>
+      </Card>
       <View className="h-8" />
     </ScrollView>
   );
