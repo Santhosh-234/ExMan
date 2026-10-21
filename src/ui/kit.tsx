@@ -56,12 +56,12 @@ export function Chip({ label, color, selected, onPress }: { label: string; color
 }
 
 /** Signed amount in INR with Indian grouping; colour carries direction, sign carries it for screen readers. */
-export function Amount({ paise, direction, className = 'text-lg' }: { paise: number; direction?: 'debit' | 'credit'; className?: string }) {
+export function Amount({ paise, direction, className = 'text-lg', approx, muted }: { paise: number; direction?: 'debit' | 'credit'; className?: string; approx?: boolean; muted?: boolean }) {
   const sign = direction === 'debit' ? '-' : direction === 'credit' ? '+' : '';
-  const tone = direction === 'debit' ? 'text-danger' : direction === 'credit' ? 'text-accent' : 'text-fg';
+  const tone = muted ? 'text-muted' : direction === 'debit' ? 'text-danger' : direction === 'credit' ? 'text-accent' : 'text-fg';
   return (
     <Text className={`font-semibold ${tone} ${className}`} accessibilityLabel={`${direction === 'credit' ? 'received' : direction === 'debit' ? 'spent' : ''} ${rupees(paise)}`}>
-      {sign}{rupees(paise)}
+      {approx ? '≈' : ''}{sign}{rupees(paise)}
     </Text>
   );
 }

@@ -92,3 +92,18 @@ test('card bill payment links the card credit to the bank debit within 3 days, e
   assert.equal(findCardBillPartner(debit, [{ ...flagged, pair_id: 99 }]), null);
   assert.equal(findCardBillPartner(credit, [{ ...debit, blocked: 1 }]), null);
 });
+
+test('more ways a bank debit names a credit card payment', () => {
+  const t = (raw_text: string) => classifyAlone(tx({ raw_text }));
+  for (const text of [
+    'INR 12,000 debited A/c XX1234 UPI/P2A/123/AXISCARD',
+    'Rs 8000 debited to AXIS BANK CC 4321 ref 9988',
+    'NEFT-AXIS BANK CARDS-12000 debited from a/c',
+    'Rs.5,000 debited BBPS payment HDFC credit card',
+    'Rs 3,500 paid via BBPS to ICICI card ending 5678',
+    'Card repayment of Rs 9000 from a/c XX1234',
+  ]) assert.equal(t(text), REASON.cardBill, text);
+  // still not: debit-card purchases, electricity BBPS, ATM
+  for (const text of ['Rs 500 spent on Axis Bank Debit Card XX1234 at SWIGGY', 'Rs 1,800 paid via BBPS to BESCOM electricity', 'Rs 5000 withdrawn at ATM using card XX1234'])
+    assert.equal(t(text), null, text);
+});

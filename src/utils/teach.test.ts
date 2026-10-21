@@ -32,10 +32,10 @@ test('builds a pattern from taps and applies it to a different message in the sa
   const r = buildPattern(EXAMPLE, sel, 'debit');
   assert.ok(r.ok, r.ok ? '' : r.error);
   if (!r.ok) return;
-  assert.deepEqual(r.preview, { amountPaise: 45050, direction: 'debit', merchant: 'SWIGGY ORDER', account: '1234' });
+  assert.deepEqual(r.preview, { amountPaise: 45050, direction: 'debit', merchant: 'SWIGGY ORDER', account: '1234', currency: 'INR' });
 
   const other = applyPattern('ALERT: 1,200 INR gone from acct 9876 for ZOMATO GOLD on 21Oct', r.pattern);
-  assert.deepEqual(other, { amountPaise: 120000, direction: 'debit', merchant: 'ZOMATO GOLD', account: '9876' });
+  assert.deepEqual(other, { amountPaise: 120000, direction: 'debit', merchant: 'ZOMATO GOLD', account: '9876', currency: 'INR' });
 
   // unrelated messages from the same sender don't match
   assert.equal(applyPattern('Your OTP is 556677. Do not share.', r.pattern), null);
@@ -68,4 +68,20 @@ test('taught transactions look like parsed ones (bank, mode, balance)', () => {
   assert.equal(p.mode, 'UPI');
   assert.deepEqual(p.balance, { paise: 400000, kind: 'balance' });
   assert.equal(p.source, 'sms');
+});
+
+test('a taught foreign-currency format keeps its original amount for ingest to convert', () => {
+  const text = 'ALERT: 12.99 USD charged on card 1234 at OPENAI';
+  const toks = tokenize(text);
+  const at = (w: string) => toks.findIndex((t) => t.text === w);
+  const r = buildPattern(text, { amount: [at('12.99'), at('12.99')], account: [at('1234'), at('1234')] }, 'debit', 'USD');
+  assert.ok(r.ok, r.ok ? '' : r.error);
+  if (!r.ok) return;
+  assert.equal(r.pattern.currency, 'USD');
+  const taught = applyPattern('ALERT: 5 USD charged on card 9999 at X', r.pattern)!;
+  const p = toParsed('ALERT: 5 USD charged', 'VM-AXISBK', 1, taught);
+  assert.deepEqual([p.amountPaise, p.currency, p.foreignMinor], [0, 'USD', 500]);
+  // rupee formats are unchanged
+  const inr = toParsed('x', 'VM-AXISBK', 1, { amountPaise: 12300, direction: 'debit', merchant: null, account: null, currency: 'INR' });
+  assert.deepEqual([inr.amountPaise, inr.currency], [12300, undefined]);
 });

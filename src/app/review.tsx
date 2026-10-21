@@ -13,6 +13,7 @@ import { rejectTransfer } from '@/db/transfers';
 import { track } from '@/telemetry';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
+import { formatForeign } from '@/utils/currency';
 
 const THRESHOLD = 110;
 
@@ -69,7 +70,8 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
 
         <View className="mt-4 items-center">
           <Text className="text-xs uppercase tracking-wider text-muted">{txn.direction === 'debit' ? 'Spent' : 'Received'}</Text>
-          <Amount paise={txn.amount_paise} direction={txn.direction} className="text-5xl" />
+          <Amount paise={txn.amount_paise} direction={txn.direction} approx={!!txn.currency} className="text-5xl" />
+          {txn.currency && txn.foreign_minor ? <Text className="mt-1 text-sm text-muted">{formatForeign(txn.foreign_minor, txn.currency)} converted at an approximate rate. Tap the merchant to set the exact rupee amount from your statement.</Text> : null}
           <Pressable onPress={onEdit} accessibilityRole="button" accessibilityLabel="Edit merchant and amount" hitSlop={8}>
             <Text className="mt-2 text-xl text-fg">{txn.merchant ?? 'Unknown merchant'}</Text>
           </Pressable>

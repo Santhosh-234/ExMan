@@ -13,6 +13,7 @@ export type TxnLite = {
   blocked: number; // user said "not a transfer"
   reason: string | null;
   pair_id: number | null;
+  merchant_id?: number | null;
 };
 
 export const REASON = {
@@ -20,6 +21,7 @@ export const REASON = {
   cardBill: 'credit card bill payment',
   cardReceived: 'card payment received',
   user: 'marked by you',
+  rule: 'always a transfer (your rule)',
 } as const;
 
 const MIN = 60_000;
@@ -28,7 +30,7 @@ export const WINDOW = { instant: 5 * MIN, imps: 15 * MIN, neft: 6 * 60 * MIN, hi
 const ISSUERS = 'hdfc|icici|axis|sbi|kotak|idfc|yes|rbl|indusind|au|amex|american express|standard chartered|citi|hsbc|bob|boi|pnb|federal|onecard|slice|amazon pay';
 // a bank-side debit that pays a credit card: "credit card", "CC bill", "SBI Card", CRED, ...
 const CARD_BILL = new RegExp(
-  String.raw`credit\s*card|\bcc\s*(?:bill|payment|pymt|pay)|card\s*(?:bill|payment|outstanding|dues?)|\b(?:${ISSUERS})\s*(?:bank\s*)?(?:credit\s*)?cards?\b|\bcred(?:\s*club)?\b|clubcred`,
+  String.raw`credit\s*card|\bcc\s*(?:bill|payment|pymt|pay)|\b(?:${ISSUERS})\s*(?:bank\s*)?cc\b|\b(?:${ISSUERS})card|card\s*(?:bill|payment|pymt|outstanding|dues?|repayment)|\b(?:${ISSUERS})\s*(?:bank\s*)?(?:credit\s*)?cards?\b|\bcred(?:\s*club)?\b|clubcred|\bbbps\b[^.]*\bcard\b|\bcard\b[^.]*\bbbps\b`,
   'i',
 );
 const PAYMENT_WORD = /\b(?:payment|pmt)\b/i;

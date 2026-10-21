@@ -28,6 +28,8 @@ export type Txn = {
   transfer_pair_id: number | null;
   transfer_blocked: number;
   refund_of: number | null;
+  currency: string | null;
+  foreign_minor: number | null;
   updated_at: number | null;
 };
 
@@ -89,11 +91,13 @@ export async function addManualTxn(
   t: { amount_paise: number; direction: 'debit' | 'credit'; merchant: string | null; category_id: number | null; account_id: number | null; ts: number; tags: string; notes: string | null },
 ) {
   const acct = t.account_id ? await db.getFirstAsync<Account>('SELECT * FROM accounts WHERE id = ?', t.account_id) : null;
+  // link to a canonical merchant so rules ("Always put X under Y") and transfer rules work for hand-entered rows too
+  const m = await ensureMerchant(db, t.merchant);
   return (
     await db.runAsync(
-      `INSERT INTO transactions (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, ts, status, tags, notes, updated_at)
-       VALUES (?, ?, ?, ?, ?, 'manual', ?, ?, ?, 'confirmed', ?, ?, ?)`,
-      t.amount_paise, t.direction, t.merchant, t.category_id, t.account_id, acct?.bank ?? null, acct?.last4 ?? null, t.ts, t.tags, t.notes, Date.now(),
+      `INSERT INTO transactions (amount_paise, direction, merchant, merchant_id, category_id, account_id, source, bank, account_last4, ts, status, tags, notes, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'manual', ?, ?, ?, 'confirmed', ?, ?, ?)`,
+      t.amount_paise, t.direction, m?.name ?? t.merchant, m?.id ?? null, t.category_id, t.account_id, acct?.bank ?? null, acct?.last4 ?? null, t.ts, t.tags, t.notes, Date.now(),
     )
   ).lastInsertRowId;
 }

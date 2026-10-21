@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { type Account, type Category, type Txn, getAccounts, getCategories, getEditLog, getTxn, linkRefund, refundCandidates, unlinkRefund, updateTxn } from '@/db/queries';
-import { markTransferByUser, rejectTransfer } from '@/db/transfers';
+import { isTransferMerchant, markTransferByUser, rejectTransfer, setTransferMerchant } from '@/db/transfers';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
 import { Amount, Button, Card, Sheet } from '@/ui/kit';
@@ -14,6 +14,7 @@ import { useSnackbar } from '@/ui/Snackbar';
 import { useRuleOffer } from '@/ui/useRuleOffer';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
+import { formatForeign } from '@/utils/currency';
 
 const FIELD: Record<string, string> = { amount_paise: 'Amount', merchant: 'Merchant', category_id: 'Category', tags: 'Tags', notes: 'Notes', account_id: 'Account', is_transfer: 'Transfer', ts: 'Date', direction: 'Direction' };
 
@@ -81,7 +82,21 @@ export default function TxnDetail() {
       track('feature_used', { feature: 'transfer_marked' });
       notifyIngested();
       load();
-      snack({ message: 'Marked as transfer (not counted as spending)', onAction: async () => { await updateTxn(db, t.id, { is_transfer: 0 }); await rejectTransfer(db, t.id); notifyIngested(); load(); } });
+      const undo = async () => { await updateTxn(db, t.id, { is_transfer: 0 }); await rejectTransfer(db, t.id); notifyIngested(); load(); };
+      // offer to remember it for the merchant, so the next payment there is caught automatically
+      if (t.merchant_id && t.merchant && !(await isTransferMerchant(db, t.merchant_id))) {
+        snack({
+          message: `Marked as transfer. Always treat ${t.merchant} as a transfer?`,
+          actionLabel: 'Always',
+          onAction: async () => {
+            const { n, undo: undoRule } = await setTransferMerchant(db, t.merchant_id!, true);
+            notifyIngested(); load();
+            snack({ message: n > 1 ? `Rule saved · ${n} transactions marked as transfers` : 'Rule saved', onAction: () => void undoRule().then(() => { notifyIngested(); load(); }) });
+          },
+          secondLabel: 'Undo',
+          onSecond: undo,
+        });
+      } else snack({ message: 'Marked as transfer (not counted as spending)', onAction: undo });
     }
   };
   const openLinker = async () => setLinking(await refundCandidates(db, t));
@@ -122,7 +137,7 @@ export default function TxnDetail() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="mb-4 items-center">
           <Text className="text-xs uppercase tracking-wider text-muted">{t.direction === 'debit' ? 'Spent' : 'Received'}</Text>
-          <Amount paise={t.amount_paise} direction={t.direction} className="text-5xl" />
+          <Amount paise={t.amount_paise} direction={t.direction} approx={!!t.currency} className="text-5xl" />
           <Text className="mt-2 text-xl text-fg">{t.merchant ?? 'Unknown merchant'}</Text>
           {t.is_transfer ? (
             <View className="mt-2 flex-row items-center rounded-full bg-card2 px-3 py-1"><Repeat size={14} color={colors.muted} /><Text className="ml-1 text-xs text-muted">Transfer{t.transfer_reason ? ` · ${t.transfer_reason}` : ''}, not counted in totals</Text></View>
@@ -130,6 +145,7 @@ export default function TxnDetail() {
         </View>
 
         <Card className="mb-4">
+          {t.currency && t.foreign_minor ? <Row k="Original amount" v={`${formatForeign(t.foreign_minor, t.currency)} (≈ rupees, edit to match your statement)`} /> : null}
           <Row k="Category" v={cat?.name ?? 'Uncategorised'} />
           <Row k="Account" v={acct?.name ?? t.bank ?? 'Unknown'} />
           <Row k="Date" v={new Date(t.ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} />

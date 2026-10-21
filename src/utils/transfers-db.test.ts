@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 
 import { migrate } from '../db/schema';
-import { acknowledgeAutoTransfers, backfillTransfers, countAutoTransfers, detectTransfers, markTransferByUser, rejectTransfer } from '../db/transfers';
+import { setTransferMerchant, acknowledgeAutoTransfers, backfillTransfers, countAutoTransfers, detectTransfers, markTransferByUser, rejectTransfer } from '../db/transfers';
 
 const T = 1_760_000_000_000;
 const MIN = 60_000;
@@ -91,4 +91,29 @@ test('user marking is not an auto-detection; backfill runs once', async () => {
   assert.equal(row(a).transfer_pair_id, b);
   assert.equal(await backfillTransfers(db), 0);
   assert.equal((raw.prepare("select count(*) c from settings where key = 'transfers_backfilled_v1'").get() as any).c, 1);
+});
+
+test('"always a transfer" for a merchant marks existing rows and new ones, and can be undone', async () => {
+  const { db, raw, row, add } = await setup();
+  raw.exec("insert into merchants (id,key,name) values (7,'my axis card','My Axis Card')");
+  const mk = (ts: number) => { const id = add({ dir: 'debit', acct: 12, ts, amount: 321_00, merchant: 'My Axis Card' }); raw.prepare('update transactions set merchant_id = 7 where id = ?').run(id); return id; };
+  const old = mk(T);
+  const { n, undo } = await setTransferMerchant(db, 7, true);
+  assert.equal(n, 1);
+  assert.deepEqual([row(old).is_transfer, row(old).transfer_reason, row(old).transfer_auto], [1, 'always a transfer (your rule)', 0]);
+
+  const fresh = mk(T + 60 * MIN);
+  assert.equal(await detectTransfers(db, [fresh]), 1); // a later payment there is caught on arrival
+  assert.equal(row(fresh).is_transfer, 1);
+  assert.equal(await countAutoTransfers(db), 0); // the user's own rule is not surfaced as a surprise
+
+  // a "not a transfer" veto on one row still wins over the rule
+  const vetoed = mk(T + 120 * MIN);
+  await rejectTransfer(db, vetoed);
+  assert.equal(await detectTransfers(db, [vetoed]), 0);
+
+  await undo();
+  assert.equal(row(old).is_transfer, 0);
+  assert.equal(await setTransferMerchant(db, 7, false).then((r) => r.n), 1); // turning off un-marks the rule's remaining row (the fresh one)
+  assert.equal(row(fresh).is_transfer, 0);
 });

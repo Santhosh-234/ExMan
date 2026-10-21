@@ -4,7 +4,7 @@ import { getSetting } from '@/db/queries';
 
 type Row = {
   id: number; amount_paise: number; direction: string; merchant: string | null; category: string | null;
-  bank: string | null; account_last4: string | null; payment_mode: string | null; ts: number; tags: string; firefly_name: string | null;
+  bank: string | null; account_last4: string | null; payment_mode: string | null; ts: number; tags: string; firefly_name: string | null; currency: string | null; foreign_minor: number | null;
 };
 
 /**
@@ -22,7 +22,7 @@ export async function syncNow(db: SQLiteDatabase): Promise<number> {
 
   const rows = await db.getAllAsync<Row>(
     `SELECT t.id, t.amount_paise, t.direction, t.merchant, c.name AS category, t.bank, t.account_last4,
-            t.payment_mode, t.ts, t.tags, a.firefly_name
+            t.payment_mode, t.ts, t.tags, a.firefly_name, t.currency, t.foreign_minor
      FROM transactions t LEFT JOIN categories c ON c.id = t.category_id LEFT JOIN accounts a ON a.id = t.account_id
      WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND t.synced_at IS NULL ORDER BY t.ts`,
   );
@@ -43,6 +43,8 @@ export async function syncNow(db: SQLiteDatabase): Promise<number> {
           date: new Date(r.ts).toISOString(),
           amount: (r.amount_paise / 100).toFixed(2),
           currency_code: 'INR',
+          // keep the original foreign amount so Firefly shows what was actually charged
+          ...(r.currency && r.foreign_minor ? { foreign_currency_code: r.currency, foreign_amount: (r.foreign_minor / (r.currency === 'JPY' ? 1 : 100)).toFixed(r.currency === 'JPY' ? 0 : 2) } : {}),
           description: other,
           // Firefly needs an existing asset account on the money side; the merchant side is auto-created
           ...(debit ? { source_name: asset, destination_name: other } : { source_name: other, destination_name: asset }),

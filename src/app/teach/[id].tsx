@@ -11,6 +11,7 @@ import { Button, Card, Chip } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
+import { CURRENCIES, formatForeign, isForeign } from '@/utils/currency';
 import { type Selection, buildPattern, tokenize } from '@/utils/teach';
 
 type Field = 'amount' | 'merchant' | 'account';
@@ -29,6 +30,7 @@ export default function Teach() {
   const [account, setAccount] = useState<number | null>(null);
   const [mStart, setMStart] = useState<number | null>(null);
   const [mEnd, setMEnd] = useState<number | null>(null);
+  const [currency, setCurrency] = useState('INR');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -40,7 +42,7 @@ export default function Teach() {
     ...(account != null ? { account: [account, account] as [number, number] } : {}),
     ...(mStart != null ? { merchant: [Math.min(mStart, mEnd ?? mStart), Math.max(mStart, mEnd ?? mStart)] as [number, number] } : {}),
   };
-  const built = msg && selection && direction ? buildPattern(msg.text, selection, direction) : null;
+  const built = msg && selection && direction ? buildPattern(msg.text, selection, direction, currency) : null;
 
   const tint = (i: number): string | undefined => {
     if (i === amount) return colors.accent;
@@ -92,6 +94,12 @@ export default function Teach() {
           <Chip label="Received" color={colors.accent} selected={direction === 'credit'} onPress={() => setDirection('credit')} />
         </View>
 
+        <Text className="mb-1 mt-2 text-xs uppercase tracking-wider text-muted">Currency of the amount</Text>
+        <View className="mb-1 flex-row flex-wrap">
+          {['INR', ...CURRENCIES.map((c) => c.code)].map((c) => <Chip key={c} label={c} color={colors.accent} selected={currency === c} onPress={() => setCurrency(c)} />)}
+        </View>
+        {isForeign(currency) && <Text className="mb-2 text-xs text-muted">Foreign amounts are converted to rupees at the rate in Settings, Exchange rates. It's approximate; edit the transaction if your statement differs.</Text>}
+
         <Text className="mb-1 mt-2 text-xs uppercase tracking-wider text-muted">2 · Pick what to mark</Text>
         <View className="mb-1 flex-row">
           <Chip label="Amount" color={colors.accent} selected={field === 'amount'} onPress={() => setField('amount')} />
@@ -118,7 +126,7 @@ export default function Teach() {
           <Card className="mb-3">
             <Text className="mb-1 text-xs uppercase tracking-wider text-muted">ExMan will read this as</Text>
             <Text className="text-base text-fg">
-              {built.preview.direction === 'debit' ? 'Spent' : 'Received'} {rupees(built.preview.amountPaise)}
+              {built.preview.direction === 'debit' ? 'Spent' : 'Received'} {isForeign(currency) ? formatForeign(Math.round(built.preview.amountPaise / 100 * 10 ** (CURRENCIES.find((c) => c.code === currency)?.minor ?? 2)), currency) : rupees(built.preview.amountPaise)}
               {built.preview.merchant ? ` · ${built.preview.merchant}` : ''}{built.preview.account ? ` · a/c ${built.preview.account}` : ''}
             </Text>
           </Card>

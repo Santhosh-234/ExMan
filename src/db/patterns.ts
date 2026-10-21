@@ -7,8 +7,8 @@ export type PatternRow = Pattern & { id: number; sender_key: string; example: st
 export async function savePattern(db: SQLiteDatabase, sender: string, p: Pattern, example: string) {
   return (
     await db.runAsync(
-      'INSERT INTO patterns (sender_key, direction, amount_re, merchant_re, account_re, example, enabled, hits, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?)',
-      senderKey(sender), p.direction, p.amount_re, p.merchant_re, p.account_re, example, Date.now(),
+      'INSERT INTO patterns (sender_key, direction, amount_re, merchant_re, account_re, example, enabled, hits, created_at, currency) VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?)',
+      senderKey(sender), p.direction, p.amount_re, p.merchant_re, p.account_re, example, Date.now(), p.currency ?? 'INR',
     )
   ).lastInsertRowId;
 }

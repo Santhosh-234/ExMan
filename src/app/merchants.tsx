@@ -6,6 +6,7 @@ import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 
 import { type MerchantStats, applyRuleToExisting, getMerchantStats, mergeMerchant, renameMerchant, setMerchantRule } from '@/db/merchants';
 import { type Category, getCategories } from '@/db/queries';
+import { isTransferMerchant, setTransferMerchant } from '@/db/transfers';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
 import { Button, Card, EmptyState, Sheet } from '@/ui/kit';
@@ -28,6 +29,7 @@ export default function Merchants() {
   const [mode, setMode] = useState<Mode>(null);
   const [name, setName] = useState('');
   const [mq, setMq] = useState('');
+  const [isXfer, setIsXfer] = useState(false);
 
   const load = useCallback(async () => { setList(await getMerchantStats(db)); setCats(await getCategories(db)); }, [db]);
   useEffect(() => void load(), [load]);
@@ -56,7 +58,7 @@ export default function Merchants() {
         renderItem={({ item: m }) => {
           const c = catById.get(m.rule_category_id ?? m.category_id ?? -1);
           return (
-            <Pressable onPress={() => { setSel(m); setMode('menu'); }} accessibilityRole="button" className="mb-2 min-h-16 flex-row items-center rounded-2xl bg-card p-3">
+            <Pressable onPress={() => { setSel(m); setMode('menu'); void isTransferMerchant(db, m.id).then(setIsXfer); }} accessibilityRole="button" className="mb-2 min-h-16 flex-row items-center rounded-2xl bg-card p-3">
               <View className="mr-3 h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: c?.color ?? colors.surface2 }}>
                 <Text className="text-base font-bold text-white">{m.name[0]?.toUpperCase()}</Text>
               </View>
@@ -73,6 +75,12 @@ export default function Merchants() {
       {sel && mode === 'menu' && (
         <Sheet title={sel.name} onClose={close}>
           <Button className="mb-2" variant="secondary" label="Always categorise as…" onPress={() => setMode('category')} />
+          <Button className="mb-2" variant="secondary" label={isXfer ? 'Stop treating as a transfer' : 'Always treat as a transfer'} onPress={async () => {
+            const m = sel; close();
+            const { n, undo } = await setTransferMerchant(db, m.id, !isXfer);
+            notifyIngested(); load();
+            snack({ message: !isXfer ? `${m.name} is now always a transfer${n ? ` · ${n} marked` : ''}` : `${m.name} is no longer a transfer${n ? ` · ${n} unmarked` : ''}`, onAction: () => void undo().then(() => { notifyIngested(); load(); }) });
+          }} />
           <Button className="mb-2" variant="secondary" label="Rename" onPress={() => { setName(sel.name); setMode('rename'); }} />
           <Button className="mb-2" variant="secondary" label="Merge into another merchant…" onPress={() => setMode('merge')} />
           <Button variant="ghost" label="View transactions" onPress={() => { const n = sel.name; close(); router.push(`/activity?q=${encodeURIComponent(n)}`); }} />
