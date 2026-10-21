@@ -26,4 +26,8 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+      # APKs built outside EAS Build ask the server for channel "main" (app.json updates.requestHeaders);
+      # the channel must exist and point at the branch we publish to.
+      - run: eas channel:view main --non-interactive > /dev/null 2>&1 || eas channel:create main --non-interactive
+      - run: eas channel:edit main --branch main --non-interactive
       - run: eas update --branch main --platform android --message "${{ github.event.head_commit.message || 'manual' }}" --non-interactive
