@@ -1,3 +1,4 @@
+import { useSecurity } from '@/security/store';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft, Repeat } from 'lucide-react-native';
@@ -19,6 +20,7 @@ import { formatForeign } from '@/utils/currency';
 const FIELD: Record<string, string> = { amount_paise: 'Amount', merchant: 'Merchant', category_id: 'Category', tags: 'Tags', notes: 'Notes', account_id: 'Account', is_transfer: 'Transfer', ts: 'Date', direction: 'Direction' };
 
 export default function TxnDetail() {
+  useSecurity(); // re-render when "hide amounts" changes
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
   const router = useRouter();

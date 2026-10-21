@@ -1,6 +1,8 @@
+import { useSecurity } from '@/security/store';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronRight, Inbox, TrendingDown, TrendingUp } from 'lucide-react-native';
+import { ChevronRight, Eye, EyeOff, Inbox, TrendingDown, TrendingUp } from 'lucide-react-native';
+import { updateSecurity } from '@/security/store';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -15,6 +17,7 @@ import { TxnRow } from '@/ui/TxnRow';
 import { monthKey, monthRange, rupees, shiftMonth } from '@/utils/format';
 
 export default function Home() {
+  const { hide } = useSecurity(); // re-render when "hide amounts" changes
   const db = useSQLiteContext();
   const router = useRouter();
   const { colors } = useTheme();
@@ -62,7 +65,12 @@ export default function Home() {
   return (
     <View className="flex-1 bg-base">
       <ScrollView className="px-4 pt-14" showsVerticalScrollIndicator={false}>
-        <Text className="mb-4 text-3xl font-bold text-fg" accessibilityRole="header">Home</Text>
+        <View className="mb-4 flex-row items-center justify-between">
+          <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Home</Text>
+          <Pressable onPress={() => void updateSecurity(db, { hide: !hide })} hitSlop={12} accessibilityRole="button" accessibilityLabel={hide ? 'Show amounts' : 'Hide amounts'}>
+            {hide ? <EyeOff color={colors.muted} /> : <Eye color={colors.muted} />}
+          </Pressable>
+        </View>
 
         {pending > 0 && (
           <Pressable onPress={() => router.push('/review')} accessibilityRole="button" accessibilityLabel={`${pending} transactions to review`} className="mb-4 flex-row items-center rounded-3xl bg-accent p-4">

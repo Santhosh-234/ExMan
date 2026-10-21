@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { PermissionsAndroid, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { PermissionsAndroid, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
 import * as Updates from 'expo-updates';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -8,6 +9,8 @@ import { countUnparsed } from '@/db/patterns';
 import { getSetting, setSetting } from '@/db/queries';
 import { importHistory } from '@/ingest/run';
 import { syncNow } from '@/sync';
+import { TIMEOUTS } from '@/security/lock';
+import { updateSecurity, useSecurity } from '@/security/store';
 import { track } from '@/telemetry';
 import { bucketMessages, bucketMs } from '@/telemetry/schema';
 import { Button, Card, Chip } from '@/ui/kit';
@@ -31,6 +34,51 @@ function Row({ label, ok, onPress }: { label: string; ok: boolean; onPress: () =
       <Text className="text-base text-fg">{label}</Text>
       <Text className={ok ? 'text-accent' : 'text-warn'}>{ok ? 'Granted' : 'Tap to enable'}</Text>
     </Pressable>
+  );
+}
+
+function SecuritySection() {
+  const db = useSQLiteContext();
+  const { colors } = useTheme();
+  const sec = useSecurity();
+  const [msg, setMsg] = useState('');
+
+  const toggleLock = async (on: boolean) => {
+    setMsg('');
+    if (!on) return void (await updateSecurity(db, { lock: false }));
+    try {
+      const level = await LocalAuthentication.getEnrolledLevelAsync();
+      if (level === LocalAuthentication.SecurityLevel.NONE) return setMsg('Set a screen lock (PIN, pattern or fingerprint) in Android Settings first, then turn this on.');
+      const r = await LocalAuthentication.authenticateAsync({ promptMessage: 'Confirm to turn on the ExMan lock', disableDeviceFallback: false });
+      if (r.success) await updateSecurity(db, { lock: true });
+      else setMsg('Not turned on: could not verify it is you.');
+    } catch {
+      setMsg('Authentication is not available on this phone.');
+    }
+  };
+
+  const Row = ({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) => (
+    <View className="mb-3 flex-row items-center rounded-2xl bg-card p-4">
+      <View className="mr-3 flex-1">
+        <Text className="text-base text-fg">{label}</Text>
+        {hint ? <Text className="mt-0.5 text-xs text-muted">{hint}</Text> : null}
+      </View>
+      <Switch value={value} onValueChange={onChange} trackColor={{ true: colors.accent, false: colors.surface2 }} accessibilityLabel={label} />
+    </View>
+  );
+
+  return (
+    <Section title="Security" hint="Keep your money data private on this phone.">
+      <Row label="Lock ExMan" hint="Ask for your fingerprint, face or phone PIN when opening the app." value={sec.lock} onChange={toggleLock} />
+      {sec.lock && (
+        <View className="mb-3 flex-row flex-wrap">
+          {Object.entries(TIMEOUTS).map(([label, ms]) => <Chip key={label} label={label === 'immediately' ? 'Lock immediately' : `After ${label}`} color={colors.accent} selected={sec.timeoutMs === ms} onPress={() => void updateSecurity(db, { timeoutMs: ms })} />)}
+        </View>
+      )}
+      <Row label="Hide amounts" hint="Shows •••• instead of rupee amounts. The eye on Home flips it quickly." value={sec.hide} onChange={(v) => void updateSecurity(db, { hide: v })} />
+      <Row label="Block screenshots and hide in recent apps" hint={sec.lock ? 'Always on while the lock is on.' : 'Blanks the app preview in the recent apps list.'} value={sec.capture || sec.lock} onChange={(v) => { if (!sec.lock) void updateSecurity(db, { capture: v }); }} />
+      {msg ? <Text className="text-sm text-warn">{msg}</Text> : null}
+    </Section>
   );
 }
 
@@ -127,6 +175,15 @@ export default function Settings() {
             <Text className={badge ? 'text-warn' : 'text-accent'}>{badge ? `${badge} to teach` : 'Open'}</Text>
           </Pressable>
         ))}
+      </Section>
+
+      <SecuritySection />
+
+      <Section title="Backup & export" hint="Encrypted backup you can restore on a new phone, and CSV for spreadsheets.">
+        <Pressable onPress={() => router.push('/backup')} accessibilityRole="button" className="min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
+          <Text className="text-base text-fg">Backup, restore and export</Text>
+          <Text className="text-accent">Open</Text>
+        </Pressable>
       </Section>
 
       <Section title="Privacy & data" hint="What ExMan reads, how long originals are kept, and a full wipe.">

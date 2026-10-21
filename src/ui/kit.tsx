@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react-native';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { Animated, Modal, Pressable, Text, View, type ViewStyle } from 'react-native';
 
+import { useSecurity } from '@/security/store';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 
@@ -57,10 +58,11 @@ export function Chip({ label, color, selected, onPress }: { label: string; color
 
 /** Signed amount in INR with Indian grouping; colour carries direction, sign carries it for screen readers. */
 export function Amount({ paise, direction, className = 'text-lg', approx, muted }: { paise: number; direction?: 'debit' | 'credit'; className?: string; approx?: boolean; muted?: boolean }) {
+  const { hide } = useSecurity();
   const sign = direction === 'debit' ? '-' : direction === 'credit' ? '+' : '';
   const tone = muted ? 'text-muted' : direction === 'debit' ? 'text-danger' : direction === 'credit' ? 'text-accent' : 'text-fg';
   return (
-    <Text className={`font-semibold ${tone} ${className}`} accessibilityLabel={`${direction === 'credit' ? 'received' : direction === 'debit' ? 'spent' : ''} ${rupees(paise)}`}>
+    <Text className={`font-semibold ${tone} ${className}`} accessibilityLabel={`${direction === 'credit' ? 'received' : direction === 'debit' ? 'spent' : ''} ${hide ? 'amount hidden' : rupees(paise)}`}>
       {approx ? '≈' : ''}{sign}{rupees(paise)}
     </Text>
   );

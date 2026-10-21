@@ -306,3 +306,13 @@ export async function linkRefund(db: SQLiteDatabase, refundId: number, purchase:
   await updateTxn(db, refundId, { refund_of: purchase.id, category_id: purchase.category_id, merchant_id: purchase.merchant_id, merchant: purchase.merchant });
 }
 export const unlinkRefund = (db: SQLiteDatabase, refundId: number) => updateTxn(db, refundId, { refund_of: null });
+
+/** Everything the CSV needs, joined to names, for [from, to). Dismissed rows are skipped. */
+export const exportRows = (db: SQLiteDatabase, from = 0, to = 8.64e15) =>
+  db.getAllAsync<import('@/utils/csv').ExportRow>(
+    `SELECT t.ts, t.direction, t.is_transfer, t.refund_of, t.amount_paise, t.currency, t.foreign_minor, t.merchant,
+            c.name AS category, a.name AS account, t.bank, t.account_last4, t.payment_mode, t.source, t.tags, t.notes, t.status, t.transfer_reason
+     FROM transactions t LEFT JOIN categories c ON c.id = t.category_id LEFT JOIN accounts a ON a.id = t.account_id
+     WHERE t.status != 'dismissed' AND t.ts >= ? AND t.ts < ? ORDER BY t.ts DESC`,
+    from, to,
+  );

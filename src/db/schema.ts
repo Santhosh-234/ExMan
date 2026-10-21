@@ -212,6 +212,8 @@ const MIGRATIONS = [
   `,
 ];
 
+export const SCHEMA_VERSION = MIGRATIONS.length;
+
 export async function migrate(db: SQLiteDatabase) {
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');

@@ -1,3 +1,4 @@
+import { useSecurity } from '@/security/store';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -13,6 +14,7 @@ import { monthKey, monthLabel, monthRange, rupees, shiftMonth } from '@/utils/fo
 import { buildCallouts } from '@/utils/insights';
 
 export default function Insights() {
+  useSecurity(); // re-render when "hide amounts" changes
   const db = useSQLiteContext();
   const { width } = useWindowDimensions();
   const { colors } = useTheme();
