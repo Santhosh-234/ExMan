@@ -7,7 +7,7 @@ import { Bars } from '@/components/Charts';
 import { monthlyTotals, topMerchants } from '@/db/queries';
 import { monthKey, monthLabel, monthRange, rupees, shiftMonth } from '@/utils/format';
 
-export default function Analytics() {
+export default function Insights() {
   const db = useSQLiteContext();
   const { width } = useWindowDimensions();
   const [series, setSeries] = useState<{ label: string; value: number }[]>([]);
@@ -28,23 +28,23 @@ export default function Analytics() {
 
   const cw = width - 64;
   return (
-    <ScrollView className="flex-1 bg-base px-4 pt-16">
-      <Text className="mb-4 text-2xl font-semibold text-white">Analytics</Text>
+    <ScrollView className="flex-1 bg-base px-4 pt-14">
+      <Text className="mb-4 text-3xl font-bold text-fg">Insights</Text>
       <View className="mb-4 rounded-2xl bg-card p-4">
-        <Text className="mb-3 text-base font-semibold text-white">Spending, last 6 months</Text>
+        <Text className="mb-3 text-base font-semibold text-fg">Spending, last 6 months</Text>
         <Bars data={series} width={cw} />
       </View>
       <View className="mb-4 rounded-2xl bg-card p-4">
-        <Text className="mb-3 text-base font-semibold text-white">Income, last 6 months</Text>
+        <Text className="mb-3 text-base font-semibold text-fg">Income, last 6 months</Text>
         <Bars data={income} width={cw} />
       </View>
       <View className="mb-4 rounded-2xl bg-card p-4">
-        <Text className="mb-3 text-base font-semibold text-white">Top merchants (6 months)</Text>
-        {merchants.length === 0 && <Text className="text-gray-400">Nothing confirmed yet.</Text>}
+        <Text className="mb-3 text-base font-semibold text-fg">Top merchants (6 months)</Text>
+        {merchants.length === 0 && <Text className="text-muted">Nothing confirmed yet.</Text>}
         {merchants.map((m) => (
           <View key={m.merchant} className="mb-2 flex-row justify-between">
-            <Text className="text-white">{m.merchant} <Text className="text-xs text-gray-400">×{m.n}</Text></Text>
-            <Text className="text-gray-300">{rupees(m.total)}</Text>
+            <Text className="text-fg">{m.merchant} <Text className="text-xs text-muted">×{m.n}</Text></Text>
+            <Text className="text-muted">{rupees(m.total)}</Text>
           </View>
         ))}
       </View>

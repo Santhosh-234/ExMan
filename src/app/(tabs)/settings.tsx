@@ -6,14 +6,26 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { getSetting, setSetting } from '@/db/queries';
 import { importHistory } from '@/ingest/run';
 import { syncNow } from '@/sync';
+import { Button, Card, Chip } from '@/ui/kit';
+import { type Mode, useTheme } from '@/ui/theme';
 
 import { notificationAccessGranted, openNotificationAccessSettings } from '../../../modules/vibe-listener';
 
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <View className="mb-6">
+      <Text className="mb-1 text-lg font-semibold text-fg" accessibilityRole="header">{title}</Text>
+      {hint ? <Text className="mb-3 text-xs text-muted">{hint}</Text> : <View className="mb-2" />}
+      {children}
+    </View>
+  );
+}
+
 function Row({ label, ok, onPress }: { label: string; ok: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} className="mb-3 flex-row items-center justify-between rounded-2xl bg-card p-4">
-      <Text className="text-base text-white">{label}</Text>
-      <Text className={ok ? 'text-accent' : 'text-amber-400'}>{ok ? 'Granted' : 'Tap to enable'}</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" className="mb-3 min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
+      <Text className="text-base text-fg">{label}</Text>
+      <Text className={ok ? 'text-accent' : 'text-warn'}>{ok ? 'Granted' : 'Tap to enable'}</Text>
     </Pressable>
   );
 }
@@ -23,6 +35,7 @@ export default function Settings() {
   const [notif, setNotif] = useState(false);
   const db = useSQLiteContext();
   const router = useRouter();
+  const { mode: themeMode, setMode: setThemeMode, colors } = useTheme();
   const [endpoint, setEndpoint] = useState('');
   const [token, setToken] = useState('');
   const [mode, setMode] = useState('rest');
@@ -46,8 +59,18 @@ export default function Settings() {
   );
 
   return (
-    <ScrollView className="flex-1 bg-base px-4 pt-16">
-      <Text className="mb-6 text-2xl font-semibold text-white">Settings</Text>
+    <ScrollView className="flex-1 bg-base px-4 pt-14">
+      <Text className="mb-6 text-3xl font-bold text-fg" accessibilityRole="header">Settings</Text>
+
+      <Section title="Appearance" hint="System follows your phone's light/dark setting.">
+        <View className="flex-row">
+          {([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']] as [Mode, string][]).map(([m, label]) => (
+            <Chip key={m} label={label} color={colors.accent} selected={themeMode === m} onPress={() => setThemeMode(m)} />
+          ))}
+        </View>
+      </Section>
+
+      <Text className="mb-2 text-lg font-semibold text-fg" accessibilityRole="header">Permissions</Text>
       <Row
         label="Read bank SMS"
         ok={sms}
@@ -64,15 +87,17 @@ export default function Settings() {
       />
       <Row label="UPI app notifications" ok={notif} onPress={openNotificationAccessSettings} />
 
-      <Text className="mb-2 mt-6 text-lg font-semibold text-white">Import past SMS</Text>
-      <Text className="mb-3 text-xs text-gray-400">
+      <Text className="mb-1 mt-4 text-lg font-semibold text-fg" accessibilityRole="header">Import past SMS</Text>
+      <Text className="mb-3 text-xs text-muted">
         Scans bank/card messages already in your inbox (not personal chats) and adds them to the Inbox for review.
       </Text>
       <View className="mb-2 flex-row">
         {[30, 90, 365].map((d) => (
-          <Pressable
+          <Button
             key={d}
-            className="mr-2 rounded-xl bg-card px-4 py-2"
+            variant="secondary"
+            className="mr-2"
+            label={d === 365 ? '1 year' : `${d} days`}
             onPress={async () => {
               if (!readSms) return setImportMsg('Grant "Read old SMS" first');
               setImportMsg('Importing…');
@@ -82,31 +107,28 @@ export default function Settings() {
               } catch (e) {
                 setImportMsg(e instanceof Error ? e.message : 'Import failed');
               }
-            }}>
-            <Text className="text-white">{d === 365 ? '1 year' : `${d} days`}</Text>
-          </Pressable>
+            }}
+          />
         ))}
       </View>
-      {importMsg ? <Text className="mb-2 text-gray-300">{importMsg}</Text> : null}
+      {importMsg ? <Text className="mb-2 text-muted">{importMsg}</Text> : null}
 
-      <Text className="mb-2 mt-6 text-lg font-semibold text-white">Sync (optional)</Text>
-      <Text className="mb-3 text-xs text-gray-400">
+      <Text className="mb-1 mt-6 text-lg font-semibold text-fg" accessibilityRole="header">Sync (optional)</Text>
+      <Text className="mb-3 text-xs text-muted">
         Push confirmed transactions to your own server. Data stays on this phone unless you set this up.
       </Text>
       <View className="mb-3 flex-row">
         {(['rest', 'firefly'] as const).map((m) => (
-          <Pressable key={m} onPress={() => setMode(m)} className="mr-2 rounded-full px-3 py-1" style={{ backgroundColor: mode === m ? '#10B981' : '#1F2937' }}>
-            <Text className="text-xs text-white">{m === 'rest' ? 'Custom REST' : 'Firefly III'}</Text>
-          </Pressable>
+          <Chip key={m} label={m === 'rest' ? 'Custom REST' : 'Firefly III'} color={colors.accent} selected={mode === m} onPress={() => setMode(m)} />
         ))}
       </View>
-      <TextInput className="mb-3 rounded-xl bg-card px-3 py-2 text-white" value={endpoint} onChangeText={setEndpoint} autoCapitalize="none" autoCorrect={false} placeholder="https://your-server/endpoint" placeholderTextColor="#6B7280" />
+      <TextInput className="mb-3 min-h-12 rounded-2xl bg-card px-4 py-3 text-base text-fg" value={endpoint} onChangeText={setEndpoint} autoCapitalize="none" autoCorrect={false} placeholder="https://your-server/endpoint" placeholderTextColor={colors.muted} />
       {mode === 'firefly' && (
-        <TextInput className="mb-3 rounded-xl bg-card px-3 py-2 text-white" value={ffAccount} onChangeText={setFfAccount} placeholder="Firefly asset account name, e.g. Indian Bank" placeholderTextColor="#6B7280" />
+        <TextInput className="mb-3 min-h-12 rounded-2xl bg-card px-4 py-3 text-base text-fg" value={ffAccount} onChangeText={setFfAccount} placeholder="Firefly asset account name, e.g. Indian Bank" placeholderTextColor={colors.muted} />
       )}
-      <TextInput className="mb-3 rounded-xl bg-card px-3 py-2 text-white" value={token} onChangeText={setToken} autoCapitalize="none" autoCorrect={false} secureTextEntry placeholder="Access token" placeholderTextColor="#6B7280" />
-      <Pressable
-        className="rounded-xl bg-accent px-4 py-3"
+      <TextInput className="mb-3 min-h-12 rounded-2xl bg-card px-4 py-3 text-base text-fg" value={token} onChangeText={setToken} autoCapitalize="none" autoCorrect={false} secureTextEntry placeholder="Access token" placeholderTextColor={colors.muted} />
+      <Button
+        label="Save & sync now"
         onPress={async () => {
           try {
             await setSetting(db, 'sync_endpoint', endpoint.trim());
@@ -119,11 +141,10 @@ export default function Settings() {
           } catch (e) {
             setStatus(e instanceof Error ? e.message : 'Sync failed');
           }
-        }}>
-        <Text className="text-center font-semibold text-base">Save & sync now</Text>
-      </Pressable>
-      {status ? <Text className="mt-3 text-gray-300">{status}</Text> : null}
-      <Pressable onPress={() => router.push('/dev')} className="mt-8"><Text className="text-gray-500">Developer tools</Text></Pressable>
+        }}
+      />
+      {status ? <Text className="mt-3 text-muted">{status}</Text> : null}
+      <Pressable onPress={() => router.push('/dev')} className="mt-8"><Text className="text-muted">Developer tools</Text></Pressable>
       <View className="h-8" />
     </ScrollView>
   );

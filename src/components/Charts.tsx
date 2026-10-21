@@ -1,10 +1,12 @@
 import { View } from 'react-native';
+import { useTheme } from '@/ui/theme';
 import Svg, { Circle, G, Rect, Text as SvgText } from 'react-native-svg';
 
 export type Slice = { label: string; value: number; color: string };
 
 /** Donut chart via stroke-dasharray on circles. */
 export function Pie({ data, size = 180 }: { data: Slice[]; size?: number }) {
+  const { colors } = useTheme();
   const total = data.reduce((a, d) => a + d.value, 0);
   const r = size / 2 - 14;
   const c = 2 * Math.PI * r;
@@ -13,7 +15,7 @@ export function Pie({ data, size = 180 }: { data: Slice[]; size?: number }) {
     <Svg width={size} height={size}>
       <G rotation={-90} origin={`${size / 2}, ${size / 2}`}>
         {total === 0 ? (
-          <Circle cx={size / 2} cy={size / 2} r={r} stroke="#1F2937" strokeWidth={24} fill="none" />
+          <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.surface2} strokeWidth={24} fill="none" />
         ) : (
           data.map((d) => {
             const len = (d.value / total) * c;
@@ -40,6 +42,7 @@ export function Pie({ data, size = 180 }: { data: Slice[]; size?: number }) {
 }
 
 export function Bars({ data, height = 140, width = 320 }: { data: { label: string; value: number }[]; height?: number; width?: number }) {
+  const { colors } = useTheme();
   const max = Math.max(1, ...data.map((d) => d.value));
   const slot = width / Math.max(1, data.length);
   const bw = slot * 0.55;
@@ -50,8 +53,8 @@ export function Bars({ data, height = 140, width = 320 }: { data: { label: strin
           const h = (d.value / max) * height;
           return (
             <G key={d.label}>
-              <Rect x={i * slot + (slot - bw) / 2} y={height - h} width={bw} height={Math.max(h, 2)} rx={4} fill="#10B981" />
-              <SvgText x={i * slot + slot / 2} y={height + 16} fill="#9CA3AF" fontSize={11} textAnchor="middle">
+              <Rect x={i * slot + (slot - bw) / 2} y={height - h} width={bw} height={Math.max(h, 2)} rx={4} fill={colors.accent} />
+              <SvgText x={i * slot + slot / 2} y={height + 16} fill={colors.muted} fontSize={11} textAnchor="middle">
                 {d.label}
               </SvgText>
             </G>

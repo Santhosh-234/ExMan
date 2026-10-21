@@ -15,6 +15,8 @@ export type Txn = {
   status: 'pending' | 'confirmed' | 'dismissed';
   tags: string;
   raw_text: string | null;
+  account_id: number | null;
+  msg_hash: string | null;
 };
 
 export const getCategories = (db: SQLiteDatabase) =>
@@ -102,3 +104,16 @@ export const monthlyTotals = (db: SQLiteDatabase, from: number, to: number) =>
 
 export const countPending = async (db: SQLiteDatabase) =>
   (await db.getFirstAsync<{ n: number }>("SELECT COUNT(*) AS n FROM transactions WHERE status = 'pending'"))?.n ?? 0;
+
+/** Categories ordered by how often the user has confirmed them (for one-tap suggestions). */
+export const topCategoryIds = async (db: SQLiteDatabase, limit = 5) =>
+  (
+    await db.getAllAsync<{ category_id: number }>(
+      `SELECT category_id FROM transactions WHERE status = 'confirmed' AND category_id IS NOT NULL
+       GROUP BY category_id ORDER BY COUNT(*) DESC LIMIT ?`,
+      limit,
+    )
+  ).map((r) => r.category_id);
+
+export const getAccountNames = async (db: SQLiteDatabase) =>
+  new Map((await db.getAllAsync<{ id: number; name: string }>('SELECT id, name FROM accounts')).map((a) => [a.id, a.name]));

@@ -12,6 +12,8 @@ Privacy-first, offline-first expense manager. Expo SDK 58 + Expo Router, NativeW
 - V2 plan: `docs/v2-plan.md`. Phase 1 done (schema v4: accounts, msg_hash, dismissed tombstones; batch import; FlatList Inbox; Developer screen to seed/benchmark). Dismiss now keeps a 'dismissed' row so re-imports don't resurrect it.
 - Phase 0: Expo project linked (projectId/owner in app.json). expo-updates (runtimeVersion=fingerprint, channel `main`) + expo-dev-client installed; `eas.json`; workflows `check.yml` (PRs), `update.yml` (OTA publish on main, runs only when repo variable OTA_ENABLED=true and secret EXPO_TOKEN exist), `build-dev-client.yml` (manual debug APK). TODO owner: add EXPO_TOKEN secret, set OTA_ENABLED=true, install one new release APK (it must contain expo-updates) before OTA works.
 
+- V2 Phase 2 done (untested on device): theme system (`src/ui/theme.tsx`, `palettes.ts`; light/dark/system, persisted in settings table, AA contrast test), UI kit (`src/ui/kit.tsx`, `Snackbar.tsx`, `sheets.tsx`), tabs now Home/Activity/Insights/Settings, Review flow at `/review` (swipe card, undo snackbar, haptics). Adds native changes (expo-haptics, userInterfaceStyle=automatic) so a new APK is required. Manual entry (+), search/filters, accounts UI are Phase 3.
+
 ## Known gaps / next
 - Bank shows `?` when the SMS sender ID isn't in the BANKS list in parser.ts (add new banks there).
 - Verify Step 3 on device; notification-path regexes still unverified.

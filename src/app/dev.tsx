@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { getTxns, monthlyTotals, spendByCategory } from '@/db/queries';
+import { Button } from '@/ui/kit';
 import { hashMessage } from '@/utils/hash';
 
 const MERCHANTS = ['swiggy@icici', 'ZOMATO', 'Uber India', 'BigBasket', 'Amazon Pay', 'Netflix', 'Apollo Pharmacy', 'Airtel', 'Chai Point', 'Rahul'];
@@ -50,21 +51,21 @@ export default function Dev() {
   };
 
   const Btn = ({ label, onPress }: { label: string; onPress: () => void }) => (
-    <Pressable onPress={onPress} className="mb-2 mr-2 rounded-xl bg-card px-4 py-3"><Text className="text-white">{label}</Text></Pressable>
+    <Button variant="secondary" className="mb-2 mr-2" label={label} onPress={onPress} />
   );
 
   return (
-    <ScrollView className="flex-1 bg-base px-4 pt-16">
+    <ScrollView className="flex-1 bg-base px-4 pt-14">
       <Pressable onPress={() => router.back()}><Text className="mb-2 text-accent">‹ Back</Text></Pressable>
-      <Text className="mb-1 text-2xl font-semibold text-white">Developer</Text>
-      <Text className="mb-4 text-xs text-gray-400">Budget: any screen's data in under 100 ms at 10,000 rows.</Text>
+      <Text className="mb-1 text-2xl font-semibold text-fg">Developer</Text>
+      <Text className="mb-4 text-xs text-muted">Budget: any screen's data in under 100 ms at 10,000 rows.</Text>
       <View className="flex-row flex-wrap">
         <Btn label="Seed 1,000" onPress={() => seed(1000)} />
         <Btn label="Seed 10,000" onPress={() => seed(10000)} />
         <Btn label="Benchmark" onPress={bench} />
         <Btn label="Delete seeded" onPress={async () => { await db.runAsync("DELETE FROM transactions WHERE raw_text LIKE 'SEED %'"); add('seeded rows deleted'); }} />
       </View>
-      {log.map((l, i) => <Text key={i} className="text-gray-300">{l}</Text>)}
+      {log.map((l, i) => <Text key={i} className="text-muted">{l}</Text>)}
     </ScrollView>
   );
 }
