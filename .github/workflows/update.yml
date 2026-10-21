@@ -31,6 +31,9 @@ jobs:
       - run: eas channel:view main --non-interactive > /dev/null 2>&1 || eas channel:create main --non-interactive
       - run: eas channel:edit main --branch main --non-interactive
       # EXPO_PUBLIC_* values are inlined into the JS bundle; leave the repo variable TELEMETRY_URL unset until the collector exists
-      - run: eas update --branch main --platform android --message "${{ github.event.head_commit.message || 'manual' }}" --non-interactive
+      # The commit message goes in through an environment variable, never pasted into the script: quotes or
+      # backticks in a commit/PR title used to break this command (and would be a script-injection hole).
+      - run: eas update --branch main --platform android --message "${MSG:-manual}" --non-interactive
         env:
           EXPO_PUBLIC_TELEMETRY_URL: ${{ vars.TELEMETRY_URL }}
+          MSG: ${{ github.event.head_commit.message }}
