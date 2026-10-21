@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { REASON, type TxnLite, WINDOW, classifyAlone, findCardBillPartner, findOwnTransferPartner } from '@/utils/transfers';
 
-const SELECT = `SELECT t.id, t.amount_paise, t.direction, t.ts, t.account_id, a.kind AS account_kind, t.payment_mode AS mode, t.merchant, t.raw_text,
+const SELECT = `SELECT t.id, t.merchant_id, t.amount_paise, t.direction, t.ts, t.account_id, a.kind AS account_kind, t.payment_mode AS mode, t.merchant, t.raw_text,
                        t.is_transfer, t.transfer_blocked AS blocked, t.transfer_reason AS reason, t.transfer_pair_id AS pair_id
                 FROM transactions t LEFT JOIN accounts a ON a.id = t.account_id`;
 
@@ -23,6 +23,13 @@ export async function detectTransfers(db: SQLiteDatabase, ids: number[]): Promis
     const t = await load(db, id);
     if (!t || t.is_transfer || t.blocked) continue;
 
+    // the user said this merchant is always a transfer (e.g. their own card issuer or another account of theirs)
+    if (t.merchant_id && (await db.getFirstAsync('SELECT 1 FROM transfer_merchants WHERE merchant_id = ?', t.merchant_id))) {
+      await mark(db, t.id, REASON.rule, null);
+      await db.runAsync('UPDATE transactions SET transfer_auto = 0 WHERE id = ?', t.id); // the user's own rule is not a surprise to surface
+      marked++;
+      continue;
+    }
     const alone = classifyAlone(t);
     if (alone) {
       // find the other leg so the pair is linked and the funding debit is excluded too
@@ -80,4 +87,25 @@ export async function backfillTransfers(db: SQLiteDatabase) {
     await tx.runAsync("INSERT INTO settings (key, value) VALUES ('transfers_backfilled_v1', '1')");
   });
   return n;
+}
+
+export const isTransferMerchant = async (db: SQLiteDatabase, merchantId: number) => !!(await db.getFirstAsync('SELECT 1 FROM transfer_merchants WHERE merchant_id = ?', merchantId));
+
+/**
+ * "Always treat this merchant as a transfer": remembers it, and marks that merchant's existing transactions.
+ * Returns an undo. Turning it off un-marks only the rows this rule marked.
+ */
+export async function setTransferMerchant(db: SQLiteDatabase, merchantId: number, on: boolean) {
+  if (on) {
+    await db.runAsync('INSERT OR IGNORE INTO transfer_merchants (merchant_id) VALUES (?)', merchantId);
+    const rows = await db.getAllAsync<{ id: number }>("SELECT id FROM transactions WHERE merchant_id = ? AND status != 'dismissed' AND is_transfer = 0 AND transfer_blocked = 0", merchantId);
+    for (const r of rows) {
+      await db.runAsync('UPDATE transactions SET is_transfer = 1, transfer_auto = 0, transfer_reason = ?, synced_at = NULL WHERE id = ?', REASON.rule, r.id);
+    }
+    return { n: rows.length, undo: async () => { for (const r of rows) await db.runAsync('UPDATE transactions SET is_transfer = 0, transfer_reason = NULL, synced_at = NULL WHERE id = ? AND transfer_reason = ?', r.id, REASON.rule); await db.runAsync('DELETE FROM transfer_merchants WHERE merchant_id = ?', merchantId); } };
+  }
+  await db.runAsync('DELETE FROM transfer_merchants WHERE merchant_id = ?', merchantId);
+  const rows = await db.getAllAsync<{ id: number }>('SELECT id FROM transactions WHERE merchant_id = ? AND transfer_reason = ?', merchantId, REASON.rule);
+  for (const r of rows) await db.runAsync('UPDATE transactions SET is_transfer = 0, transfer_reason = NULL, synced_at = NULL WHERE id = ?', r.id);
+  return { n: rows.length, undo: async () => { await setTransferMerchant(db, merchantId, true); } };
 }

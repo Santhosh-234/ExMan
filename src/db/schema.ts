@@ -203,6 +203,13 @@ const MIGRATIONS = [
   ALTER TABLE transactions ADD COLUMN refund_of INTEGER;
   CREATE INDEX idx_txn_refund ON transactions (refund_of) WHERE refund_of IS NOT NULL;
   `,
+  // merchants the user says are always transfers; foreign-currency spends keep their original amount
+  `
+  CREATE TABLE transfer_merchants (merchant_id INTEGER PRIMARY KEY REFERENCES merchants(id) ON DELETE CASCADE);
+  ALTER TABLE transactions ADD COLUMN currency TEXT;
+  ALTER TABLE transactions ADD COLUMN foreign_minor INTEGER;
+  ALTER TABLE patterns ADD COLUMN currency TEXT NOT NULL DEFAULT 'INR';
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

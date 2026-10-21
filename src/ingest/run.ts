@@ -7,6 +7,7 @@ import { loadPatternIndex } from '@/db/patterns';
 import { detectTransfers } from '@/db/transfers';
 import { toParsed } from '@/utils/teach';
 import { countParse } from '@/telemetry';
+import { CURRENCIES, toPaise } from '@/utils/currency';
 import { guessCategory } from '@/utils/categorize';
 import { hashMessage } from '@/utils/hash';
 import { extractBalance, isDuplicate, parseMessage } from '@/utils/parser';
@@ -22,7 +23,18 @@ type Ctx = {
   merchants: MerchantCache;
   rules: Awaited<ReturnType<typeof loadRuleIndex>>;
   patterns: Awaited<ReturnType<typeof loadPatternIndex>>;
+  fx: Map<string, number>; // rupees per 1 unit of each foreign currency
 };
+
+/** User-set rates (Settings > Exchange rates) over built-in approximations. */
+export async function loadRates(db: SQLiteDatabase) {
+  const rates = new Map<string, number>(CURRENCIES.map((c) => [c.code, c.rate]));
+  for (const r of await db.getAllAsync<{ key: string; value: string }>("SELECT key, value FROM settings WHERE key LIKE 'fx\\_%' ESCAPE '\\'")) {
+    const v = parseFloat(r.value);
+    if (v > 0) rates.set(r.key.slice(3), v);
+  }
+  return rates;
+}
 
 async function makeCtx(db: SQLiteDatabase, since: number): Promise<Ctx> {
   const seen = new Set(
@@ -35,7 +47,7 @@ async function makeCtx(db: SQLiteDatabase, since: number): Promise<Ctx> {
   const into = new Map(rows.map((a) => [a.id, a.merged_into]));
   const final = (id: number) => { let cur = id; for (let i = 0; i < 10 && into.get(cur); i++) cur = into.get(cur)!; return cur; };
   const accts = new Map(rows.map((a) => [`${a.kind}|${a.bank}|${a.last4}`, final(a.id)]));
-  return { seen, cats, accts, merchants: new Map(), rules: await loadRuleIndex(db), patterns: await loadPatternIndex(db) };
+  return { seen, cats, accts, merchants: new Map(), rules: await loadRuleIndex(db), patterns: await loadPatternIndex(db), fx: await loadRates(db) };
 }
 
 /** Bank + last-4 (+ card vs account) identifies an account; created on first sight. */
@@ -81,6 +93,7 @@ async function store(db: SQLiteDatabase, ctx: Ctx, m: RawMessage): Promise<boole
     }
     return false;
   }
+  if (t.currency && t.foreignMinor) t = { ...t, amountPaise: toPaise(t.foreignMinor, t.currency, ctx.fx.get(t.currency) ?? 1) };
   // same payment seen via SMS and a UPI-app notification (indexed on amount_paise, ts)
   const near = await db.getAllAsync<Near>(
     'SELECT amount_paise, direction, account_last4, ts FROM transactions WHERE amount_paise = ? AND ts BETWEEN ? AND ?',
@@ -95,10 +108,10 @@ async function store(db: SQLiteDatabase, ctx: Ctx, m: RawMessage): Promise<boole
   const accountId = await accountFor(db, ctx, t.bank, t.account, t.mode);
   const res = await db.runAsync(
     `INSERT OR IGNORE INTO transactions
-       (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, payment_mode, ts, raw_text, msg_hash, merchant_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, payment_mode, ts, raw_text, msg_hash, merchant_id, currency, foreign_minor)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     t.amountPaise, t.direction, merchant?.name ?? t.merchant, ruleCat ?? ((guess && ctx.cats.get(guess)) || null), accountId,
-    t.source, t.bank, t.account, t.mode, t.ts, m.text, hash, merchant?.id ?? null,
+    t.source, t.bank, t.account, t.mode, t.ts, m.text, hash, merchant?.id ?? null, t.currency ?? null, t.foreignMinor ?? null,
   );
   if (!res.changes) return false;
   if (accountId && t.balance) await recordBalance(db, accountId, t.balance, t.ts);
@@ -177,18 +190,16 @@ export async function backfillAccounts(db: SQLiteDatabase) {
   });
 }
 
-/** One-time: group existing transactions under canonical merchants (clean names, shared merchant_id). */
+/** Groups transactions that have a merchant name but no merchant link under canonical merchants. Cheap no-op when none. */
 export async function backfillMerchants(db: SQLiteDatabase) {
-  const done = await db.getFirstAsync("SELECT 1 FROM settings WHERE key = 'merchants_backfilled_v1'");
-  if (done) return;
+  const rows = await db.getAllAsync<{ id: number; merchant: string }>('SELECT id, merchant FROM transactions WHERE merchant IS NOT NULL AND merchant_id IS NULL');
+  if (!rows.length) return;
   await db.withExclusiveTransactionAsync(async (tx) => {
     const cache: MerchantCache = new Map();
-    const rows = await tx.getAllAsync<{ id: number; merchant: string }>('SELECT id, merchant FROM transactions WHERE merchant IS NOT NULL AND merchant_id IS NULL');
     for (const r of rows) {
       const m = await ensureMerchant(tx, r.merchant, cache);
       if (m) await tx.runAsync('UPDATE transactions SET merchant_id = ?, merchant = ? WHERE id = ?', m.id, m.name, r.id);
     }
-    await tx.runAsync("INSERT INTO settings (key, value) VALUES ('merchants_backfilled_v1', '1')");
   });
 }
 

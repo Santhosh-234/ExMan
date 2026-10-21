@@ -1,3 +1,5 @@
+import { type CurrencyCode, extractForeign } from './currency';
+
 export type Source = 'sms' | 'gpay' | 'phonepe' | 'paytm';
 
 export type ParsedTxn = {
@@ -6,6 +8,8 @@ export type ParsedTxn = {
   merchant: string | null;
   account: string | null; // last 3-4 digits
   bank: string | null;
+  currency?: CurrencyCode; // set for foreign-currency spends; amountPaise is 0 until a rate is applied
+  foreignMinor?: number;
   balance: { paise: number; kind: 'balance' | 'limit' } | null; // "Avl bal" (accounts) or "Avl limit" (cards)
   mode: 'UPI' | 'Card' | 'NEFT' | 'IMPS' | 'RTGS' | 'ATM' | 'NACH' | 'Cheque' | null;
   source: Source;
@@ -146,9 +150,10 @@ export function parseMessage(
   // OTP texts are rejected, but a real debit alert may say "never share OTP"
   if (OTP.test(text) && !STRONG_PAST.test(text)) return null;
   const rawAmt = findAmount(text);
-  if (!rawAmt) return null;
-  const amountPaise = Math.round(parseFloat(rawAmt.replace(/,/g, '')) * 100);
-  if (!(amountPaise > 0)) return null;
+  const foreign = rawAmt ? null : extractForeign(text); // only when no rupee amount is present
+  if (!rawAmt && !foreign) return null;
+  const amountPaise = rawAmt ? Math.round(parseFloat(rawAmt.replace(/,/g, '')) * 100) : 0;
+  if (rawAmt && !(amountPaise > 0)) return null;
 
   // earliest verb wins: ICICI texts say "debited ... X credited"
   let d = text.search(DEBIT);
@@ -167,6 +172,7 @@ export function parseMessage(
 
   return {
     amountPaise,
+    ...(foreign ? { currency: foreign.code, foreignMinor: foreign.minor } : {}),
     direction,
     merchant,
     account: firstMatch(ACCOUNTS, text),
