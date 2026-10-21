@@ -6,6 +6,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { type Unparsed, getUnparsed, savePattern } from '@/db/patterns';
 import { reprocessUnparsed } from '@/ingest/run';
+import { track } from '@/telemetry';
 import { Button, Card, Chip } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
@@ -64,6 +65,7 @@ export default function Teach() {
     try {
       await savePattern(db, msg.sender, built.pattern, msg.text);
       const n = await reprocessUnparsed(db);
+      track('feature_used', { feature: 'teach_saved' });
       snack({ message: `Learned this format · added ${n} transaction${n === 1 ? '' : 's'} to Review` });
       router.back();
     } catch (e) {

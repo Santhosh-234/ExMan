@@ -183,6 +183,17 @@ const MIGRATIONS = [
   CREATE INDEX idx_patterns_sender ON patterns (sender_key);
   ALTER TABLE categories ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
   `,
+  // anonymous telemetry: local queue + the log the user can inspect (see src/telemetry)
+  `
+  CREATE TABLE telemetry_events (
+    id INTEGER PRIMARY KEY,
+    ts INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    sent_at INTEGER
+  );
+  CREATE INDEX idx_telemetry_sent ON telemetry_events (sent_at, ts);
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

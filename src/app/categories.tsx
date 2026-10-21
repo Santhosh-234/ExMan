@@ -6,6 +6,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { CATEGORY_COLORS, type Category, addCategory, deleteCategory, getCategories, getCategoryUsage, setCategoryArchived, updateCategory } from '@/db/queries';
 import { notifyIngested } from '@/ingest/events';
+import { track } from '@/telemetry';
 import { Button, Card, Sheet } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
@@ -36,7 +37,7 @@ export default function Categories() {
   const save = async () => {
     if (!ed) return;
     try {
-      if (ed.id == null) await addCategory(db, ed.name.trim(), ed.color);
+      if (ed.id == null) { await addCategory(db, ed.name.trim(), ed.color); track('feature_used', { feature: 'category_created' }); }
       else await updateCategory(db, ed.id, { name: ed.name.trim(), color: ed.color });
       setEd(null); notifyIngested(); load();
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not save'); }

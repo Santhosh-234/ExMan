@@ -7,6 +7,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { type Account, type Category, type Txn, getAccounts, getCategories, getEditLog, getTxn, updateTxn } from '@/db/queries';
 import { markTransferByUser, rejectTransfer } from '@/db/transfers';
 import { notifyIngested } from '@/ingest/events';
+import { track } from '@/telemetry';
 import { Amount, Button, Card } from '@/ui/kit';
 import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
@@ -66,6 +67,7 @@ export default function TxnDetail() {
       const wasPair = t.transfer_pair_id;
       await updateTxn(db, t.id, { is_transfer: 0 });
       await rejectTransfer(db, t.id);
+      track('feature_used', { feature: 'transfer_unmarked' });
       notifyIngested();
       load();
       snack({
@@ -75,6 +77,7 @@ export default function TxnDetail() {
     } else {
       await updateTxn(db, t.id, { is_transfer: 1 });
       await markTransferByUser(db, t.id);
+      track('feature_used', { feature: 'transfer_marked' });
       notifyIngested();
       load();
       snack({ message: 'Marked as transfer (not counted as spending)', onAction: async () => { await updateTxn(db, t.id, { is_transfer: 0 }); await rejectTransfer(db, t.id); notifyIngested(); load(); } });

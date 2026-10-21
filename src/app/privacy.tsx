@@ -51,6 +51,11 @@ export default function Privacy() {
           ))}
         </Card>
 
+        <Pressable onPress={() => router.push('/telemetry')} accessibilityRole="button" className="mb-4 min-h-14 flex-row items-center justify-between rounded-3xl bg-card p-4">
+          <View className="flex-1"><Text className="text-base font-semibold text-fg">Usage data</Text><Text className="text-sm text-muted">Anonymous, content-free, on by default. See exactly what is recorded, or turn it off.</Text></View>
+          <Text className="ml-3 text-accent">Open</Text>
+        </Pressable>
+
         <Card className="mb-4">
           <Text className="text-base font-semibold text-fg">Original messages</Text>
           <Text className="mt-1 text-sm text-muted">ExMan keeps each transaction's original message ({withText} of {total} right now) so you can check it, correct it, and so improvements can re-read it. It is never uploaded. You can remove old ones; the transactions themselves stay.</Text>

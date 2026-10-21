@@ -6,6 +6,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { type AccountStats, type Category, type Txn, getAccount, getAccountStats, getCategories, mergeAccount, queryTxns, renameAccount, setAccountArchived } from '@/db/queries';
 import { notifyIngested, onIngested } from '@/ingest/events';
+import { track } from '@/telemetry';
 import { Button, Card, Chip, Sheet } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
@@ -105,6 +106,7 @@ export default function AccountDetail() {
             onPress={async () => {
               const t = others.find((o) => o.id === target)!;
               await mergeAccount(db, aid, t.id);
+              track('feature_used', { feature: 'account_merged' });
               setSheet(null); notifyIngested();
               snack({ message: `Merged into ${t.name}` });
               router.replace(`/account/${t.id}`);

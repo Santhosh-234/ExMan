@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 
 import { applyRuleToExisting, getMerchantRule, removeMerchantRule, setMerchantRule } from '@/db/merchants';
 import { notifyIngested } from '@/ingest/events';
+import { track } from '@/telemetry';
 import { useSnackbar } from '@/ui/Snackbar';
 
 type Offer = {
@@ -32,6 +33,7 @@ export function useRuleOffer() {
       actionLabel: 'Always',
       onAction: async () => {
         await setMerchantRule(db, o.merchantId!, o.categoryId);
+        track('feature_used', { feature: 'rule_created' });
         const { n, undo } = await applyRuleToExisting(db, { merchantId: o.merchantId!, categoryId: o.categoryId });
         notifyIngested();
         snack({

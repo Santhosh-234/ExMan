@@ -6,6 +6,7 @@ import { loadRuleIndex } from '@/db/merchants';
 import { loadPatternIndex } from '@/db/patterns';
 import { detectTransfers } from '@/db/transfers';
 import { toParsed } from '@/utils/teach';
+import { countParse } from '@/telemetry';
 import { guessCategory } from '@/utils/categorize';
 import { hashMessage } from '@/utils/hash';
 import { extractBalance, isDuplicate, parseMessage } from '@/utils/parser';
@@ -70,12 +71,14 @@ async function store(db: SQLiteDatabase, ctx: Ctx, m: RawMessage): Promise<boole
   let t = parseMessage(m.text, { sender: m.sender, ts: m.ts });
   if (!t) {
     const taught = ctx.patterns.match(m.sender, m.text);
-    if (taught) t = toParsed(m.text, m.sender, m.ts, taught);
-  }
+    if (taught) { t = toParsed(m.text, m.sender, m.ts, taught); countParse(t.bank, 'taught'); }
+  } else countParse(t.bank, 'parsed');
   if (!t) {
     // privacy: only keep messages that mention an amount; OTPs/chats are dropped
-    if (/(?:rs\.?|inr|₹)\s?\d/i.test(m.text))
+    if (/(?:rs\.?|inr|₹)\s?\d/i.test(m.text)) {
+      countParse(null, 'unrecognised');
       await db.runAsync('INSERT OR IGNORE INTO unparsed (sender, text, ts) VALUES (?, ?, ?)', m.sender, m.text, m.ts);
+    }
     return false;
   }
   // same payment seen via SMS and a UPI-app notification (indexed on amount_paise, ts)
