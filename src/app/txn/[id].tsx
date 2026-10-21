@@ -1,0 +1,135 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { ChevronLeft, Repeat } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+
+import { type Account, type Category, type Txn, getAccounts, getCategories, getEditLog, getTxn, updateTxn } from '@/db/queries';
+import { notifyIngested } from '@/ingest/events';
+import { Amount, Button, Card } from '@/ui/kit';
+import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
+import { useSnackbar } from '@/ui/Snackbar';
+import { useTheme } from '@/ui/theme';
+import { rupees } from '@/utils/format';
+
+const FIELD: Record<string, string> = { amount_paise: 'Amount', merchant: 'Merchant', category_id: 'Category', tags: 'Tags', notes: 'Notes', account_id: 'Account', is_transfer: 'Transfer', ts: 'Date', direction: 'Direction' };
+
+export default function TxnDetail() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const db = useSQLiteContext();
+  const router = useRouter();
+  const snack = useSnackbar();
+  const { colors } = useTheme();
+  const [t, setT] = useState<Txn | null>(null);
+  const [cats, setCats] = useState<Category[]>([]);
+  const [accts, setAccts] = useState<Account[]>([]);
+  const [log, setLog] = useState<Awaited<ReturnType<typeof getEditLog>>>([]);
+  const [editing, setEditing] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
+
+  const load = useCallback(async () => {
+    const n = Number(id);
+    const [row, c, a, l] = await Promise.all([getTxn(db, n), getCategories(db), getAccounts(db), getEditLog(db, n)]);
+    setT(row); setCats(c); setAccts(a); setLog(l);
+  }, [db, id]);
+  useEffect(() => void load(), [load]);
+
+  if (!t) return <View className="flex-1 bg-base" />;
+  const cat = cats.find((c) => c.id === t.category_id);
+  const acct = accts.find((a) => a.id === t.account_id);
+  const name = (field: string, v: string | null) => {
+    if (v == null || v === '') return 'none';
+    if (field === 'amount_paise') return rupees(Number(v));
+    if (field === 'category_id') return cats.find((c) => c.id === Number(v))?.name ?? v;
+    if (field === 'account_id') return accts.find((a) => a.id === Number(v))?.name ?? v;
+    if (field === 'is_transfer') return v === '1' ? 'yes' : 'no';
+    if (field === 'ts') return new Date(Number(v)).toLocaleString('en-IN');
+    return v;
+  };
+
+  const patch = async (p: Parameters<typeof updateTxn>[2]) => {
+    await updateTxn(db, t.id, p);
+    notifyIngested();
+    load();
+  };
+  const toggleTransfer = async () => {
+    const next = t.is_transfer ? 0 : 1;
+    await patch({ is_transfer: next });
+    snack({ message: next ? 'Marked as transfer (not counted as spending)' : 'Unmarked as transfer', actionLabel: 'Undo', onAction: () => void patch({ is_transfer: next ? 0 : 1 }) });
+  };
+  const remove = async () => {
+    const was = t.status;
+    await updateTxn(db, t.id, { status: 'dismissed' });
+    notifyIngested();
+    snack({ message: 'Transaction deleted', onAction: () => { void updateTxn(db, t.id, { status: was }).then(() => notifyIngested()); } });
+    router.back();
+  };
+
+  const Row = ({ k, v }: { k: string; v: string }) => (
+    <View className="flex-row justify-between py-2">
+      <Text className="text-muted">{k}</Text>
+      <Text className="ml-4 flex-1 text-right text-fg">{v}</Text>
+    </View>
+  );
+
+  return (
+    <View className="flex-1 bg-base px-4 pt-14">
+      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
+        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
+      </Pressable>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View className="mb-4 items-center">
+          <Text className="text-xs uppercase tracking-wider text-muted">{t.direction === 'debit' ? 'Spent' : 'Received'}</Text>
+          <Amount paise={t.amount_paise} direction={t.direction} className="text-5xl" />
+          <Text className="mt-2 text-xl text-fg">{t.merchant ?? 'Unknown merchant'}</Text>
+          {t.is_transfer ? (
+            <View className="mt-2 flex-row items-center rounded-full bg-card2 px-3 py-1"><Repeat size={14} color={colors.muted} /><Text className="ml-1 text-xs text-muted">Transfer, not counted in totals</Text></View>
+          ) : null}
+        </View>
+
+        <Card className="mb-4">
+          <Row k="Category" v={cat?.name ?? 'Uncategorised'} />
+          <Row k="Account" v={acct?.name ?? t.bank ?? 'Unknown'} />
+          <Row k="Date" v={new Date(t.ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} />
+          <Row k="Mode" v={t.payment_mode ?? (t.source === 'manual' ? 'Manual entry' : 'n/a')} />
+          <Row k="Source" v={t.source} />
+          <Row k="Status" v={t.status} />
+          {t.tags ? <Row k="Tags" v={t.tags.split(',').join(', ')} /> : null}
+          {t.notes ? <Row k="Notes" v={t.notes} /> : null}
+        </Card>
+
+        <View className="mb-4 flex-row">
+          <Button className="mr-3 flex-1" label="Edit" onPress={() => setEditing(true)} />
+          <Button className="mr-3 flex-1" variant="secondary" label="Category" onPress={() => setPicking(true)} />
+          <Button className="flex-1" variant="secondary" label={t.is_transfer ? 'Not transfer' : 'Transfer'} onPress={toggleTransfer} />
+        </View>
+
+        {t.raw_text ? (
+          <Card className="mb-4">
+            <Pressable onPress={() => setShowRaw((v) => !v)} accessibilityRole="button">
+              <Text className="text-base font-semibold text-fg">Original message {showRaw ? '▾' : '▸'}</Text>
+            </Pressable>
+            {showRaw && <Text className="mt-2 text-sm text-muted" selectable>{t.raw_text}</Text>}
+          </Card>
+        ) : null}
+
+        {log.length > 0 && (
+          <Card className="mb-4">
+            <Text className="mb-2 text-base font-semibold text-fg">Edit history</Text>
+            {log.map((l, i) => (
+              <Text key={i} className="mb-1 text-sm text-muted">
+                {new Date(l.ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · {FIELD[l.field] ?? l.field}: {name(l.field, l.old_value)} → {name(l.field, l.new_value)}
+              </Text>
+            ))}
+          </Card>
+        )}
+
+        <Button variant="danger" label="Delete" onPress={remove} className="mb-10" />
+      </ScrollView>
+
+      {picking && <CategorySheet cats={cats} value={t.category_id} onClose={() => setPicking(false)} onPick={(cid) => { setPicking(false); void patch({ category_id: cid }); }} />}
+      {editing && <EditSheet txn={t} cats={cats} accounts={accts} onClose={() => setEditing(false)} onSave={(p: TxnPatch) => { setEditing(false); void patch(p); }} />}
+    </View>
+  );
+}

@@ -115,6 +115,18 @@ const MIGRATIONS = [
   DELETE FROM unparsed WHERE id NOT IN (SELECT MIN(id) FROM unparsed GROUP BY ts, text);
   CREATE UNIQUE INDEX idx_unparsed_msg ON unparsed (ts, text);
   `,
+  // edit history shown on the transaction detail screen
+  `
+  CREATE TABLE edit_log (
+    id INTEGER PRIMARY KEY,
+    txn_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    field TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    ts INTEGER NOT NULL
+  );
+  CREATE INDEX idx_edit_log_txn ON edit_log (txn_id, ts DESC);
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

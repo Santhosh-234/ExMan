@@ -14,6 +14,9 @@ Privacy-first, offline-first expense manager. Expo SDK 58 + Expo Router, NativeW
 
 - V2 Phase 2 done (untested on device): theme system (`src/ui/theme.tsx`, `palettes.ts`; light/dark/system, persisted in settings table, AA contrast test), UI kit (`src/ui/kit.tsx`, `Snackbar.tsx`, `sheets.tsx`), tabs now Home/Activity/Insights/Settings, Review flow at `/review` (swipe card, undo snackbar, haptics). Adds native changes (expo-haptics, userInterfaceStyle=automatic) so a new APK is required. Manual entry (+), search/filters, accounts UI are Phase 3.
 
+- V2 Phase 3 done (untested on device): Home redesign (hero, delta vs last month, safe daily spend, top categories, recent), Activity (search incl. amount, filter sheet, multi-select bulk category/transfer/delete with undo, paging via `queryTxns`/`buildTxnQuery` in `src/utils/filters.ts`), manual/cash entry `/add` (FAB), txn detail `/txn/[id]` (edit, transfer toggle, raw message, edit history via migration 5 `edit_log`), donut moved to Insights. Transfers (`is_transfer`) are excluded from totals/sync; auto-detection is Phase 4.
+- OTA workflow publishes `--platform android` (web bundle can't resolve expo-sqlite wasm). Pushing to main also cancels an in-progress APK build (concurrency group `apk`).
+
 ## Known gaps / next
 - Bank shows `?` when the SMS sender ID isn't in the BANKS list in parser.ts (add new banks there).
 - Verify Step 3 on device; notification-path regexes still unverified.
