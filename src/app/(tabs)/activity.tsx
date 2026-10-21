@@ -1,3 +1,4 @@
+import { useSecurity } from '@/security/store';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ListOrdered, Search, SlidersHorizontal, X } from 'lucide-react-native';
@@ -28,6 +29,7 @@ const dayLabel = (ts: number) => {
 };
 
 export default function Activity() {
+  useSecurity(); // re-render when "hide amounts" changes
   const db = useSQLiteContext();
   const router = useRouter();
   const snack = useSnackbar();

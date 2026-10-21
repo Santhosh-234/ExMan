@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { migrate } from '@/db/schema';
 import { Ingest } from '@/ingest/Ingest';
+import { LockGate } from '@/security/LockGate';
 import { installErrorReporting } from '@/telemetry';
 import { SnackbarProvider } from '@/ui/Snackbar';
 import { ThemeProvider, useTheme } from '@/ui/theme';
@@ -35,6 +36,7 @@ function Shell() {
         <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
         <Stack.Screen name="add" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       </Stack>
+      <LockGate />
     </>
   );
 }

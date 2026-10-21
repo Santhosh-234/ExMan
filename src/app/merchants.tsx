@@ -1,3 +1,4 @@
+import { useSecurity } from '@/security/store';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft, Search } from 'lucide-react-native';
@@ -18,6 +19,7 @@ import { rupees } from '@/utils/format';
 type Mode = null | 'menu' | 'rename' | 'category' | 'merge';
 
 export default function Merchants() {
+  useSecurity(); // re-render when "hide amounts" changes
   const db = useSQLiteContext();
   const router = useRouter();
   const snack = useSnackbar();

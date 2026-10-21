@@ -1,3 +1,4 @@
+import { useSecurity } from '@/security/store';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Banknote, ChevronLeft, CreditCard, Landmark, Plus } from 'lucide-react-native';
@@ -43,6 +44,7 @@ export function AccountCard({ a, onPress }: { a: AccountStats; onPress: () => vo
 }
 
 export default function Accounts() {
+  useSecurity(); // re-render when "hide amounts" changes
   const db = useSQLiteContext();
   const router = useRouter();
   const { colors } = useTheme();
