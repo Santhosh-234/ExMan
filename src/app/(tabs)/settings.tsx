@@ -169,7 +169,7 @@ export default function Settings() {
       </Section>
 
       <Section title="Categorisation" hint="How ExMan groups payees and picks categories.">
-        {([['/merchants', 'Merchants', ''], ['/rules', 'Rules', ''], ['/categories', 'Categories', ''], ['/rates', 'Exchange rates', ''], ['/unrecognised', 'Unrecognised messages', unparsed ? String(unparsed) : '']] as const).map(([href, label, badge]) => (
+        {([['/merchants', 'Merchants', ''], ['/rules', 'Rules', ''], ['/budgets', 'Budgets', ''], ['/categories', 'Categories', ''], ['/rates', 'Exchange rates', ''], ['/unrecognised', 'Unrecognised messages', unparsed ? String(unparsed) : '']] as const).map(([href, label, badge]) => (
           <Pressable key={href} onPress={() => router.push(href)} accessibilityRole="button" className="mb-3 min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
             <Text className="text-base text-fg">{label}</Text>
             <Text className={badge ? 'text-warn' : 'text-accent'}>{badge ? `${badge} to teach` : 'Open'}</Text>

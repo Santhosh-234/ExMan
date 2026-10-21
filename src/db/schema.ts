@@ -210,6 +210,11 @@ const MIGRATIONS = [
   ALTER TABLE transactions ADD COLUMN foreign_minor INTEGER;
   ALTER TABLE patterns ADD COLUMN currency TEXT NOT NULL DEFAULT 'INR';
   `,
+  // V2.1: budgets can roll unused money over; subscriptions the user says are not subscriptions
+  `
+  ALTER TABLE budgets ADD COLUMN rollover INTEGER NOT NULL DEFAULT 0;
+  CREATE TABLE recurring_dismissed (merchant_id INTEGER PRIMARY KEY REFERENCES merchants(id) ON DELETE CASCADE);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
