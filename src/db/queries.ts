@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { type TxnFilter, buildTxnQuery } from '@/utils/filters';
 import { ensureMerchant } from './merchantCore';
 
-export type Category = { id: number; name: string; icon: string; color: string };
+export type Category = { id: number; name: string; icon: string; color: string; archived: number; is_custom: number };
 export type Txn = {
   id: number;
   amount_paise: number;
@@ -27,6 +27,7 @@ export type Txn = {
   transfer_reason: string | null;
   transfer_pair_id: number | null;
   transfer_blocked: number;
+  refund_of: number | null;
   updated_at: number | null;
 };
 
@@ -40,10 +41,10 @@ export type AccountStats = Account & {
   received: number;
   n: number;
 };
-export type TxnPatchFields = Partial<Pick<Txn, 'amount_paise' | 'merchant' | 'category_id' | 'tags' | 'status' | 'notes' | 'account_id' | 'is_transfer' | 'ts' | 'direction' | 'merchant_id'>>;
+export type TxnPatchFields = Partial<Pick<Txn, 'amount_paise' | 'merchant' | 'category_id' | 'tags' | 'status' | 'notes' | 'account_id' | 'is_transfer' | 'ts' | 'direction' | 'merchant_id' | 'refund_of'>>;
 
 export const getCategories = (db: SQLiteDatabase) =>
-  db.getAllAsync<Category>('SELECT id, name, icon, color FROM categories ORDER BY id');
+  db.getAllAsync<Category>('SELECT id, name, icon, color, archived, is_custom FROM categories ORDER BY archived, id');
 
 export const getTxns = (db: SQLiteDatabase, status: 'pending' | 'confirmed' | 'dismissed', from = 0, to = 8.64e15) =>
   db.getAllAsync<Txn>(
@@ -107,8 +108,8 @@ export async function summarize(db: SQLiteDatabase, f: TxnFilter) {
   const { where, params } = buildTxnQuery(f);
   const r = await db.getFirstAsync<{ n: number; spent: number | null; received: number | null }>(
     `SELECT COUNT(*) AS n,
-            SUM(CASE WHEN t.direction = 'debit' AND t.is_transfer = 0 THEN t.amount_paise END) AS spent,
-            SUM(CASE WHEN t.direction = 'credit' AND t.is_transfer = 0 THEN t.amount_paise END) AS received
+            SUM(CASE WHEN t.is_transfer = 0 THEN ${SPEND} END) AS spent,
+            SUM(CASE WHEN t.direction = 'credit' AND t.is_transfer = 0 AND t.refund_of IS NULL THEN t.amount_paise END) AS received
      FROM transactions t WHERE ${where}`,
     ...params,
   );
@@ -129,30 +130,35 @@ export const deleteTxn = (db: SQLiteDatabase, id: number) => db.runAsync('DELETE
 export type CategorySpend = { category_id: number | null; name: string; color: string; total: number };
 
 /** Confirmed debits grouped by category within [from, to). */
+// Spending is debits minus credits linked to a purchase as a refund; income is credits that aren't refunds.
+const SPEND = "CASE WHEN t.direction = 'debit' THEN t.amount_paise WHEN t.refund_of IS NOT NULL THEN -t.amount_paise END";
+const IS_SPEND = "(t.direction = 'debit' OR (t.direction = 'credit' AND t.refund_of IS NOT NULL))";
+const IS_INCOME = "(t.direction = 'credit' AND t.refund_of IS NULL)";
+
 export const spendByCategory = (db: SQLiteDatabase, from: number, to: number) =>
   db.getAllAsync<CategorySpend>(
     `SELECT t.category_id, COALESCE(c.name, 'Uncategorised') AS name, COALESCE(c.color, '#6B7280') AS color,
-            SUM(t.amount_paise) AS total
+            SUM(${SPEND}) AS total
      FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
-     WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND t.direction = 'debit' AND t.ts >= ? AND t.ts < ?
-     GROUP BY t.category_id ORDER BY total DESC`,
+     WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND ${IS_SPEND} AND t.ts >= ? AND t.ts < ?
+     GROUP BY t.category_id HAVING total > 0 ORDER BY total DESC`,
     from, to,
   );
 
 export const totalFor = async (db: SQLiteDatabase, direction: 'debit' | 'credit', from: number, to: number) =>
   (
     await db.getFirstAsync<{ s: number | null }>(
-      `SELECT SUM(amount_paise) AS s FROM transactions
-       WHERE status = 'confirmed' AND is_transfer = 0 AND direction = ? AND ts >= ? AND ts < ?`,
-      direction, from, to,
+      `SELECT SUM(${direction === 'debit' ? SPEND : 't.amount_paise'}) AS s FROM transactions t
+       WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND ${direction === 'debit' ? IS_SPEND : IS_INCOME} AND t.ts >= ? AND t.ts < ?`,
+      from, to,
     )
   )?.s ?? 0;
 
 export const topMerchants = (db: SQLiteDatabase, from: number, to: number, limit = 5) =>
   db.getAllAsync<{ merchant: string; total: number; n: number }>(
-    `SELECT merchant, SUM(amount_paise) AS total, COUNT(*) AS n FROM transactions
-     WHERE status = 'confirmed' AND is_transfer = 0 AND direction = 'debit' AND merchant IS NOT NULL AND ts >= ? AND ts < ?
-     GROUP BY merchant ORDER BY total DESC LIMIT ?`,
+    `SELECT t.merchant, SUM(${SPEND}) AS total, COUNT(*) AS n FROM transactions t
+     WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND ${IS_SPEND} AND t.merchant IS NOT NULL AND t.ts >= ? AND t.ts < ?
+     GROUP BY t.merchant HAVING total > 0 ORDER BY total DESC LIMIT ?`,
     from, to, limit,
   );
 
@@ -180,8 +186,10 @@ export const setSetting = (db: SQLiteDatabase, key: string, value: string) =>
 /** Confirmed totals per month and direction in one scan: [{month:'2026-10', direction, total}]. */
 export const monthlyTotals = (db: SQLiteDatabase, from: number, to: number) =>
   db.getAllAsync<{ month: string; direction: 'debit' | 'credit'; total: number }>(
-    `SELECT strftime('%Y-%m', ts / 1000, 'unixepoch', 'localtime') AS month, direction, SUM(amount_paise) AS total
-     FROM transactions WHERE status = 'confirmed' AND is_transfer = 0 AND ts >= ? AND ts < ? GROUP BY month, direction`,
+    `SELECT strftime('%Y-%m', t.ts / 1000, 'unixepoch', 'localtime') AS month,
+            CASE WHEN ${IS_SPEND} THEN 'debit' ELSE 'credit' END AS direction,
+            SUM(CASE WHEN ${IS_SPEND} THEN ${SPEND} ELSE t.amount_paise END) AS total
+     FROM transactions t WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND t.ts >= ? AND t.ts < ? GROUP BY 1, 2`,
     from, to,
   );
 
@@ -221,6 +229,8 @@ export const getAccount = (db: SQLiteDatabase, id: number) =>
     'SELECT id, name, kind, bank, last4, balance_paise, balance_kind, balance_ts, archived, 0 AS spent, 0 AS received, 0 AS n FROM accounts WHERE id = ?', id,
   );
 
+export const setAccountFirefly = (db: SQLiteDatabase, id: number, name: string) => db.runAsync('UPDATE accounts SET firefly_name = ? WHERE id = ?', name.trim() || null, id);
+export const getAccountFirefly = async (db: SQLiteDatabase, id: number) => (await db.getFirstAsync<{ firefly_name: string | null }>('SELECT firefly_name FROM accounts WHERE id = ?', id))?.firefly_name ?? '';
 export const renameAccount = (db: SQLiteDatabase, id: number, name: string) => db.runAsync('UPDATE accounts SET name = ? WHERE id = ?', name, id);
 export const setAccountArchived = (db: SQLiteDatabase, id: number, archived: boolean) => db.runAsync('UPDATE accounts SET archived = ? WHERE id = ?', archived ? 1 : 0, id);
 
@@ -246,3 +256,49 @@ export async function mergeAccount(db: SQLiteDatabase, source: number, target: n
     );
   });
 }
+
+export const CATEGORY_COLORS = ['#F59E0B', '#84CC16', '#3B82F6', '#EC4899', '#8B5CF6', '#F43F5E', '#14B8A6', '#10B981', '#06B6D4', '#F97316', '#A855F7', '#6B7280'];
+
+export const getCategoryUsage = (db: SQLiteDatabase) =>
+  db.getAllAsync<{ category_id: number; n: number }>("SELECT category_id, COUNT(*) AS n FROM transactions WHERE category_id IS NOT NULL AND status != 'dismissed' GROUP BY category_id");
+
+export async function addCategory(db: SQLiteDatabase, name: string, color: string) {
+  // names are unique; a clash (even with an archived category) is reported instead of silently merging
+  const clash = await db.getFirstAsync('SELECT 1 FROM categories WHERE lower(name) = lower(?)', name);
+  if (clash) throw new Error('A category with that name already exists');
+  return (await db.runAsync("INSERT INTO categories (name, icon, color, is_custom) VALUES (?, 'tag', ?, 1)", name, color)).lastInsertRowId;
+}
+
+export async function updateCategory(db: SQLiteDatabase, id: number, f: { name?: string; color?: string }) {
+  if (f.name != null) {
+    const clash = await db.getFirstAsync('SELECT 1 FROM categories WHERE lower(name) = lower(?) AND id != ?', f.name, id);
+    if (clash) throw new Error('A category with that name already exists');
+    await db.runAsync('UPDATE categories SET name = ? WHERE id = ?', f.name, id);
+  }
+  if (f.color != null) await db.runAsync('UPDATE categories SET color = ? WHERE id = ?', f.color, id);
+}
+
+export const setCategoryArchived = (db: SQLiteDatabase, id: number, archived: boolean) => db.runAsync('UPDATE categories SET archived = ? WHERE id = ?', archived ? 1 : 0, id);
+
+/** Custom categories only. Their transactions become uncategorised; rules pointing at it are removed (FK cascade). */
+export async function deleteCategory(db: SQLiteDatabase, id: number) {
+  const c = await db.getFirstAsync<{ is_custom: number }>('SELECT is_custom FROM categories WHERE id = ?', id);
+  if (!c?.is_custom) throw new Error('Built-in categories can be archived but not deleted');
+  await db.runAsync('DELETE FROM categories WHERE id = ?', id);
+}
+
+/** Purchases a refund could belong to: confirmed debits up to 180 days before it, same merchant first. */
+export async function refundCandidates(db: SQLiteDatabase, refund: Pick<Txn, 'id' | 'amount_paise' | 'ts' | 'merchant_id'>) {
+  return db.getAllAsync<Txn>(
+    `SELECT * FROM transactions
+     WHERE direction = 'debit' AND status = 'confirmed' AND is_transfer = 0 AND amount_paise >= ? AND ts <= ? AND ts >= ?
+     ORDER BY (merchant_id IS NOT NULL AND merchant_id = ?) DESC, (amount_paise = ?) DESC, ts DESC LIMIT 15`,
+    refund.amount_paise, refund.ts, refund.ts - 180 * 864e5, refund.merchant_id ?? -1, refund.amount_paise,
+  );
+}
+
+/** Links a credit to its purchase: it takes the purchase's category and merchant so reports net it out correctly. */
+export async function linkRefund(db: SQLiteDatabase, refundId: number, purchase: Pick<Txn, 'id' | 'category_id' | 'merchant_id' | 'merchant'>) {
+  await updateTxn(db, refundId, { refund_of: purchase.id, category_id: purchase.category_id, merchant_id: purchase.merchant_id, merchant: purchase.merchant });
+}
+export const unlinkRefund = (db: SQLiteDatabase, refundId: number) => updateTxn(db, refundId, { refund_of: null });

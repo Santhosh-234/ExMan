@@ -7,6 +7,7 @@ import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { type MerchantStats, applyRuleToExisting, getMerchantStats, mergeMerchant, renameMerchant, setMerchantRule } from '@/db/merchants';
 import { type Category, getCategories } from '@/db/queries';
 import { notifyIngested } from '@/ingest/events';
+import { track } from '@/telemetry';
 import { Button, Card, EmptyState, Sheet } from '@/ui/kit';
 import { CategoryChips } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
@@ -102,6 +103,7 @@ export default function Merchants() {
             <Pressable key={m.id} accessibilityRole="button" className="min-h-12 justify-center rounded-xl px-2" onPress={async () => {
               const s = sel; close();
               await mergeMerchant(db, s.id, m.id);
+              track('feature_used', { feature: 'merchant_merged' });
               notifyIngested(); load();
               snack({ message: `Merged ${s.name} into ${m.name}` });
             }}>

@@ -10,6 +10,7 @@ import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useRuleOffer } from '@/ui/useRuleOffer';
 import { rejectTransfer } from '@/db/transfers';
+import { track } from '@/telemetry';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 
@@ -20,8 +21,8 @@ type CardProps = {
   cats: Category[];
   quick: Category[];
   account: string | null;
-  onConfirm: () => void;
-  onDismiss: () => void;
+  onConfirm: (via: 'swipe' | 'button') => void;
+  onDismiss: (via: 'swipe' | 'button') => void;
   onEdit: () => void;
   onCategory: (id: number) => void;
   onMore: () => void;
@@ -36,9 +37,10 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
   const [showRaw, setShowRaw] = useState(false);
   const cb = useRef({ onConfirm, onDismiss });
   cb.current = { onConfirm, onDismiss };
+  const via = useRef<'swipe' | 'button'>('button');
 
   const fling = useCallback((dir: 1 | -1) => {
-    Animated.timing(x, { toValue: dir * width, duration: 160, useNativeDriver: true }).start(() => (dir > 0 ? cb.current.onConfirm() : cb.current.onDismiss()));
+    Animated.timing(x, { toValue: dir * width, duration: 160, useNativeDriver: true }).start(() => (dir > 0 ? cb.current.onConfirm(via.current) : cb.current.onDismiss(via.current)));
   }, [x, width]);
   const flingRef = useRef(fling);
   flingRef.current = fling;
@@ -47,8 +49,8 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
     onPanResponderMove: Animated.event([null, { dx: x }], { useNativeDriver: false }),
     onPanResponderRelease: (_, g) => {
-      if (g.dx > THRESHOLD) flingRef.current(1);
-      else if (g.dx < -THRESHOLD) flingRef.current(-1);
+      if (g.dx > THRESHOLD) { via.current = 'swipe'; flingRef.current(1); }
+      else if (g.dx < -THRESHOLD) { via.current = 'swipe'; flingRef.current(-1); }
       else Animated.spring(x, { toValue: 0, useNativeDriver: true }).start();
     },
   })).current;
@@ -131,8 +133,8 @@ export default function Review() {
 
   const quick = useMemo(() => {
     const byId = new Map(cats.map((c) => [c.id, c]));
-    const ids = quickIds.length ? quickIds : cats.slice(0, 5).map((c) => c.id);
-    return ids.map((i) => byId.get(i)).filter((c): c is Category => !!c);
+    const ids = quickIds.length ? quickIds : cats.filter((c) => !c.archived).slice(0, 5).map((c) => c.id);
+    return ids.map((i) => byId.get(i)).filter((c): c is Category => !!c && !c.archived);
   }, [cats, quickIds]);
 
   const head = queue?.[0];
@@ -144,13 +146,15 @@ export default function Review() {
   }, [db, head]);
 
   // commit = move the head out of the queue; Undo puts it back as pending at the front
-  const commit = useCallback((status: 'confirmed' | 'dismissed') => {
+  const commit = useCallback((status: 'confirmed' | 'dismissed', via: 'swipe' | 'button' = 'button') => {
     if (!head) return;
+    track('review_action', { action: status === 'confirmed' ? 'confirm' : 'dismiss', via });
     const t = head;
     setQueue((q) => q && q.slice(1));
     void updateTxn(db, t.id, { status });
     status === 'confirmed' ? success() : tap();
     const undo = () => {
+      track('review_action', { action: 'undo', via: 'button' });
       void updateTxn(db, t.id, { status: 'pending' });
       setQueue((q) => q && [t, ...q]);
     };
@@ -205,14 +209,15 @@ export default function Review() {
             cats={cats}
             quick={quick}
             account={head.account_id ? accounts.get(head.account_id) ?? null : null}
-            onConfirm={() => commit('confirmed')}
-            onDismiss={() => commit('dismissed')}
+            onConfirm={(v) => commit('confirmed', v)}
+            onDismiss={(v) => commit('dismissed', v)}
             onEdit={() => setEditing(true)}
             onCategory={(id) => patchHead({ category_id: id })}
             onMore={() => setPicking(true)}
             onNotTransfer={async () => {
               const t0 = head;
               await rejectTransfer(db, t0.id);
+              track('feature_used', { feature: 'transfer_unmarked' });
               setQueue((q) => q && [{ ...q[0], is_transfer: 0, transfer_reason: null, transfer_pair_id: null }, ...q.slice(1)]);
               snack({ message: 'Unmarked. It counts in totals again.' });
             }}

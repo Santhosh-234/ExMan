@@ -166,6 +166,43 @@ const MIGRATIONS = [
   ALTER TABLE transactions ADD COLUMN transfer_blocked INTEGER NOT NULL DEFAULT 0;
   CREATE INDEX idx_txn_transfer_auto ON transactions (transfer_auto) WHERE transfer_auto = 1;
   `,
+  // Teach ExMan (per-sender taught formats) and category archiving
+  `
+  CREATE TABLE patterns (
+    id INTEGER PRIMARY KEY,
+    sender_key TEXT NOT NULL,
+    direction TEXT NOT NULL CHECK (direction IN ('debit','credit')),
+    amount_re TEXT NOT NULL,
+    merchant_re TEXT,
+    account_re TEXT,
+    example TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    hits INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_patterns_sender ON patterns (sender_key);
+  ALTER TABLE categories ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+  `,
+  // anonymous telemetry: local queue + the log the user can inspect (see src/telemetry)
+  `
+  CREATE TABLE telemetry_events (
+    id INTEGER PRIMARY KEY,
+    ts INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    sent_at INTEGER
+  );
+  CREATE INDEX idx_telemetry_sent ON telemetry_events (sent_at, ts);
+  `,
+  // per-account Firefly III asset account name (falls back to the default one in Settings)
+  `
+  ALTER TABLE accounts ADD COLUMN firefly_name TEXT;
+  `,
+  // a credit linked to the purchase it refunds: nets against that purchase's spending instead of counting as income
+  `
+  ALTER TABLE transactions ADD COLUMN refund_of INTEGER;
+  CREATE INDEX idx_txn_refund ON transactions (refund_of) WHERE refund_of IS NOT NULL;
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

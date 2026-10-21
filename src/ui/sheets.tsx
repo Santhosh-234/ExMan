@@ -10,7 +10,7 @@ export type TxnPatch = Partial<Pick<Txn, 'amount_paise' | 'merchant' | 'category
 export function CategoryChips({ cats, value, onPick }: { cats: Category[]; value: number | null; onPick: (id: number) => void }) {
   return (
     <View className="flex-row flex-wrap">
-      {cats.map((c) => (
+      {cats.filter((c) => !c.archived || c.id === value).map((c) => (
         <Chip key={c.id} label={c.name} color={c.color} selected={value === c.id} onPress={() => onPick(c.id)} />
       ))}
     </View>

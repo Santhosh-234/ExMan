@@ -4,9 +4,12 @@ import * as Updates from 'expo-updates';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
+import { countUnparsed } from '@/db/patterns';
 import { getSetting, setSetting } from '@/db/queries';
 import { importHistory } from '@/ingest/run';
 import { syncNow } from '@/sync';
+import { track } from '@/telemetry';
+import { bucketMessages, bucketMs } from '@/telemetry/schema';
 import { Button, Card, Chip } from '@/ui/kit';
 import { type Mode, useTheme } from '@/ui/theme';
 
@@ -81,12 +84,14 @@ export default function Settings() {
   const [status, setStatus] = useState('');
   const [readSms, setReadSms] = useState(false);
   const [importMsg, setImportMsg] = useState('');
+  const [unparsed, setUnparsed] = useState(0);
   // re-check when returning from the system settings screen
   useFocusEffect(
     useCallback(() => {
       PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS).then(setSms);
       PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS).then(setReadSms);
       setNotif(notificationAccessGranted());
+      void countUnparsed(db).then(setUnparsed);
       (async () => {
         setEndpoint(await getSetting(db, 'sync_endpoint'));
         setToken(await getSetting(db, 'sync_token'));
@@ -103,7 +108,7 @@ export default function Settings() {
       <Section title="Appearance" hint="System follows your phone's light/dark setting.">
         <View className="flex-row">
           {([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']] as [Mode, string][]).map(([m, label]) => (
-            <Chip key={m} label={label} color={colors.accent} selected={themeMode === m} onPress={() => setThemeMode(m)} />
+            <Chip key={m} label={label} color={colors.accent} selected={themeMode === m} onPress={() => { setThemeMode(m); track('feature_used', { feature: 'theme_changed' }); }} />
           ))}
         </View>
       </Section>
@@ -116,17 +121,25 @@ export default function Settings() {
       </Section>
 
       <Section title="Categorisation" hint="How ExMan groups payees and picks categories.">
-        {([['/merchants', 'Merchants'], ['/rules', 'Rules']] as const).map(([href, label]) => (
+        {([['/merchants', 'Merchants', ''], ['/rules', 'Rules', ''], ['/categories', 'Categories', ''], ['/unrecognised', 'Unrecognised messages', unparsed ? String(unparsed) : '']] as const).map(([href, label, badge]) => (
           <Pressable key={href} onPress={() => router.push(href)} accessibilityRole="button" className="mb-3 min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
             <Text className="text-base text-fg">{label}</Text>
-            <Text className="text-accent">Open</Text>
+            <Text className={badge ? 'text-warn' : 'text-accent'}>{badge ? `${badge} to teach` : 'Open'}</Text>
           </Pressable>
         ))}
       </Section>
 
+      <Section title="Privacy & data" hint="What ExMan reads, how long originals are kept, and a full wipe.">
+        <Pressable onPress={() => router.push('/privacy')} accessibilityRole="button" className="min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
+          <Text className="text-base text-fg">Privacy & data</Text>
+          <Text className="text-accent">Open</Text>
+        </Pressable>
+      </Section>
+
       <AppUpdates />
 
-      <Text className="mb-2 text-lg font-semibold text-fg" accessibilityRole="header">Permissions</Text>
+      <Text className="mb-1 text-lg font-semibold text-fg" accessibilityRole="header">Permissions</Text>
+      <Text className="mb-3 text-xs text-muted">Notification access greyed out on Android 13+? Open App info, tap ⋮, choose “Allow restricted settings”, then try again.</Text>
       <Row
         label="Read bank SMS"
         ok={sms}
@@ -158,7 +171,10 @@ export default function Settings() {
               if (!readSms) return setImportMsg('Grant "Read old SMS" first');
               setImportMsg('Importing…');
               try {
+                const t0 = Date.now();
                 const n = await importHistory(db, d, (done, total) => setImportMsg(`Importing… ${done}/${total}`));
+                track('import_completed', { days: d, messages: bucketMessages(n), ms: bucketMs(Date.now() - t0) });
+                track('feature_used', { feature: 'history_import' });
                 setImportMsg(`Added ${n} transactions to the Inbox`);
               } catch (e) {
                 setImportMsg(e instanceof Error ? e.message : 'Import failed');

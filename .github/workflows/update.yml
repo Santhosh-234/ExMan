@@ -30,4 +30,7 @@ jobs:
       # the channel must exist and point at the branch we publish to.
       - run: eas channel:view main --non-interactive > /dev/null 2>&1 || eas channel:create main --non-interactive
       - run: eas channel:edit main --branch main --non-interactive
+      # EXPO_PUBLIC_* values are inlined into the JS bundle; leave the repo variable TELEMETRY_URL unset until the collector exists
       - run: eas update --branch main --platform android --message "${{ github.event.head_commit.message || 'manual' }}" --non-interactive
+        env:
+          EXPO_PUBLIC_TELEMETRY_URL: ${{ vars.TELEMETRY_URL }}

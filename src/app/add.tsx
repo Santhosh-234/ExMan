@@ -6,6 +6,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput,
 
 import { type Account, type Category, addManualTxn, getAccounts, getCategories } from '@/db/queries';
 import { notifyIngested } from '@/ingest/events';
+import { track } from '@/telemetry';
 import { Button, Chip, success } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
@@ -53,6 +54,7 @@ export default function Add() {
       tags: tags.split(',').map((t) => t.trim()).filter(Boolean).join(','), notes: null,
     });
     success();
+    track('feature_used', { feature: 'manual_add' });
     notifyIngested();
     snack({ message: `Added ${rupees(paise)}${merchant.trim() ? ` · ${merchant.trim()}` : ''}` });
     router.back();
@@ -84,7 +86,7 @@ export default function Add() {
 
         <Text className="mb-2 text-xs text-muted">Category</Text>
         <View className="mb-2 flex-row flex-wrap">
-          {cats.map((c) => <Chip key={c.id} label={c.name} color={c.color} selected={cat === c.id} onPress={() => setCat(cat === c.id ? null : c.id)} />)}
+          {cats.filter((c) => !c.archived).map((c) => <Chip key={c.id} label={c.name} color={c.color} selected={cat === c.id} onPress={() => setCat(cat === c.id ? null : c.id)} />)}
         </View>
 
         <Text className="mb-2 text-xs text-muted">Account</Text>
