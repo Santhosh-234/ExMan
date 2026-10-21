@@ -12,7 +12,7 @@ import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 import { CURRENCIES, formatForeign, isForeign } from '@/utils/currency';
-import { type Selection, buildPattern, tokenize } from '@/utils/teach';
+import { type Selection, buildPattern, detectCurrency, tokenize } from '@/utils/teach';
 
 type Field = 'amount' | 'merchant' | 'account';
 const NUMERIC = /^\d[\d,]*(?:\.\d+)?$/;
@@ -31,6 +31,7 @@ export default function Teach() {
   const [mStart, setMStart] = useState<number | null>(null);
   const [mEnd, setMEnd] = useState<number | null>(null);
   const [currency, setCurrency] = useState('INR');
+  const [detected, setDetected] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -54,7 +55,15 @@ export default function Teach() {
   const tap = (i: number) => {
     setError('');
     const numeric = NUMERIC.test(tokens[i].text);
-    if (field === 'amount') { if (numeric) setAmount(i === amount ? null : i); else setError('The amount is a number. Tap the digits.'); }
+    if (field === 'amount') {
+      if (!numeric) setError('The amount is a number. Tap the digits.');
+      else {
+        setAmount(i === amount ? null : i);
+        // the message itself says which currency: "32 USD", "USD 32", "$32"
+        const found = msg ? detectCurrency(msg.text, tokens, i) : null;
+        if (found) { setCurrency(found); setDetected(found); } else setDetected(null);
+      }
+    }
     else if (field === 'account') { if (numeric) setAccount(i === account ? null : i); else setError('Tap the last 3-4 digits of the account number.'); }
     else if (mStart == null || mEnd != null) { setMStart(i); setMEnd(null); }
     else setMEnd(i);
@@ -98,6 +107,7 @@ export default function Teach() {
         <View className="mb-1 flex-row flex-wrap">
           {['INR', ...CURRENCIES.map((c) => c.code)].map((c) => <Chip key={c} label={c} color={colors.accent} selected={currency === c} onPress={() => setCurrency(c)} />)}
         </View>
+        {detected && <Text className="mb-1 text-xs text-accent">Detected {detected} next to the amount in this message.</Text>}
         {isForeign(currency) && <Text className="mb-2 text-xs text-muted">Foreign amounts are converted to rupees at the rate in Settings, Exchange rates. It's approximate; edit the transaction if your statement differs.</Text>}
 
         <Text className="mb-1 mt-2 text-xs uppercase tracking-wider text-muted">2 · Pick what to mark</Text>
