@@ -26,4 +26,4 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - run: eas update --branch main --message "${{ github.event.head_commit.message || 'manual' }}" --non-interactive
+      - run: eas update --branch main --platform android --message "${{ github.event.head_commit.message || 'manual' }}" --non-interactive
