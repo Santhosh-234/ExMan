@@ -1,10 +1,10 @@
 # ExMan: Product Requirements Document
 
-Status: **DRAFT for approval** · Owner: Santhosh · Scope: V2.0 (V2.1 and later noted)
+Status: **DRAFT v2 (feedback applied), pending final approval** · Owner: Santhosh · Scope: V2.0 (V2.1 and later noted)
 
 ## 1. Summary
 
-ExMan is a private, offline-first expense manager for Android that tracks money automatically from the bank, card and UPI alerts already on your phone. You don't type expenses; you glance at what ExMan found, confirm it with a swipe, and see where your money goes. Everything stays on the device unless you choose to sync to a server you own.
+ExMan is a private, offline-first expense manager for Android that tracks money automatically from the bank, card and UPI alerts already on your phone. You don't type expenses; you glance at what ExMan found, confirm it with a swipe, and see where your money goes. Your financial data stays on the device unless you choose to sync to a server you own. Optional, anonymous product telemetry (no financial content, ever) helps the app improve and is fully visible and controllable by you.
 
 **One-line promise:** *"Your money, tracked for you, seen only by you."*
 
@@ -27,7 +27,7 @@ Not targeting (V2): businesses, shared household budgets, investments tracking, 
 
 1. **Capture without effort.** If the phone already knows about a transaction, the user shouldn't type it.
 2. **Review in seconds.** Each decision (confirm, categorise, dismiss) is one gesture, and every action is undoable.
-3. **Private by default.** No accounts, no analytics, no ads, no cloud. Data leaves the device only on explicit user action.
+3. **Private by default.** No accounts, no ads, no cloud copy of your finances. Financial content (amounts, merchants, message text, account numbers) never leaves the device except by an explicit action such as your own Firefly sync. Product telemetry is **opt-in, anonymous, content-free, inspectable, and can be turned off or erased at any time** (see F33).
 4. **Trust the numbers.** Totals must be right: no double counting, transfers are not spending, uncertainty is shown, never hidden.
 5. **Fast and calm.** Instant screens at 10,000 transactions; a quiet visual design; no nagging.
 6. **Works for India.** INR with lakh/crore grouping, Indian banks, cards and UPI, the SMS formats they actually send.
@@ -38,29 +38,31 @@ Not targeting (V2): businesses, shared household budgets, investments tracking, 
 - G1. At least 90% of a user's bank/card/UPI transactions appear in ExMan with correct amount, direction and account, with no manual entry.
 - G2. Reviewing a typical day's transactions takes under 15 seconds.
 - G3. The user can answer "what did I spend this month, on what, versus last month?" from the first screen.
-- G4. Zero data leaves the device in the default configuration.
+- G4. No financial content leaves the device in any configuration except user-initiated sync; telemetry is opt-in and content-free.
+- G6. Use anonymous telemetry to find and fix parser gaps, crashes and slow screens within one release cycle.
 - G5. Every screen is interactive in under 100 ms with 10,000 transactions.
 
 ### Non-goals (V2.0)
 - No bank-login/account-aggregator integration; SMS and notifications only.
-- No cloud accounts or multi-device sync service run by us. (Optional sync to the user's own Firefly III is allowed.)
+- No cloud accounts, no user profiles, no multi-device sync service run by us. (Optional sync to the user's own Firefly III is allowed.)
 - No investments, net worth, loans, bill reminders, or tax features.
 - No Play Store distribution (sideloaded APK).
 
 ## 6. Success metrics
 
-Measured locally by the developer tools or by the owner's own use; there is **no telemetry**.
+Measured locally (developer tools, owner spot-checks) and, for users who opt in, through anonymous telemetry (F33). Metrics that need telemetry are marked †.
 
 | Metric | Target |
 |---|---|
 | Capture rate (transactions in app / transactions in bank statement, owner spot-check monthly) | >= 90% |
 | Auto-category accuracy after 1 month of rules | >= 80% of transactions need no change |
-| Unrecognised financial SMS per month | < 5% of financial SMS |
+| Unrecognised financial SMS per month† | < 5% of financial SMS |
 | Time to clear a day's Review queue | < 15 s |
 | Cold start | < 1.5 s |
 | 1-year SMS import (3,000 messages) | < 5 s |
 | List scroll at 10,000 rows | 60 fps |
-| Crash-free sessions | > 99.5% (local crash log) |
+| Crash-free sessions† | > 99.5% |
+| Median / p95 screen load time† | < 100 ms / < 300 ms |
 
 ## 7. Core user journeys
 
@@ -89,10 +91,11 @@ Priority: **P0** must ship in V2.0 · **P1** V2.0 if capacity allows · **P2** V
 - AC: 3,000 messages import in < 5 s; re-running adds nothing; dismissed items never come back.
 
 **F4. Parser coverage (P0).** Understand debit/credit alerts for supported Indian banks, cards and UPI: amount, direction, merchant/payee, account/card last-4, bank, payment mode, balance (when present).
-- V2.0 first-class: Indian Bank, Axis Bank (account, debit card, credit card), ICICI (Amazon Pay credit card), plus the already-supported major banks.
+- V2.0 first-class: Indian Bank (account, debit card), Axis Bank (account, debit card, credit card), ICICI (Amazon Pay credit card), plus the already-supported major banks.
 - AC: a maintained corpus of real, masked messages; every supported format has a test; ignores OTPs, promos, bill-due notices, future-dated debits and failed transactions.
 
-**F5. Unrecognised messages (P1).** A list of financial-looking SMS the parser could not read, with a **"Teach ExMan"** action to mark amount/merchant/direction and create a pattern for that sender, plus **"Copy masked message"** to report a parser gap without leaking personal data.
+**F5. Unrecognised messages and Teach ExMan (P0).** A list of financial-looking SMS the parser could not read. **Teach ExMan** lets the user tap the amount, merchant and account in the message and choose debit/credit; ExMan builds a pattern for that sender/format and applies it to similar past and future messages.
+- AC: after teaching one message, other messages in the same format parse correctly; taught patterns are listed, editable and deletable; a wrong pattern can be reverted. **Report a gap** (optional, per message) sends only a masked template of the message (digits and names replaced, see F33), after showing the user exactly what will be sent.
 
 **F6. Manual / cash entry (P0).** A **+** button: amount, in/out, merchant or note, category, account (Cash by default), date, tags.
 - AC: under 10 s to enter; appears immediately in Activity and totals; editable and deletable.
@@ -102,8 +105,9 @@ Priority: **P0** must ship in V2.0 · **P1** V2.0 if capacity allows · **P2** V
 **F7. Accounts and cards (P0).** Automatically create accounts and cards from bank + last-4 found in messages (e.g. "Axis card ...4321"); the user can rename, merge duplicates, archive, and add Cash.
 - AC: every transaction belongs to an account; per-account filter everywhere; accounts list shows month in/out and, where SMS provide it, latest known balance with "as of" date.
 
-**F8. Transfers and bill payments (P0).** Detect and mark money moved between the user's own accounts and credit-card bill payments as **transfers**, excluded from spending and income.
-- AC: paying the Axis card bill from Axis savings does not count as spending twice; user can manually mark/unmark any transaction as a transfer.
+**F8. Transfers and bill payments (P0).** Automatically detect money moved between the user's own accounts and credit-card bill payments, mark them as **transfers** (excluded from spending and income), and show an **Undo** at the moment of detection and in the transaction's detail.
+- Detection: a debit from one own account matched with a credit to another within a short window and equal amount; card-bill payment debits matched to the card's payment credit or to the card issuer's bill-payment wording.
+- AC: paying the Axis card bill from Axis savings does not count as spending twice; every auto-marked transfer is visible in a "Transfers" filter and can be un-marked in one tap; un-marking teaches the matcher not to repeat that pairing.
 
 **F9. Refunds (P1).** Link a credit to the original debit so net spend is correct.
 
@@ -113,7 +117,7 @@ Priority: **P0** must ship in V2.0 · **P1** V2.0 if capacity allows · **P2** V
 - Gestures: right = confirm, left = dismiss, tap = edit. Every action shows an **Undo** snackbar.
 - AC: dismissed transactions are hidden but recoverable (Settings > Dismissed); queue count shows on Home; **Confirm all categorised** and **Confirm all from known merchants** for bulk clearing.
 
-**F11. Edit transaction (P0).** Amount, merchant, category, account, date, tags, notes, transfer flag. Edits are logged.
+**F11. Edit transaction (P0).** Amount, merchant, category, account, date, tags, notes, transfer flag. Edits are logged. The original message is always viewable from the detail screen.
 
 **F12. Split transaction (P2).** Split one payment across categories.
 
@@ -163,7 +167,7 @@ Priority: **P0** must ship in V2.0 · **P1** V2.0 if capacity allows · **P2** V
 
 **F29. Permissions health (P0).** Settings shows each required permission with status and a fix-it action, including the Android 13+ "allow restricted settings" flow for sideloaded apps.
 
-**F30. Data controls (P0).** Delete all data; delete messages older than N days (raw SMS text can be purged while keeping the parsed transaction); view exactly which senders ExMan reads.
+**F30. Data controls (P0).** The original (raw) message text is **kept by default** with each transaction, so corrections, re-parsing after parser upgrades and Teach ExMan keep working. It stays on the device only; it is never uploaded by telemetry. The user can purge raw text older than N days (keeping the parsed transaction), delete all data, and view exactly which senders ExMan reads.
 
 ### 8.9 Platform and delivery
 
@@ -171,9 +175,18 @@ Priority: **P0** must ship in V2.0 · **P1** V2.0 if capacity allows · **P2** V
 
 **F32. Developer tools (P0, internal).** Seed synthetic data, benchmark queries, view local error log.
 
+**F33. Privacy-preserving telemetry (P0).** Opt-in, anonymous, content-free product telemetry to improve parsing, stability and speed across versions.
+- **Consent:** asked once during onboarding in plain language with a "See exactly what is sent" link; off until the user agrees; toggle anytime in Settings > Privacy; turning it off stops collection and deletes the queued events.
+- **Identity:** a random install ID generated on the device, with no link to phone number, account, device identifiers, name or email; **Reset ID** button; no IP logging at the collector.
+- **Allowed events (allow-list, versioned):** app version/OS/device class; crash and error types with stack traces scrubbed of data; screen load timings; feature usage counters (e.g. "review confirmed", "theme changed"); import duration and counts; parser outcomes as counts per bank key (parsed / unrecognised / low-confidence).
+- **Never collected:** amounts, balances, merchants, categories names the user created, account numbers or last-4, message text, contacts, location, other apps. Parser-gap reports contain only a **masked template** (digits -> `#`, names/merchants/VPAs -> `<NAME>`/`<VPA>`, sender ID kept) and are sent only when the user taps "Report a gap" on that specific message after previewing the exact payload.
+- **Transparency:** an in-app **Telemetry log** screen lists every event sent (and queued) in readable form; payload schema documented in the repo.
+- **Delivery:** batched over HTTPS when on Wi-Fi/idle; small, drop-on-failure; no SDK that fingerprints. Collector endpoint is owned by the project (hosting option decided in the infrastructure plan, self-hosted preferred).
+- AC: with telemetry off, zero telemetry requests are made (verifiable in the log and by network inspection); with it on, every outbound payload matches the documented allow-list schema, enforced by a unit test that fails on unknown fields.
+
 ## 9. Non-functional requirements
 
-- **Privacy:** no network calls except user-initiated sync, update checks, and Expo OTA fetches (code only, never data). No third-party SDKs that collect data. SMS permission used only to read bank-style (alphanumeric) senders.
+- **Privacy:** network calls are limited to user-initiated sync, update checks, Expo OTA fetches (code only), and opt-in telemetry (F33). No third-party analytics or advertising SDKs. SMS permission is used only to read bank-style (alphanumeric) senders. Raw message text and financial values are never transmitted by telemetry; a schema allow-list test guards this.
 - **Performance:** per section 6. Database access via indexed queries; no per-row N+1 queries.
 - **Reliability:** idempotent ingestion (no duplicates after restarts or re-imports); schema migrations are versioned, tested, and never lose data; automatic pre-migration backup.
 - **Compatibility:** Android 8+ (target latest), arm64. Works offline always.
@@ -183,13 +196,13 @@ Priority: **P0** must ship in V2.0 · **P1** V2.0 if capacity allows · **P2** V
 
 ## 10. Data model (conceptual)
 
-Transaction (amount in paise, direction, merchant, category, account, timestamp, status: pending/confirmed/dismissed, source: sms/gpay/phonepe/paytm/manual, payment mode, tags, notes, transfer flag, linked transaction, raw message, message hash, sync status) · Account (name, kind: bank/card/cash, bank, last-4, balance + as-of) · Merchant (name, aliases) · Category · Rule (merchant or pattern -> category) · Budget (overall in V2.0; per category in V2.1) · Setting · Edit log · Unparsed message.
+Transaction (amount in paise, direction, merchant, category, account, timestamp, status: pending/confirmed/dismissed, source: sms/gpay/phonepe/paytm/manual, payment mode, tags, notes, transfer flag, linked transaction, raw message, message hash, sync status) · Account (name, kind: bank/card/cash, bank, last-4, balance + as-of) · Merchant (name, aliases) · Category · Rule (merchant or pattern -> category) · Budget (overall in V2.0; per category in V2.1) · Setting · Edit log · Unparsed message · Taught pattern (sender, template, field map) · Telemetry event queue (local, inspectable).
 
 ## 11. Release scope
 
 | Release | Contents |
 |---|---|
-| **V2.0** | F1-F4, F6-F8, F10, F11, F13, F14, F16-F19, F23, F24, F25, F29-F32. P1 items (F5, F9, F15, F26, F27, F28, AMOLED) as capacity allows, in that order. |
+| **V2.0** | F1-F8, F10, F11, F13, F14, F16-F19, F23, F24, F25, F29-F33 (F5 Teach ExMan and F33 telemetry now P0). P1 items (F9, F15, F26, F27, F28, AMOLED) as capacity allows, in that order. |
 | **V2.1** | F20 per-category budgets, F21 subscriptions, plus remaining P1s and any parser fixes from real-world use. |
 | **Later** | F12 split, F22 notifications, home-screen widget, background sync service, self-hosted update server and diagnostics (privacy discussion pending). |
 
@@ -197,7 +210,9 @@ Transaction (amount in paise, direction, merchant, category, account, timestamp,
 
 | Risk | Mitigation |
 |---|---|
-| Banks change SMS formats | Corpus-driven tests; "Teach ExMan"; masked-report button; fast OTA fixes |
+| Banks change SMS formats | Corpus-driven tests; Teach ExMan; opt-in masked gap reports and parser-outcome counts; fast OTA fixes |
+| Telemetry erodes trust | Opt-in, allow-list schema enforced by tests, visible Telemetry log, Reset ID, no financial content; published schema |
+| Teach ExMan creates a bad pattern | Preview before saving, pattern list with edit/delete, one-tap revert, never overwrite built-in parsers silently |
 | Android restricts SMS/notification access for sideloaded apps | Clear in-app guidance; health screen; no Play Store dependency |
 | Double counting (SMS + UPI + card) | Cross-channel dedupe, transfer detection, tested rules |
 | Misclassified transfers distort totals | Easy manual override; show transfers separately |
@@ -205,11 +220,18 @@ Transaction (amount in paise, direction, merchant, category, account, timestamp,
 | Performance regressions | Perf budget checked with Developer tools before each release |
 | Single-developer scope | Strict P0/P1/P2 cut; each phase ships an installable build |
 
-## 13. Open questions for approval
+## 13. Decisions and remaining questions
 
-1. Is the one-line promise and principle set (section 4) right, especially "no telemetry at all"?
-2. Are the V2.0 P0 features correct, or should anything move (e.g. App lock P1 -> P0, Firefly sync P1 -> V2.1)?
-3. Should transfers/bill payments be detected automatically with undo (proposed), or only when you mark them?
-4. Raw SMS retention: keep the original message by default (useful for corrections) with an easy purge, or discard it after parsing?
-5. Do you want the "Teach ExMan" pattern builder in V2.0, or is fixing the parser in code via masked reports enough?
-6. Any must-have feature missing from this document?
+### Decided (from review)
+1. **Telemetry:** yes, but opt-in, anonymous and content-free (F33). Replaces the earlier "no telemetry".
+2. **V2.0 feature set:** confirmed as listed in section 11.
+3. **Transfers and card-bill payments:** detected automatically with undo (F8).
+4. **Raw message text:** kept by default on-device with a purge option; never uploaded by telemetry (F30). *(Interpreted "raw image" as the raw SMS/notification text. Tell me if you meant something else.)*
+5. **Teach ExMan:** included in V2.0 as P0 (F5).
+6. **Indian Bank debit card:** added to first-class supported instruments (F4).
+7. **Missing features:** none identified.
+
+### Remaining questions
+1. Telemetry consent default: **off until the user agrees** (proposed) or on-by-default with a prominent opt-out? Opt-in is the privacy-safe choice but yields less data.
+2. Telemetry backend: self-hosted collector (e.g. a small server you run, or a lightweight service on a cheap VPS/Cloudflare Worker with a database) or a hosted privacy-focused analytics service? This is an infrastructure decision to settle before building F33's upload path; the local queue, log screen and schema can be built first.
+3. Retention for server-side telemetry (proposed: 90 days for events, 12 months for aggregated counts).
