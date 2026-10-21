@@ -39,8 +39,10 @@ Privacy-first, offline-first expense manager. Expo SDK 58 + Expo Router, NativeW
 
 - V2.1 (branch claude/v2-1; JS-only, migration 14): per-category budgets (`src/utils/budgets.ts` pure pace/alert maths; `budgets` rows carry forward until replaced, a 0-limit row clears; optional rollover of unspent money; `budgetOverview`/`getBudgetRow`/`setBudgetRow` in queries.ts; `/budgets` screen; Home shows alerts at >=80%) and subscription detection (`src/utils/recurring.ts` pure detector: weekly/monthly/quarterly/yearly, fixed vs varying amounts, price-change flag, active/overdue/ended; `src/db/recurring.ts`; `/subscriptions`; Home 'due in 7 days' cards; Insights card; 'Not a subscription' dismissal in `recurring_dismissed`). Budget alerts are in-app only; push notifications need expo-notifications (native) and are deferred.
 
+- Device-test round 2 (JS-only, OTA): leading-dot amounts (`.32`) in Teach/currency; Backup & export now offers "Save to a folder" (SAF via `Directory.pickDirectoryAsync`, `createFile`) as well as Share (Share keeps nothing on the phone); screen-load telemetry (`screen_load` from `_layout.tsx`, route->name map in `src/utils/screens.ts`, schema enum derives from it); accessibility pass (button roles/labels, Sheet modal + header, Snackbar announces and has button roles, `useReducedMotion` in `src/ui/motion.ts` for Skeleton/Snackbar/Review swipe).
+
 ## Pipeline (agreed with owner)
-1. Remaining JS-only work: screen-load telemetry, an accessibility pass on screens other than charts, and fixes from device testing. (The rest of the original JS-only list is done.)
+1. JS-only work is done except fixes from device testing (screen-load telemetry and the accessibility pass are done).
 2. (DONE on branch claude/native-release) batched native release: app lock, screenshot blocking, hide amounts, encrypted backup/restore, CSV export.
 3. Infra-dependent (owner will provision): telemetry collector VM on AWS (90d events / 12mo aggregates), release signing key, in-app APK update check.
 4. LAST, least urgent: UI overhaul — make the app look like a premium ("$5000") design: motion, animation, thematic makeover, keeping every existing feature and behaviour. Do not start until all functional items are done.

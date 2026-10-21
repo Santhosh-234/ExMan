@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useRef } from 'react';
 import { Animated, Modal, Pressable, Text, View, type ViewStyle } from 'react-native';
 
 import { useSecurity } from '@/security/store';
+import { useReducedMotion } from '@/ui/motion';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 
@@ -81,24 +82,26 @@ export function EmptyState({ icon, title, body, action }: { icon?: ReactNode; ti
 
 export function Skeleton({ style }: { style?: ViewStyle }) {
   const o = useRef(new Animated.Value(0.4)).current;
+  const reduced = useReducedMotion();
   useEffect(() => {
+    if (reduced) return;
     const a = Animated.loop(Animated.sequence([
       Animated.timing(o, { toValue: 1, duration: 700, useNativeDriver: true }),
       Animated.timing(o, { toValue: 0.4, duration: 700, useNativeDriver: true }),
     ]));
     a.start();
     return () => a.stop();
-  }, [o]);
-  return <Animated.View className="rounded-2xl bg-card2" style={[{ opacity: o, height: 16 }, style]} />;
+  }, [o, reduced]);
+  return <Animated.View accessibilityLabel="Loading" importantForAccessibility="no" className="rounded-2xl bg-card2" style={[{ opacity: o, height: 16 }, style]} />;
 }
 
 /** Bottom sheet. Tapping the scrim closes it. */
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable className="flex-1 justify-end bg-black/60" onPress={onClose} accessibilityLabel="Close">
-        <Pressable className="rounded-t-3xl bg-card p-5 pb-8" onPress={() => {}}>
-          <Text className="mb-3 text-lg font-semibold text-fg">{title}</Text>
+      <Pressable className="flex-1 justify-end bg-black/60" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
+        <Pressable className="rounded-t-3xl bg-card p-5 pb-8" onPress={() => {}} accessible={false} accessibilityViewIsModal>
+          <Text className="mb-3 text-lg font-semibold text-fg" accessibilityRole="header">{title}</Text>
           {children}
         </Pressable>
       </Pressable>
