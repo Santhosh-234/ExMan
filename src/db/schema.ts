@@ -127,6 +127,15 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_edit_log_txn ON edit_log (txn_id, ts DESC);
   `,
+  // accounts screen: latest balance/limit from SMS, archive, merge (merged_into keeps re-imports pointing at the target)
+  `
+  ALTER TABLE accounts ADD COLUMN balance_paise INTEGER;
+  ALTER TABLE accounts ADD COLUMN balance_kind TEXT;
+  ALTER TABLE accounts ADD COLUMN balance_ts INTEGER;
+  ALTER TABLE accounts ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE accounts ADD COLUMN merged_into INTEGER REFERENCES accounts(id);
+  CREATE INDEX idx_txn_account ON transactions (account_id, ts DESC);
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

@@ -17,6 +17,8 @@ Privacy-first, offline-first expense manager. Expo SDK 58 + Expo Router, NativeW
 - V2 Phase 3 done (untested on device): Home redesign (hero, delta vs last month, safe daily spend, top categories, recent), Activity (search incl. amount, filter sheet, multi-select bulk category/transfer/delete with undo, paging via `queryTxns`/`buildTxnQuery` in `src/utils/filters.ts`), manual/cash entry `/add` (FAB), txn detail `/txn/[id]` (edit, transfer toggle, raw message, edit history via migration 5 `edit_log`), donut moved to Insights. Transfers (`is_transfer`) are excluded from totals/sync; auto-detection is Phase 4.
 - OTA workflow publishes `--platform android` (web bundle can't resolve expo-sqlite wasm). Pushing to main also cancels an in-progress APK build (concurrency group `apk`).
 
+- V2 Phase 4a (accounts) done, untested on device: `/accounts` + `/account/[id]` (reached from Settings > Manage accounts): per-account month spent/received, latest balance or available card limit parsed from SMS (`extractBalance` in parser.ts; stored on `accounts`, newest wins), rename, archive, merge (source kept as hidden alias via `merged_into` so re-imports resolve to the target), add manual account. Migration 6 + `backfillAccounts()` (runs once at launch) links old transactions to accounts. Activity accepts `?account=<id>`. JS-only, so OTA applies. Next in Phase 4: merchants + learned rules, auto transfers, Teach ExMan, custom categories.
+
 ## Known gaps / next
 - Bank shows `?` when the SMS sender ID isn't in the BANKS list in parser.ts (add new banks there).
 - Verify Step 3 on device; notification-path regexes still unverified.

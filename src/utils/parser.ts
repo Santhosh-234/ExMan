@@ -6,6 +6,7 @@ export type ParsedTxn = {
   merchant: string | null;
   account: string | null; // last 3-4 digits
   bank: string | null;
+  balance: { paise: number; kind: 'balance' | 'limit' } | null; // "Avl bal" (accounts) or "Avl limit" (cards)
   mode: 'UPI' | 'Card' | 'NEFT' | 'IMPS' | 'RTGS' | 'ATM' | 'NACH' | 'Cheque' | null;
   source: Source;
   ts: number; // epoch ms
@@ -110,6 +111,19 @@ const firstMatch = (res: RegExp[], text: string) => {
   return null;
 };
 
+const NUM = String.raw`[\s:\-=]*(?:is|of)?[\s:\-=]*(?:rs\.?|inr|₹)?[\s:\-=]*([\d,]+(?:\.\d{1,2})?)`;
+const LIMIT_RE = new RegExp(String.raw`(?:limit|lmt)\b${NUM}`, 'i');
+const BAL_RE = new RegExp(String.raw`(?:^|[^a-z]|avl)bal(?:ance)?\b${NUM}`, 'i');
+
+/** Balance (accounts) or available limit (cards) quoted in the message, if any. */
+export function extractBalance(text: string): ParsedTxn['balance'] {
+  const l = text.match(LIMIT_RE);
+  const b = l ? null : text.match(BAL_RE);
+  const raw = (l ?? b)?.[1];
+  const paise = raw ? Math.round(parseFloat(raw.replace(/,/g, '')) * 100) : NaN;
+  return Number.isFinite(paise) && paise >= 0 && raw ? { paise, kind: l ? 'limit' : 'balance' } : null;
+}
+
 /** First amount that is not a balance/limit figure. */
 function findAmount(text: string): string | null {
   for (const m of text.matchAll(AMOUNT_G)) {
@@ -151,6 +165,7 @@ export function parseMessage(
     merchant,
     account: firstMatch(ACCOUNTS, text),
     bank,
+    balance: extractBalance(text),
     mode: MODES.find(([re]) => re.test(text))?.[1] ?? null,
     source: APP_SOURCES[sender] ?? 'sms',
     ts: opts.ts ?? Date.now(),

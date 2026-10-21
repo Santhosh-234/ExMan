@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ListOrdered, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,6 +30,7 @@ export default function Activity() {
   const db = useSQLiteContext();
   const router = useRouter();
   const snack = useSnackbar();
+  const { account } = useLocalSearchParams<{ account?: string }>();
   const { colors } = useTheme();
   const [filter, setFilter] = useState<TxnFilter>(EMPTY_FILTER);
   const [search, setSearch] = useState('');
@@ -43,6 +44,11 @@ export default function Activity() {
   const exhausted = useRef(false);
   const loading = useRef(false);
   const seq = useRef(0); // drops results from superseded queries
+
+  // arriving from an account screen: filter to that account (cleared via the filter sheet)
+  useEffect(() => {
+    if (account) setFilter((f) => ({ ...f, accountIds: [Number(account)] }));
+  }, [account]);
 
   // debounce typing into the actual filter
   useEffect(() => {

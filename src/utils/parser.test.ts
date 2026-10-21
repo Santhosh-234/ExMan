@@ -8,7 +8,7 @@ const p = (text: string, sender?: string, ts = T) => parseMessage(text, { sender
 
 test('HDFC UPI debit', () => {
   const r = p('Rs. 500.00 debited from a/c **1234 on 20-10-26 to VPA swiggy@icici(UPI Ref No 123456789012)', 'AD-HDFCBK-S');
-  assert.deepEqual(r, { amountPaise: 50000, direction: 'debit', merchant: 'swiggy@icici', account: '1234', bank: 'HDFC', mode: 'UPI', source: 'sms', ts: T });
+  assert.deepEqual(r, { amountPaise: 50000, direction: 'debit', merchant: 'swiggy@icici', account: '1234', bank: 'HDFC', balance: null, mode: 'UPI', source: 'sms', ts: T });
 });
 
 test('HDFC card spend', () => {
