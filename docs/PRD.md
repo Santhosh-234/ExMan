@@ -1,10 +1,10 @@
 # ExMan: Product Requirements Document
 
-Status: **DRAFT v2 (feedback applied), pending final approval** · Owner: Santhosh · Scope: V2.0 (V2.1 and later noted)
+Status: **DRAFT v3: all open questions resolved, awaiting final approval** · Owner: Santhosh · Scope: V2.0 (V2.1 and later noted)
 
 ## 1. Summary
 
-ExMan is a private, offline-first expense manager for Android that tracks money automatically from the bank, card and UPI alerts already on your phone. You don't type expenses; you glance at what ExMan found, confirm it with a swipe, and see where your money goes. Your financial data stays on the device unless you choose to sync to a server you own. Optional, anonymous product telemetry (no financial content, ever) helps the app improve and is fully visible and controllable by you.
+ExMan is a private, offline-first expense manager for Android that tracks money automatically from the bank, card and UPI alerts already on your phone. You don't type expenses; you glance at what ExMan found, confirm it with a swipe, and see where your money goes. Your financial data stays on the device unless you choose to sync to a server you own. Anonymous product telemetry (on by default, switch-off anytime, no financial content, ever) helps the app improve and is fully visible and controllable by you.
 
 **One-line promise:** *"Your money, tracked for you, seen only by you."*
 
@@ -27,7 +27,7 @@ Not targeting (V2): businesses, shared household budgets, investments tracking, 
 
 1. **Capture without effort.** If the phone already knows about a transaction, the user shouldn't type it.
 2. **Review in seconds.** Each decision (confirm, categorise, dismiss) is one gesture, and every action is undoable.
-3. **Private by default.** No accounts, no ads, no cloud copy of your finances. Financial content (amounts, merchants, message text, account numbers) never leaves the device except by an explicit action such as your own Firefly sync. Product telemetry is **opt-in, anonymous, content-free, inspectable, and can be turned off or erased at any time** (see F33).
+3. **Private by default.** No accounts, no ads, no cloud copy of your finances. Financial content (amounts, merchants, message text, account numbers) never leaves the device except by an explicit action such as your own Firefly sync. Product telemetry is **on by default, anonymous, content-free, inspectable, and can be turned off (and its data erased) at any time, with a clear notice at first run** (see F33).
 4. **Trust the numbers.** Totals must be right: no double counting, transfers are not spending, uncertainty is shown, never hidden.
 5. **Fast and calm.** Instant screens at 10,000 transactions; a quiet visual design; no nagging.
 6. **Works for India.** INR with lakh/crore grouping, Indian banks, cards and UPI, the SMS formats they actually send.
@@ -38,7 +38,7 @@ Not targeting (V2): businesses, shared household budgets, investments tracking, 
 - G1. At least 90% of a user's bank/card/UPI transactions appear in ExMan with correct amount, direction and account, with no manual entry.
 - G2. Reviewing a typical day's transactions takes under 15 seconds.
 - G3. The user can answer "what did I spend this month, on what, versus last month?" from the first screen.
-- G4. No financial content leaves the device in any configuration except user-initiated sync; telemetry is opt-in and content-free.
+- G4. No financial content leaves the device in any configuration except user-initiated sync; telemetry is anonymous, content-free and can be switched off.
 - G6. Use anonymous telemetry to find and fix parser gaps, crashes and slow screens within one release cycle.
 - G5. Every screen is interactive in under 100 ms with 10,000 transactions.
 
@@ -50,7 +50,7 @@ Not targeting (V2): businesses, shared household budgets, investments tracking, 
 
 ## 6. Success metrics
 
-Measured locally (developer tools, owner spot-checks) and, for users who opt in, through anonymous telemetry (F33). Metrics that need telemetry are marked †.
+Measured locally (developer tools, owner spot-checks) and, for users who opt in, through anonymous telemetry (F33). Metrics that need telemetry are marked † and cover users who leave telemetry on.
 
 | Metric | Target |
 |---|---|
@@ -175,18 +175,19 @@ Priority: **P0** must ship in V2.0 · **P1** V2.0 if capacity allows · **P2** V
 
 **F32. Developer tools (P0, internal).** Seed synthetic data, benchmark queries, view local error log.
 
-**F33. Privacy-preserving telemetry (P0).** Opt-in, anonymous, content-free product telemetry to improve parsing, stability and speed across versions.
-- **Consent:** asked once during onboarding in plain language with a "See exactly what is sent" link; off until the user agrees; toggle anytime in Settings > Privacy; turning it off stops collection and deletes the queued events.
+**F33. Privacy-preserving telemetry (P0).** On-by-default, anonymous, content-free product telemetry with opt-out to improve parsing, stability and speed across versions.
+- **Default and opt-out:** **on by default**. Because it is on without an explicit tap, the first-run screen must state it plainly (what is collected, that it never includes financial content) with a one-tap **Turn off** and a "See exactly what is sent" link, shown before any event is sent. Toggle anytime in Settings > Privacy; turning it off stops collection, deletes queued events, and asks the collector to delete data for the current install ID.
 - **Identity:** a random install ID generated on the device, with no link to phone number, account, device identifiers, name or email; **Reset ID** button; no IP logging at the collector.
 - **Allowed events (allow-list, versioned):** app version/OS/device class; crash and error types with stack traces scrubbed of data; screen load timings; feature usage counters (e.g. "review confirmed", "theme changed"); import duration and counts; parser outcomes as counts per bank key (parsed / unrecognised / low-confidence).
 - **Never collected:** amounts, balances, merchants, categories names the user created, account numbers or last-4, message text, contacts, location, other apps. Parser-gap reports contain only a **masked template** (digits -> `#`, names/merchants/VPAs -> `<NAME>`/`<VPA>`, sender ID kept) and are sent only when the user taps "Report a gap" on that specific message after previewing the exact payload.
 - **Transparency:** an in-app **Telemetry log** screen lists every event sent (and queued) in readable form; payload schema documented in the repo.
 - **Delivery:** batched over HTTPS when on Wi-Fi/idle; small, drop-on-failure; no SDK that fingerprints. Collector endpoint is owned by the project (hosting option decided in the infrastructure plan, self-hosted preferred).
+- **Collector (project-owned server):** a small HTTPS service on a user-run VM (AWS) receiving batched JSON events; validates every payload against the same allow-list schema and rejects unknown fields; stores no IP addresses or user agents beyond transient request handling (reverse-proxy logs disabled or truncated); rate-limited; supports delete-by-install-ID. **Retention: raw events 90 days; aggregated counts 12 months**, enforced by a scheduled job.
 - AC: with telemetry off, zero telemetry requests are made (verifiable in the log and by network inspection); with it on, every outbound payload matches the documented allow-list schema, enforced by a unit test that fails on unknown fields.
 
 ## 9. Non-functional requirements
 
-- **Privacy:** network calls are limited to user-initiated sync, update checks, Expo OTA fetches (code only), and opt-in telemetry (F33). No third-party analytics or advertising SDKs. SMS permission is used only to read bank-style (alphanumeric) senders. Raw message text and financial values are never transmitted by telemetry; a schema allow-list test guards this.
+- **Privacy:** network calls are limited to user-initiated sync, update checks, Expo OTA fetches (code only), and telemetry (F33). No third-party analytics or advertising SDKs. SMS permission is used only to read bank-style (alphanumeric) senders. Raw message text and financial values are never transmitted by telemetry; a schema allow-list test guards this.
 - **Performance:** per section 6. Database access via indexed queries; no per-row N+1 queries.
 - **Reliability:** idempotent ingestion (no duplicates after restarts or re-imports); schema migrations are versioned, tested, and never lose data; automatic pre-migration backup.
 - **Compatibility:** Android 8+ (target latest), arm64. Works offline always.
@@ -210,8 +211,8 @@ Transaction (amount in paise, direction, merchant, category, account, timestamp,
 
 | Risk | Mitigation |
 |---|---|
-| Banks change SMS formats | Corpus-driven tests; Teach ExMan; opt-in masked gap reports and parser-outcome counts; fast OTA fixes |
-| Telemetry erodes trust | Opt-in, allow-list schema enforced by tests, visible Telemetry log, Reset ID, no financial content; published schema |
+| Banks change SMS formats | Corpus-driven tests; Teach ExMan; masked gap reports and parser-outcome counts; fast OTA fixes |
+| Telemetry erodes trust | On by default with a clear first-run notice and one-tap opt-out, allow-list schema enforced by tests, visible Telemetry log, Reset ID, no financial content; published schema |
 | Teach ExMan creates a bad pattern | Preview before saving, pattern list with edit/delete, one-tap revert, never overwrite built-in parsers silently |
 | Android restricts SMS/notification access for sideloaded apps | Clear in-app guidance; health screen; no Play Store dependency |
 | Double counting (SMS + UPI + card) | Cross-channel dedupe, transfer detection, tested rules |
@@ -220,18 +221,22 @@ Transaction (amount in paise, direction, merchant, category, account, timestamp,
 | Performance regressions | Perf budget checked with Developer tools before each release |
 | Single-developer scope | Strict P0/P1/P2 cut; each phase ships an installable build |
 
-## 13. Decisions and remaining questions
+## 13. Decisions
 
-### Decided (from review)
-1. **Telemetry:** yes, but opt-in, anonymous and content-free (F33). Replaces the earlier "no telemetry".
+1. **Telemetry:** yes; **on by default with an opt-out**, anonymous and content-free (F33). Chosen over opt-in to get enough signal to improve parsing and performance; mitigated by a prominent first-run notice, one-tap off, an in-app log of everything sent, a published schema and a test-enforced allow-list.
 2. **V2.0 feature set:** confirmed as listed in section 11.
 3. **Transfers and card-bill payments:** detected automatically with undo (F8).
-4. **Raw message text:** kept by default on-device with a purge option; never uploaded by telemetry (F30). *(Interpreted "raw image" as the raw SMS/notification text. Tell me if you meant something else.)*
-5. **Teach ExMan:** included in V2.0 as P0 (F5).
-6. **Indian Bank debit card:** added to first-class supported instruments (F4).
-7. **Missing features:** none identified.
+4. **Raw message text:** kept by default on-device with a purge option; never uploaded by telemetry (F30). *(Interpreted "raw image" as the raw SMS/notification text.)*
+5. **Teach ExMan:** in V2.0 as P0 (F5).
+6. **Indian Bank debit card:** included (F4).
+7. **Collector:** self-hosted on a small AWS VM run by the project owner. Retention: 90 days events, 12 months aggregates.
+8. **No missing features** identified.
 
-### Remaining questions
-1. Telemetry consent default: **off until the user agrees** (proposed) or on-by-default with a prominent opt-out? Opt-in is the privacy-safe choice but yields less data.
-2. Telemetry backend: self-hosted collector (e.g. a small server you run, or a lightweight service on a cheap VPS/Cloudflare Worker with a database) or a hosted privacy-focused analytics service? This is an infrastructure decision to settle before building F33's upload path; the local queue, log screen and schema can be built first.
-3. Retention for server-side telemetry (proposed: 90 days for events, 12 months for aggregated counts).
+## 14. Infrastructure implied by this PRD
+
+| Need | Proposal |
+|---|---|
+| Telemetry collector | One small VM (e.g. t4g.small or t3.micro), Caddy/Nginx for HTTPS, a tiny service (Node or Go) validating the allow-list schema, SQLite or Postgres for events, nightly job for retention and aggregation, optional Grafana/Metabase dashboard. Estimated cost: a few dollars a month. |
+| App delivery | EAS dev client + EAS Update for JS; release keystore in GitHub Secrets; GitHub Releases for the full APK. |
+| Parser corpus | Repo folder of masked real messages, fed by owner use and gap reports. |
+| Firefly III (optional, user) | Documented in `docs/firefly-iii-setup.md`. |
