@@ -64,7 +64,10 @@
     "updates": {
       "url": "https://u.expo.dev/a156edf4-09f4-4c60-b58b-ad3247d2a603",
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "requestHeaders": {
+        "expo-channel-name": "main"
+      }
     }
   }
 }
