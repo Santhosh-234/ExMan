@@ -4,7 +4,7 @@ import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { type AccountStats, type Category, type Txn, getAccount, getAccountStats, getCategories, mergeAccount, queryTxns, renameAccount, setAccountArchived } from '@/db/queries';
+import { type AccountStats, type Category, type Txn, getAccount, getAccountFirefly, setAccountFirefly, getAccountStats, getCategories, mergeAccount, queryTxns, renameAccount, setAccountArchived } from '@/db/queries';
 import { notifyIngested, onIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
 import { Button, Card, Chip, Sheet } from '@/ui/kit';
@@ -25,7 +25,8 @@ export default function AccountDetail() {
   const [others, setOthers] = useState<AccountStats[]>([]);
   const [recent, setRecent] = useState<Txn[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
-  const [sheet, setSheet] = useState<null | 'rename' | 'merge'>(null);
+  const [sheet, setSheet] = useState<null | 'rename' | 'merge' | 'firefly'>(null);
+  const [ff, setFf] = useState('');
   const [name, setName] = useState('');
   const [target, setTarget] = useState<number | null>(null);
 
@@ -78,7 +79,8 @@ export default function AccountDetail() {
         <View className="mb-4 flex-row flex-wrap">
           <Button className="mb-2 mr-2" variant="secondary" label="Rename" onPress={() => { setName(a.name); setSheet('rename'); }} />
           <Button className="mb-2 mr-2" variant="secondary" label="Merge into…" disabled={others.length === 0} onPress={() => { setTarget(null); setSheet('merge'); }} />
-          <Button className="mb-2" variant="secondary" label={a.archived ? 'Restore' : 'Archive'} onPress={toggleArchive} />
+          <Button className="mb-2 mr-2" variant="secondary" label={a.archived ? 'Restore' : 'Archive'} onPress={toggleArchive} />
+          <Button className="mb-2" variant="secondary" label="Firefly account…" onPress={async () => { setFf(await getAccountFirefly(db, aid)); setSheet('firefly'); }} />
         </View>
 
         <View className="mb-2 flex-row items-center justify-between">
@@ -93,6 +95,13 @@ export default function AccountDetail() {
         <Sheet title="Rename account" onClose={() => setSheet(null)}>
           <TextInput className="mb-3 min-h-12 rounded-2xl bg-card2 px-4 py-3 text-base text-fg" value={name} onChangeText={setName} autoFocus placeholderTextColor={colors.muted} />
           <Button label="Save" disabled={!name.trim()} onPress={async () => { await renameAccount(db, aid, name.trim()); setSheet(null); notifyIngested(); load(); }} />
+        </Sheet>
+      )}
+      {sheet === 'firefly' && (
+        <Sheet title="Firefly III account" onClose={() => setSheet(null)}>
+          <Text className="mb-3 text-sm text-muted">The exact name of the asset account in Firefly III that this account's transactions should go to. Leave empty to use the default from Settings.</Text>
+          <TextInput className="mb-3 min-h-12 rounded-2xl bg-card2 px-4 py-3 text-base text-fg" value={ff} onChangeText={setFf} autoFocus placeholder={a.name} placeholderTextColor={colors.muted} />
+          <Button label="Save" onPress={async () => { await setAccountFirefly(db, aid, ff); setSheet(null); snack({ message: ff.trim() ? `Syncs to “${ff.trim()}”` : 'Uses the default Firefly account' }); }} />
         </Sheet>
       )}
       {sheet === 'merge' && (

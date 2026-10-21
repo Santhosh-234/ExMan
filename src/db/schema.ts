@@ -194,6 +194,10 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_telemetry_sent ON telemetry_events (sent_at, ts);
   `,
+  // per-account Firefly III asset account name (falls back to the default one in Settings)
+  `
+  ALTER TABLE accounts ADD COLUMN firefly_name TEXT;
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

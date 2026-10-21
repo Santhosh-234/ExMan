@@ -221,6 +221,8 @@ export const getAccount = (db: SQLiteDatabase, id: number) =>
     'SELECT id, name, kind, bank, last4, balance_paise, balance_kind, balance_ts, archived, 0 AS spent, 0 AS received, 0 AS n FROM accounts WHERE id = ?', id,
   );
 
+export const setAccountFirefly = (db: SQLiteDatabase, id: number, name: string) => db.runAsync('UPDATE accounts SET firefly_name = ? WHERE id = ?', name.trim() || null, id);
+export const getAccountFirefly = async (db: SQLiteDatabase, id: number) => (await db.getFirstAsync<{ firefly_name: string | null }>('SELECT firefly_name FROM accounts WHERE id = ?', id))?.firefly_name ?? '';
 export const renameAccount = (db: SQLiteDatabase, id: number, name: string) => db.runAsync('UPDATE accounts SET name = ? WHERE id = ?', name, id);
 export const setAccountArchived = (db: SQLiteDatabase, id: number, archived: boolean) => db.runAsync('UPDATE accounts SET archived = ? WHERE id = ?', archived ? 1 : 0, id);
 

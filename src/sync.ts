@@ -4,7 +4,7 @@ import { getSetting } from '@/db/queries';
 
 type Row = {
   id: number; amount_paise: number; direction: string; merchant: string | null; category: string | null;
-  bank: string | null; account_last4: string | null; payment_mode: string | null; ts: number; tags: string;
+  bank: string | null; account_last4: string | null; payment_mode: string | null; ts: number; tags: string; firefly_name: string | null;
 };
 
 /**
@@ -18,12 +18,12 @@ export async function syncNow(db: SQLiteDatabase): Promise<number> {
   const mode = (await getSetting(db, 'sync_mode')) || 'rest';
   const account = (await getSetting(db, 'sync_firefly_account')).trim();
   if (!endpoint) throw new Error('Set a sync endpoint first');
-  if (mode === 'firefly' && !account) throw new Error('Set the Firefly asset account name first');
+  if (mode === 'firefly' && !account && !(await db.getFirstAsync("SELECT 1 FROM accounts WHERE firefly_name IS NOT NULL AND firefly_name != ''"))) throw new Error('Set the Firefly asset account name first');
 
   const rows = await db.getAllAsync<Row>(
     `SELECT t.id, t.amount_paise, t.direction, t.merchant, c.name AS category, t.bank, t.account_last4,
-            t.payment_mode, t.ts, t.tags
-     FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
+            t.payment_mode, t.ts, t.tags, a.firefly_name
+     FROM transactions t LEFT JOIN categories c ON c.id = t.category_id LEFT JOIN accounts a ON a.id = t.account_id
      WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND t.synced_at IS NULL ORDER BY t.ts`,
   );
   if (!rows.length) return 0;
@@ -33,6 +33,9 @@ export async function syncNow(db: SQLiteDatabase): Promise<number> {
     for (const r of rows) {
       const debit = r.direction === 'debit';
       const other = r.merchant ?? 'Unknown';
+      // each ExMan account maps to its own Firefly asset account; the Settings name is the fallback
+      const asset = (r.firefly_name ?? '').trim() || account;
+      if (!asset) throw new Error(`No Firefly account set for ${r.bank ?? 'an account'} ${r.account_last4 ?? ''}. Set one on the account's page or a default in Settings.`);
       const body = {
         error_if_duplicate_hash: false,
         transactions: [{
@@ -42,7 +45,7 @@ export async function syncNow(db: SQLiteDatabase): Promise<number> {
           currency_code: 'INR',
           description: other,
           // Firefly needs an existing asset account on the money side; the merchant side is auto-created
-          ...(debit ? { source_name: account, destination_name: other } : { source_name: other, destination_name: account }),
+          ...(debit ? { source_name: asset, destination_name: other } : { source_name: other, destination_name: asset }),
           category_name: r.category ?? undefined,
           tags: r.tags ? r.tags.split(',').filter(Boolean) : undefined,
           external_id: `exman-${r.id}`,
