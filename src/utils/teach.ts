@@ -1,6 +1,6 @@
 // "Teach ExMan": the user taps the amount / merchant / account in a message the parser missed and we
 // derive a per-sender pattern from the words around each tapped span.
-import { type CurrencyCode, currencyInfo, isForeign } from './currency';
+import { type CurrencyCode, currencyInfo, currencyNear, isForeign } from './currency';
 import { type ParsedTxn, bankFor, modeFor, sourceFor, extractBalance } from './parser';
 
 export type Token = { text: string; start: number; end: number };
@@ -11,6 +11,12 @@ export type Taught = { amountPaise: number; merchant: string | null; account: st
 const TOKEN = /[A-Za-z]+|\d[\d,]*(?:\.\d+)?|\S/g;
 const NUMERIC = /^\d[\d,]*(?:\.\d+)?$/;
 const MAX_TEXT = 1500;
+
+/** Currency written next to a tapped amount token ("32 USD", "USD 32", "$32"), so Teach can pick it automatically. */
+export function detectCurrency(text: string, tokens: Token[], amountIndex: number): CurrencyCode | null {
+  const t = tokens[amountIndex];
+  return t ? currencyNear(text, t.start, t.end) : null;
+}
 
 export function tokenize(text: string): Token[] {
   return [...text.slice(0, MAX_TEXT).matchAll(TOKEN)].map((m) => ({ text: m[0], start: m.index!, end: m.index! + m[0].length }));

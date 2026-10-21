@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { parseMessage } from './parser';
-import { applyPattern, buildPattern, senderKey, tokenize, toParsed } from './teach';
+import { applyPattern, buildPattern, detectCurrency, senderKey, tokenize, toParsed } from './teach';
 
 const idx = (text: string, word: string, nth = 0) => {
   const toks = tokenize(text);
@@ -84,4 +84,26 @@ test('a taught foreign-currency format keeps its original amount for ingest to c
   // rupee formats are unchanged
   const inr = toParsed('x', 'VM-AXISBK', 1, { amountPaise: 12300, direction: 'debit', merchant: null, account: null, currency: 'INR' });
   assert.deepEqual([inr.amountPaise, inr.currency], [12300, undefined]);
+});
+
+test('Teach detects the currency written next to the tapped amount', () => {
+  const t = (text: string, word: string) => { const toks = tokenize(text); return detectCurrency(text, toks, toks.findIndex((x) => x.text === word)); };
+  assert.equal(t('Spent . 32 USD at OPENAI', '32'), 'USD');
+  assert.equal(t('Charged USD 12.99 for NETFLIX', '12.99'), 'USD');
+  assert.equal(t('Paid $5 at X', '5'), 'USD');
+  assert.equal(t('Spent Rs 32 at X', '32'), null);
+  assert.equal(t('Spent 32 at X USD', '32'), null); // not adjacent
+});
+
+test('a taught "Spent . 32 USD" format reads later messages as USD', () => {
+  const text = 'Spent . 32 USD at OPENAI';
+  const toks = tokenize(text);
+  const at = (w: string) => toks.findIndex((x) => x.text === w);
+  const r = buildPattern(text, { amount: [at('32'), at('32')], merchant: [at('OPENAI'), at('OPENAI')] }, 'debit', 'USD');
+  assert.ok(r.ok, r.ok ? '' : r.error);
+  if (!r.ok) return;
+  const got = applyPattern('Spent . 7.5 USD at GITHUB', r.pattern)!;
+  assert.deepEqual([got.amountPaise, got.currency, got.merchant], [750, 'USD', 'GITHUB']);
+  const p = toParsed('Spent . 7.5 USD at GITHUB', 'VM-AXISBK', 1, got);
+  assert.deepEqual([p.currency, p.foreignMinor, p.amountPaise], ['USD', 750, 0]);
 });

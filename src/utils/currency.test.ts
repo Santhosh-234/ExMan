@@ -30,3 +30,23 @@ test('the parser reads USD card spends, but a rupee amount always wins', () => {
   assert.deepEqual([both!.amountPaise, both!.currency], [109020, undefined]);
   assert.equal(parseMessage('Get USD 100 cashback on travel! Offer ends soon', { sender: 'VM-AXISBK' }), null);
 });
+
+test('amount-then-code formats: "Spent . 32 USD", "32.50USD", symbols', () => {
+  assert.deepEqual(extractForeign('Spent . 32 USD at OPENAI'), { code: 'USD', minor: 3200 });
+  assert.deepEqual(extractForeign('Spent 32.50USD on card'), { code: 'USD', minor: 3250 });
+  assert.deepEqual(extractForeign('Spent 1,200 JPY on card'), { code: 'JPY', minor: 1200 });
+  assert.deepEqual(extractForeign('Paid $12.99 to NETFLIX'), { code: 'USD', minor: 1299 });
+  assert.deepEqual(extractForeign('Paid US$ 5 at X'), { code: 'USD', minor: 500 });
+  assert.deepEqual(extractForeign('Spent €10 at Y'), { code: 'EUR', minor: 1000 });
+  // balances, limits and plain words are not amounts
+  assert.equal(extractForeign('Avl Lmt 5000 USD'), null);
+  assert.equal(extractForeign('Spent 32 USDA gift'), null);
+  assert.equal(extractForeign('Rs 500 at STUSD shop'), null);
+});
+
+test('the parser reads "Spent . 32 USD" as a USD spend; rupees stay rupees', () => {
+  const p = parseMessage('Spent . 32 USD on your Axis Bank Credit Card XX1234 at OPENAI on 20-10-26', { sender: 'VM-AXISBK', ts: 1 });
+  assert.deepEqual([p?.currency, p?.foreignMinor, p?.direction], ['USD', 3200, 'debit']);
+  const inr = parseMessage('Spent Rs. 32 on your Axis Bank Credit Card XX1234 at OPENAI', { sender: 'VM-AXISBK', ts: 1 });
+  assert.deepEqual([inr?.currency, inr?.amountPaise], [undefined, 3200]);
+});
