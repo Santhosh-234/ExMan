@@ -8,6 +8,7 @@ import { toParsed } from '@/utils/teach';
 import { countParse } from '@/telemetry/counters';
 import { isOtpMessage, looksLikeTransaction, mentionsAmount } from '@/utils/transactional';
 import { CURRENCIES, toPaise } from '@/utils/currency';
+import { localDay } from '@/utils/fx';
 import { guessCategory } from '@/utils/categorize';
 import { hashMessage } from '@/utils/hash';
 import { bankFor, extractBalance, isDuplicate, parseMessage } from '@/utils/parser';
@@ -26,17 +27,21 @@ type Ctx = {
   rules: Awaited<ReturnType<typeof loadRuleIndex>>;
   patterns: Awaited<ReturnType<typeof loadPatternIndex>>;
   fx: Map<string, number>; // rupees per 1 unit of each foreign currency
+  fxUser: Set<string>; // currencies whose rate the user set themselves
+  fxOnline: boolean; // look up that day's published rate (Exchange rates screen switch, on by default)
 };
 
 /** User-set rates (Settings > Exchange rates) over built-in approximations. */
-export async function loadRates(db: SQLiteDatabase) {
+export async function loadRateInfo(db: SQLiteDatabase) {
   const rates = new Map<string, number>(CURRENCIES.map((c) => [c.code, c.rate]));
-  for (const r of await db.getAllAsync<{ key: string; value: string }>("SELECT key, value FROM settings WHERE key LIKE 'fx\\_%' ESCAPE '\\'")) {
+  const user = new Set<string>();
+  for (const r of await db.getAllAsync<{ key: string; value: string }>("SELECT key, value FROM settings WHERE key LIKE 'fx\\_%' ESCAPE '\\' AND key != 'fx_online'")) {
     const v = parseFloat(r.value);
-    if (v > 0) rates.set(r.key.slice(3), v);
+    if (v > 0) { rates.set(r.key.slice(3), v); user.add(r.key.slice(3)); }
   }
-  return rates;
+  return { rates, user };
 }
+export const loadRates = async (db: SQLiteDatabase) => (await loadRateInfo(db)).rates;
 
 export async function makeCtx(db: SQLiteDatabase, since: number): Promise<Ctx> {
   const seen = new Set(
@@ -49,7 +54,9 @@ export async function makeCtx(db: SQLiteDatabase, since: number): Promise<Ctx> {
   const into = new Map(rows.map((a) => [a.id, a.merged_into]));
   const final = (id: number) => { let cur = id; for (let i = 0; i < 10 && into.get(cur); i++) cur = into.get(cur)!; return cur; };
   const accts = new Map(rows.map((a) => [`${a.kind}|${a.bank}|${a.last4}`, final(a.id)]));
-  return { seen, cats, accts, merchants: new Map(), rules: await loadRuleIndex(db), patterns: await loadPatternIndex(db), fx: await loadRates(db) };
+  const info = await loadRateInfo(db);
+  const online = (await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'fx_online'"))?.value !== '0';
+  return { seen, cats, accts, merchants: new Map(), rules: await loadRuleIndex(db), patterns: await loadPatternIndex(db), fx: info.rates, fxUser: info.user, fxOnline: online };
 }
 
 /** Bank + last-4 (+ card vs account) identifies an account; created on first sight. */
@@ -103,7 +110,17 @@ export async function storeOutcome(db: SQLiteDatabase, ctx: Ctx, m: RawMessage):
     }
     return 'unrecognised';
   }
-  if (t.currency && t.foreignMinor) t = { ...t, amountPaise: toPaise(t.foreignMinor, t.currency, ctx.fx.get(t.currency) ?? 1) };
+  // foreign spend: the user's own rate wins, then that day's published rate if one is already cached, then the built-in approximation
+  let fxRate: number | null = null;
+  let fxSource: string | null = null;
+  if (t.currency && t.foreignMinor) {
+    const cached = !ctx.fxUser.has(t.currency) && ctx.fxOnline
+      ? (await db.getFirstAsync<{ rate: number }>('SELECT rate FROM fx_rates WHERE day = ? AND code = ?', localDay(t.ts), t.currency))?.rate ?? null
+      : null;
+    fxRate = cached ?? ctx.fx.get(t.currency) ?? 1;
+    fxSource = ctx.fxUser.has(t.currency) ? 'user' : cached ? 'online' : 'default';
+    t = { ...t, amountPaise: toPaise(t.foreignMinor, t.currency, fxRate) };
+  }
   // same payment seen via SMS and a UPI-app notification (indexed on amount_paise, ts)
   const near = await db.getAllAsync<Near>(
     'SELECT amount_paise, direction, account_last4, ts FROM transactions WHERE amount_paise = ? AND ts BETWEEN ? AND ?',
@@ -118,10 +135,10 @@ export async function storeOutcome(db: SQLiteDatabase, ctx: Ctx, m: RawMessage):
   const accountId = await accountFor(db, ctx, t.bank, t.account, t.mode);
   const res = await db.runAsync(
     `INSERT OR IGNORE INTO transactions
-       (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, payment_mode, ts, raw_text, msg_hash, merchant_id, currency, foreign_minor)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, payment_mode, ts, raw_text, msg_hash, merchant_id, currency, foreign_minor, fx_rate, fx_source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     t.amountPaise, t.direction, merchant?.name ?? t.merchant, ruleCat ?? ((guess && ctx.cats.get(guess)) || null), accountId,
-    t.source, t.bank, t.account, t.mode, t.ts, m.text, hash, merchant?.id ?? null, t.currency ?? null, t.foreignMinor ?? null,
+    t.source, t.bank, t.account, t.mode, t.ts, m.text, hash, merchant?.id ?? null, t.currency ?? null, t.foreignMinor ?? null, fxRate, fxSource,
   );
   if (!res.changes) return 'already-recorded';
   if (accountId && t.balance) await recordBalance(db, accountId, t.balance, t.ts);

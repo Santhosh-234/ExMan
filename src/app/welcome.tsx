@@ -27,7 +27,7 @@ const Step = ({ n, title, children }: { n: number; title: string; children: Reac
 );
 
 const Perm = ({ label, ok, onPress }: { label: string; ok: boolean; onPress: () => void }) => (
-  <Group><NavRow first icon={ok ? CheckCircle2 : Smartphone} label={label} detail={ok ? 'Granted' : 'Tap to allow'} tone={ok ? undefined : 'warn'} onPress={onPress} /></Group>
+  <Group><NavRow first icon={ok ? CheckCircle2 : Smartphone} label={label} detail={ok ? 'Granted' : 'Not allowed'} tone={ok ? undefined : 'warn'} onPress={onPress} /></Group>
 );
 
 /** First-run walkthrough: what ExMan does, why each permission is needed, optional import, and the usage-data notice. */

@@ -69,3 +69,5 @@ Privacy-first, offline-first expense manager. Expo SDK 58 + Expo Router, NativeW
 - Fast loop: `npx expo run:android` with the phone on USB (needs JDK 17 + Android SDK/NDK), JS changes hot reload; Kotlin changes rebuild incrementally. Use `adb logcat` to debug the receiver/listener.
 - On Windows keep the repo path short and enable long paths (RN native builds hit the 260-char limit).
 - Case-insensitive filesystem trap: don't create files differing only by case (`ingest.ts` vs `Ingest.tsx` broke tsc once).
+
+- Online FX (JS + migration 15, OTA-safe): foreign spends use the ECB daily rate for the local day of the transaction (Frankfurter, keyless; `src/utils/fx.ts`, `src/ingest/fx.ts`, cache table `fx_rates`; columns `fx_rate`/`fx_source` = default|online|user|edited). A user rate set on `/rates` (setting `fx_<CODE>`) or an edited rupee amount always wins; only unsynced, non-edited rows are re-rated. Setting `fx_online`='0' turns it off. No intraday history, AED not published; not yet tested against the live endpoint (sandbox proxy blocked it). Also removed instruction texts (show, don't tell) and added `docs/ideas.md`.

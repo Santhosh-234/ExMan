@@ -2,7 +2,8 @@ import { drain, readInbox } from '../../modules/vibe-listener';
 import { run } from './core';
 
 // The ingest logic lives in ./core (pure of native modules, so it is unit-tested end to end); this file holds the two entry points that read from the phone.
-export { backfillAccounts, backfillMerchants, loadRates, purgeOtpMessages, reprocessDetailed, reprocessUnparsed } from './core';
+export { backfillAccounts, backfillMerchants, loadRateInfo, loadRates, purgeOtpMessages, reprocessDetailed, reprocessUnparsed } from './core';
+export { refreshForeignRates } from './fx';
 
 /** Drain native queue -> parse -> skip duplicates -> insert as 'pending'. Returns rows added. */
 export function ingest(db: import('expo-sqlite').SQLiteDatabase): Promise<number> {

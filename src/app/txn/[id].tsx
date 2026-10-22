@@ -17,6 +17,7 @@ import { useRuleOffer } from '@/ui/useRuleOffer';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 import { formatForeign } from '@/utils/currency';
+import { describeRate } from '@/utils/fx';
 
 const FIELD: Record<string, string> = { amount_paise: 'Amount', merchant: 'Merchant', category_id: 'Category', tags: 'Tags', notes: 'Notes', account_id: 'Account', is_transfer: 'Transfer', ts: 'Date', direction: 'Direction' };
 
@@ -150,7 +151,8 @@ export default function TxnDetail() {
 
         <Group>
           {([
-            t.currency && t.foreign_minor ? ['Original amount', `${formatForeign(t.foreign_minor, t.currency)} (≈ rupees, edit to match your statement)`] : null,
+            t.currency && t.foreign_minor ? ['Original amount', formatForeign(t.foreign_minor, t.currency)] : null,
+            t.currency && t.foreign_minor ? ['Exchange rate', describeRate(t.fx_source, t.fx_rate, t.currency)] : null,
             ['Category', cat?.name ?? 'Uncategorised'],
             ['Account', acct?.name ?? t.bank ?? 'Unknown'],
             ['Date', new Date(t.ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })],
