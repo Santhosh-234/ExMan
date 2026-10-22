@@ -1,7 +1,8 @@
 import * as Haptics from 'expo-haptics';
-import { Plus } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { ChevronLeft, ChevronRight, Plus, type LucideIcon } from 'lucide-react-native';
 import { type ReactNode, useEffect, useRef } from 'react';
-import { Animated, Modal, Pressable, View, type ViewStyle } from 'react-native';
+import { Animated, KeyboardAvoidingView, Modal, Pressable, ScrollView, View, type ViewStyle } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { useSecurity } from '@/security/store';
@@ -52,6 +53,30 @@ export function useElevation(level: 1 | 2 = 1): ViewStyle {
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   const lift = useElevation(1);
   return <View className={`rounded-[26px] border border-line bg-card p-4 ${className}`} style={lift}>{children}</View>;
+}
+
+/** A card holding a list of rows separated by hairlines (Settings style). Pass the rows as children. */
+export function Group({ children }: { children: ReactNode }) {
+  const lift = useElevation(1);
+  return <View className="mb-5 overflow-hidden rounded-[26px] border border-line bg-card" style={lift}>{children}</View>;
+}
+
+/** One tappable row in a Group: tinted icon, label, optional detail text, chevron. */
+export function NavRow({ icon: Icon, label, detail, tone, first, onPress }: { icon: LucideIcon; label: string; detail?: string; tone?: 'warn'; first?: boolean; onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressy
+      onPress={() => { tap(); onPress(); }}
+      scaleTo={0.99}
+      accessibilityRole="button"
+      accessibilityLabel={detail ? `${label}, ${detail}` : label}
+      innerClassName={`min-h-[60px] flex-row items-center px-4 ${first ? '' : 'border-t border-line'}`}>
+      <View className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-card2"><Icon size={18} color={colors.accent} /></View>
+      <Text className="flex-1 text-base text-fg">{label}</Text>
+      {detail ? <Text className={`mr-1 text-sm ${tone === 'warn' ? 'text-warn' : 'text-muted'}`}>{detail}</Text> : null}
+      <ChevronRight size={18} color={colors.muted} />
+    </Pressy>
+  );
 }
 
 /** Small caps label above a block of content. */
@@ -119,16 +144,31 @@ export function Skeleton({ style }: { style?: ViewStyle }) {
 
 /** Bottom sheet. Tapping the scrim closes it. */
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  // The keyboard lifts the sheet (a Modal is its own window, so the app-level keyboard handling does not reach it), and tall content
+  // scrolls inside it instead of running off the top.
   return (
-    <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable className="flex-1 justify-end bg-black/60" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
-        <Pressable className="rounded-t-[28px] bg-card p-5 pb-8" onPress={() => {}} accessible={false} accessibilityViewIsModal>
-          <View className="mb-4 h-1 w-10 self-center rounded-full bg-line" importantForAccessibility="no" />
-          <Text className="mb-3 text-lg font-semibold text-fg" accessibilityRole="header">{title}</Text>
-          {children}
+    <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+        <Pressable className="flex-1 justify-end bg-black/60" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
+          <Pressable className="rounded-t-[28px] bg-card px-5 pb-6 pt-3" style={{ maxHeight: '90%' }} onPress={() => {}} accessible={false} accessibilityViewIsModal>
+            <View className="mb-4 h-1 w-10 self-center rounded-full bg-line" importantForAccessibility="no" />
+            <Text className="mb-3 text-lg font-semibold text-fg" accessibilityRole="header">{title}</Text>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>{children}</ScrollView>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+/** Round back button used at the top of every pushed screen. */
+export function BackButton({ label = 'Back' }: { label?: string }) {
+  const router = useRouter();
+  const { colors } = useTheme();
+  return (
+    <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel={label} className="mb-3 h-10 w-10 items-center justify-center rounded-full border border-line bg-card">
+      <ChevronLeft size={22} color={colors.fg} />
+    </Pressable>
   );
 }
 

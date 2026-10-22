@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft, Plus, Trash2 } from 'lucide-react-native';
+import { Plus, Trash2 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
@@ -8,7 +8,7 @@ import { Text, TextInput } from '@/ui/Text';
 import { addKeywordRule, applyRuleToExisting, deleteRule, getRules, setRuleCategory, setRuleEnabled } from '@/db/merchants';
 import { type Category, getCategories } from '@/db/queries';
 import { notifyIngested } from '@/ingest/events';
-import { Button, Card, EmptyState, Sheet } from '@/ui/kit';
+import { Button, Card, EmptyState, Sheet, BackButton } from '@/ui/kit';
 import { CategoryChips } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
@@ -66,9 +66,7 @@ export default function Rules() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <View className="mb-1 flex-row items-center justify-between">
         <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Rules</Text>
         <Pressable onPress={() => { setKw(''); setKwCat(null); setAdding(true); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add keyword rule"><Plus color={colors.accent} /></Pressable>

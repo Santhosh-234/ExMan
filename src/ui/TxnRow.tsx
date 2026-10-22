@@ -1,9 +1,10 @@
 import { ArrowDownLeft, ArrowUpRight, Check, Repeat } from 'lucide-react-native';
 import { memo } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import type { Category, Txn } from '@/db/queries';
+import { Pressy } from '@/ui/anim';
 import { Amount } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { formatForeign } from '@/utils/currency';
@@ -38,22 +39,24 @@ export const TxnRow = memo(function TxnRow({ t, cat, selecting, selected, onPres
         : { bg: cat?.color ?? colors.surface2, icon: <ArrowUpRight size={20} color={cat ? '#FFFFFF' : colors.muted} /> };
 
   return (
-    <Pressable
+    <Pressy
       onPress={() => onPress(t)}
       onLongPress={onLongPress && (() => onLongPress(t))}
+      scaleTo={0.985}
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected }}
       accessibilityLabel={`${what}, ${t.merchant ?? 'Unknown'}`}
-      className={`mb-2 min-h-16 flex-row items-center rounded-2xl p-3 ${selected ? 'bg-card2' : 'bg-card'}`}>
-      <View className="mr-3 h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: circle.bg }}>{circle.icon}</View>
-      <View className="flex-1">
-        <Text className="text-base text-fg" numberOfLines={1}>{t.merchant ?? 'Unknown'}</Text>
-        <Text className="text-xs text-muted" numberOfLines={1}>{sub}</Text>
+      className="mb-2"
+      innerClassName={`min-h-[68px] flex-row items-center rounded-[22px] border p-3 ${selected ? 'border-accent bg-card2' : 'border-line bg-card'}`}>
+      <View className="mr-3 h-11 w-11 items-center justify-center rounded-full" style={{ backgroundColor: circle.bg }}>{circle.icon}</View>
+      <View className="flex-1 pr-2">
+        <Text className="text-base font-semibold text-fg" numberOfLines={1}>{t.merchant ?? 'Unknown'}</Text>
+        <Text className="mt-0.5 text-xs text-muted" numberOfLines={1}>{sub}</Text>
       </View>
       <View className="items-end">
         <Amount paise={t.amount_paise} direction={t.direction} muted={!!t.is_transfer} approx={!!t.currency} className="text-base" />
-        {selecting ? null : <Text className="text-xs text-muted">{new Date(t.ts).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}</Text>}
+        {selecting ? null : <Text className="mt-0.5 text-xs text-muted">{new Date(t.ts).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}</Text>}
       </View>
-    </Pressable>
+    </Pressy>
   );
 });

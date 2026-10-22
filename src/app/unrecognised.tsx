@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft, MessageSquareWarning } from 'lucide-react-native';
+import { MessageSquareWarning } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { Text } from '@/ui/Text';
@@ -10,7 +10,7 @@ import { onIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
 import { maskMessage } from '@/telemetry/mask';
 import { senderKey } from '@/utils/teach';
-import { Button, Card, EmptyState, Sheet } from '@/ui/kit';
+import { Button, Card, EmptyState, Sheet, BackButton } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 
@@ -37,9 +37,7 @@ export default function Unrecognised() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Unrecognised messages</Text>
       <Text className="mb-3 text-xs text-muted">Messages that mention an amount but that ExMan could not read. Teach it the format once and it will read similar messages from now on.</Text>
 

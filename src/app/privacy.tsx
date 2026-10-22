@@ -1,13 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft } from 'lucide-react-native';
+
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
 
 import { deleteAllData, purgeRawText, readSummary } from '@/db/data';
 import { notifyIngested } from '@/ingest/events';
-import { Button, Card, Sheet } from '@/ui/kit';
+import { Button, Card, Sheet, BackButton } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 
@@ -34,9 +34,7 @@ export default function Privacy() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <Text className="mb-3 text-3xl font-bold text-fg" accessibilityRole="header">Privacy & data</Text>
       <ScrollView showsVerticalScrollIndicator={false}>
         <Card className="mb-4">
@@ -52,7 +50,7 @@ export default function Privacy() {
           ))}
         </Card>
 
-        <Pressable onPress={() => router.push('/telemetry')} accessibilityRole="button" className="mb-4 min-h-14 flex-row items-center justify-between rounded-3xl bg-card p-4">
+        <Pressable onPress={() => router.push('/telemetry')} accessibilityRole="button" className="mb-4 min-h-14 flex-row items-center justify-between rounded-[26px] border border-line bg-card p-4">
           <View className="flex-1"><Text className="text-base font-semibold text-fg">Usage data</Text><Text className="text-sm text-muted">Anonymous, content-free, on by default. See exactly what is recorded, or turn it off.</Text></View>
           <Text className="ml-3 text-accent">Open</Text>
         </Pressable>

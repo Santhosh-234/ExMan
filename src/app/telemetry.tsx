@@ -1,12 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft } from 'lucide-react-native';
+
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { ENDPOINT, type LoggedEvent, type TelemetryState, flush, getState, installId, listEvents, resetInstallId, setEnabled } from '@/db/telemetry';
-import { Button, Card } from '@/ui/kit';
+import { Button, Card, BackButton } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 
@@ -27,9 +27,7 @@ export default function Telemetry() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <Text className="mb-3 text-3xl font-bold text-fg" accessibilityRole="header">Usage data</Text>
       <ScrollView showsVerticalScrollIndicator={false}>
         <Card className="mb-4">
@@ -63,7 +61,7 @@ export default function Telemetry() {
         <Text className="mb-2 text-lg font-semibold text-fg" accessibilityRole="header">Exactly what is recorded</Text>
         {events.length === 0 && <Text className="mb-6 text-muted">Nothing recorded yet.</Text>}
         {events.map((e) => (
-          <View key={e.id} className="mb-2 rounded-2xl bg-card p-3">
+          <View key={e.id} className="mb-2 rounded-[22px] border border-line bg-card p-3">
             <View className="flex-row justify-between">
               <Text className="text-sm font-semibold text-fg">{e.name}</Text>
               <Text className="text-xs text-muted">{e.sent_at ? 'sent' : 'queued'} · {new Date(e.ts).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</Text>

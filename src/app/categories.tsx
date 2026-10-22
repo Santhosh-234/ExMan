@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft, Plus } from 'lucide-react-native';
+import { Plus } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
@@ -8,7 +8,7 @@ import { Text, TextInput } from '@/ui/Text';
 import { CATEGORY_COLORS, type Category, addCategory, deleteCategory, getCategories, getCategoryUsage, setCategoryArchived, updateCategory } from '@/db/queries';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
-import { Button, Card, Sheet } from '@/ui/kit';
+import { Button, Card, Sheet, BackButton } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 
@@ -62,7 +62,7 @@ export default function Categories() {
   };
 
   const row = (c: Category) => (
-    <Pressable key={c.id} onPress={() => open(c)} accessibilityRole="button" className={`mb-2 min-h-14 flex-row items-center rounded-2xl bg-card p-3 ${c.archived ? 'opacity-50' : ''}`}>
+    <Pressable key={c.id} onPress={() => open(c)} accessibilityRole="button" className={`mb-2 min-h-14 flex-row items-center rounded-[22px] border border-line bg-card p-3 ${c.archived ? 'opacity-50' : ''}`}>
       <View className="mr-3 h-8 w-8 rounded-full" style={{ backgroundColor: c.color }} />
       <View className="flex-1">
         <Text className="text-base text-fg">{c.name}</Text>
@@ -73,9 +73,7 @@ export default function Categories() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <View className="mb-1 flex-row items-center justify-between">
         <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Categories</Text>
         <Pressable onPress={() => open()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add category"><Plus color={colors.accent} /></Pressable>
