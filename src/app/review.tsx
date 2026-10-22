@@ -18,6 +18,7 @@ import { useReducedMotion } from '@/ui/motion';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 import { formatForeign } from '@/utils/currency';
+import { describeRate } from '@/utils/fx';
 
 const THRESHOLD = 110;
 
@@ -85,7 +86,7 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
           </View>
           <Text className={`text-xs font-semibold uppercase tracking-widest ${txn.direction === 'debit' ? 'text-danger' : 'text-income'}`}>{txn.direction === 'debit' ? 'Spent' : 'Received'}</Text>
           <Amount paise={txn.amount_paise} direction={txn.direction} approx={!!txn.currency} className="mt-1 text-5xl" />
-          {txn.currency && txn.foreign_minor ? <Text className="mt-1 text-sm text-muted">{formatForeign(txn.foreign_minor, txn.currency)} converted at an approximate rate. Tap the merchant to set the exact rupee amount from your statement.</Text> : null}
+          {txn.currency && txn.foreign_minor ? <Text className="mt-1 text-center text-sm text-muted">{formatForeign(txn.foreign_minor, txn.currency)} · {describeRate(txn.fx_source, txn.fx_rate, txn.currency)}</Text> : null}
           <Pressable onPress={onEdit} accessibilityRole="button" accessibilityLabel="Edit merchant and amount" hitSlop={8}>
             <Text className="mt-2 text-xl font-semibold text-fg" accessibilityRole="header">{txn.merchant ?? 'Unknown merchant'}</Text>
           </Pressable>
@@ -237,7 +238,6 @@ export default function Review() {
               snack({ message: 'Unmarked. It counts in totals again.' });
             }}
           />
-          {queue.length > 1 && <Text className="mt-4 text-center text-xs text-muted">Swipe right to confirm, left to dismiss</Text>}
         </ScrollView>
       ) : (
         <EmptyState

@@ -32,6 +32,8 @@ export type Txn = {
   refund_of: number | null;
   currency: string | null;
   foreign_minor: number | null;
+  fx_rate: number | null;
+  fx_source: string | null;
   updated_at: number | null;
 };
 
@@ -72,6 +74,7 @@ export async function updateTxn(db: SQLiteDatabase, id: number, f: TxnPatchField
     `UPDATE transactions SET ${keys.map((k) => `${k} = ?`).join(', ')}, synced_at = NULL, updated_at = ? WHERE id = ?`,
     ...keys.map((k) => f[k] as string | number | null), now, id,
   );
+  if (f.amount_paise !== undefined && old.currency && old.amount_paise !== f.amount_paise) await db.runAsync("UPDATE transactions SET fx_source = 'edited' WHERE id = ?", id); // typed by the user: never re-rated
   if (old.status !== 'confirmed') return;
   for (const k of keys) {
     if (k === 'status' || k === 'merchant_id' || old[k] === f[k]) continue;

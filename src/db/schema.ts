@@ -215,6 +215,15 @@ export const MIGRATIONS = [
   ALTER TABLE budgets ADD COLUMN rollover INTEGER NOT NULL DEFAULT 0;
   CREATE TABLE recurring_dismissed (merchant_id INTEGER PRIMARY KEY REFERENCES merchants(id) ON DELETE CASCADE);
   `,
+  // historical exchange rates: where each foreign spend's rupee amount came from ('default' approximate, 'user' your rate, 'online' that day's
+  // published rate, 'edited' you typed the amount), and a small cache of rates already fetched
+  `
+  ALTER TABLE transactions ADD COLUMN fx_rate REAL;
+  ALTER TABLE transactions ADD COLUMN fx_source TEXT;
+  CREATE TABLE fx_rates (day TEXT NOT NULL, code TEXT NOT NULL, rate REAL NOT NULL, fetched_at INTEGER NOT NULL, PRIMARY KEY (day, code)) WITHOUT ROWID;
+  UPDATE transactions SET fx_source = 'default' WHERE currency IS NOT NULL AND foreign_minor IS NOT NULL;
+  UPDATE transactions SET fx_source = 'edited' WHERE fx_source = 'default' AND id IN (SELECT txn_id FROM edit_log WHERE field = 'amount_paise');
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -110,7 +110,7 @@ export default function Insights() {
                 <Text className="mr-3 flex-1 text-sm text-muted">Showing <Text className="font-semibold text-fg">{sel}</Text></Text>
                 <Button label="View transactions" variant="secondary" onPress={() => { const c = shown.find((x) => x.name === sel); router.push(`/activity?category=${c?.category_id ?? 'none'}&month=${month}&direction=debit&n=${Date.now()}`); }} />
               </View>
-            ) : <Text className="mt-2 text-xs text-muted">Tap a slice or a category to focus on it.</Text>}
+            ) : null}
             <View className="mt-4 w-full">
               {shown.map((s) => {
                 const sum = shown.reduce((a, x) => a + x.total, 0) || 1;
@@ -136,7 +136,7 @@ export default function Insights() {
           <Chip label="6M" selected={range === 6} color={colors.accent} onPress={() => setRange(6)} />
           <Chip label="12M" selected={range === 12} color={colors.accent} onPress={() => setRange(12)} />
         </View>
-      }>Trends · tap a bar to jump to that month</SectionLabel>
+      }>Trends</SectionLabel>
       <Card className="mb-4">
         <Text className="mb-3 text-base font-semibold text-fg">Spending, last {rangeLabel}</Text>
         <Bars data={series} label={`Spending, last ${rangeLabel}`} selected={monthIdx >= 0 ? monthIdx : null} onSelect={(i) => setMonth(months[i])} />

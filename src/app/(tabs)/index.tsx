@@ -193,7 +193,7 @@ export default function Home() {
             ) : (
               <Pressable onPress={() => { setDraft(budget ? String(budget / 100) : ''); setEditing(true); }} className="mt-3" accessibilityRole="button">
                 <Text className={over ? 'text-danger' : 'text-muted'}>
-                  {budget ? `${rupees(spent)} of ${rupees(budget)}${over ? ` · over by ${rupees(spent - budget)}` : ` · ${rupees(budget - spent)} left`}` : 'Tap to set a monthly budget'}
+                  {budget ? `${rupees(spent)} of ${rupees(budget)}${over ? ` · over by ${rupees(spent - budget)}` : ` · ${rupees(budget - spent)} left`}` : 'Set a monthly budget ›'}
                 </Text>
                 {safeDaily != null && <Text className="mt-1 text-sm text-muted">Safe to spend {rupees(safeDaily)} a day for {daysLeft} more days</Text>}
               </Pressable>

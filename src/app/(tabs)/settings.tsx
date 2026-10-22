@@ -33,7 +33,7 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 }
 
 function Row({ icon, label, ok, first, onPress }: { icon: typeof Bell; label: string; ok: boolean; first?: boolean; onPress: () => void }) {
-  return <NavRow icon={icon} label={label} first={first} detail={ok ? 'Granted' : 'Tap to enable'} tone={ok ? undefined : 'warn'} onPress={onPress} />;
+  return <NavRow icon={icon} label={label} first={first} detail={ok ? 'Granted' : 'Off'} tone={ok ? undefined : 'warn'} onPress={onPress} />;
 }
 
 function SecuritySection() {
