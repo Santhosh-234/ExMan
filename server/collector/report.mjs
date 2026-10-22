@@ -14,7 +14,7 @@ const table = (title, list) => { console.log(`\n${title}`); if (!list.length) re
 console.log(`ExMan telemetry, last ${days} days (since ${since})`);
 
 const opens = by('app_open').filter((r) => r.key === '#count');
-table('App opens by version / update source', opens.map((r) => `${dimOf(r, 'version')} ${dimOf(r, 'update')} (android ${dimOf(r, 'os_version')}): ${r.v}`).sort());
+table('App opens by version / update source', opens.map((r) => `${dimOf(r, 'version')} ${dimOf(r, 'update')} runtime ${dimOf(r, 'runtime')} (android ${dimOf(r, 'os_version')}): ${r.v}`).sort());
 
 const screens = new Map();
 for (const r of by('screen_load')) {

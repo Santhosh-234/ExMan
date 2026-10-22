@@ -7,10 +7,11 @@ import { loadPatternIndex } from '@/db/patterns';
 import { detectTransfers } from '@/db/transfers';
 import { toParsed } from '@/utils/teach';
 import { countParse } from '@/telemetry';
+import { looksLikeTransaction } from '@/utils/transactional';
 import { CURRENCIES, toPaise } from '@/utils/currency';
 import { guessCategory } from '@/utils/categorize';
 import { hashMessage } from '@/utils/hash';
-import { extractBalance, isDuplicate, parseMessage } from '@/utils/parser';
+import { bankFor, extractBalance, isDuplicate, parseMessage } from '@/utils/parser';
 import { notifyIngested } from './events';
 
 type Near = { amount_paise: number; direction: 'debit' | 'credit'; account_last4: string | null; ts: number };
@@ -88,7 +89,8 @@ async function store(db: SQLiteDatabase, ctx: Ctx, m: RawMessage): Promise<boole
   if (!t) {
     // privacy: only keep messages that mention an amount; OTPs/chats are dropped
     if (/(?:rs\.?|inr|₹)\s?\d/i.test(m.text)) {
-      countParse(null, 'unrecognised');
+      // offers and reminders are kept for Teach but not counted as misses, so the per-bank statistic means something
+      if (looksLikeTransaction(m.text)) countParse(bankFor(m.sender, m.text), 'unrecognised');
       await db.runAsync('INSERT OR IGNORE INTO unparsed (sender, text, ts) VALUES (?, ?, ?)', m.sender, m.text, m.ts);
     }
     return false;
