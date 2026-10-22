@@ -2,7 +2,8 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Lock } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Text, View } from 'react-native';
+import { AppState, View } from 'react-native';
+import { Text } from '@/ui/Text';
 import { allowScreenCaptureAsync, preventScreenCaptureAsync } from 'expo-screen-capture';
 
 import { Button } from '@/ui/kit';

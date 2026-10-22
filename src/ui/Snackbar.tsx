@@ -1,5 +1,6 @@
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Pressable, Text } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable } from 'react-native';
+import { Text } from '@/ui/Text';
 
 import { useReducedMotion } from './motion';
 
@@ -51,7 +52,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
             )}
             {snack.onAction && (
               <Pressable hitSlop={12} accessibilityRole="button" accessibilityLabel={snack.actionLabel ?? 'Undo'} onPress={() => { snack.onAction?.(); hide(); }}>
-                <Text style={{ color: '#34D399', fontWeight: '600', marginLeft: 16 }}>{snack.actionLabel ?? 'Undo'}</Text>
+                <Text style={{ color: '#5EDCC8', fontWeight: '600', marginLeft: 16 }}>{snack.actionLabel ?? 'Undo'}</Text>
               </Pressable>
             )}
           </Pressable>

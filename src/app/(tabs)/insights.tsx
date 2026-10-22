@@ -2,7 +2,8 @@ import { useSecurity } from '@/security/store';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Text } from '@/ui/Text';
 
 import { Bars, Pie } from '@/components/Charts';
 import { MonthBar } from '@/components/MonthBar';

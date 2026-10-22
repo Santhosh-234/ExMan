@@ -2,7 +2,8 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft, Plus } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Switch, View } from 'react-native';
+import { Text, TextInput } from '@/ui/Text';
 
 import { MonthBar } from '@/components/MonthBar';
 import { type BudgetLine, type Category, budgetOverview, getBudgetRow, getCategories, setBudgetRow } from '@/db/queries';

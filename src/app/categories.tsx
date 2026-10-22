@@ -2,7 +2,8 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft, Plus } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Text, TextInput } from '@/ui/Text';
 
 import { CATEGORY_COLORS, type Category, addCategory, deleteCategory, getCategories, getCategoryUsage, setCategoryArchived, updateCategory } from '@/db/queries';
 import { notifyIngested } from '@/ingest/events';

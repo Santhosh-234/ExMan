@@ -6,7 +6,8 @@ import * as Sharing from 'expo-sharing';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Text, TextInput } from '@/ui/Text';
 
 import { makeBackup, readBackup, restoreAll } from '@/backup/dump';
 import { exportRows } from '@/db/queries';

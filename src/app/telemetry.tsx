@@ -2,7 +2,8 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, Switch, View } from 'react-native';
+import { Text } from '@/ui/Text';
 
 import { ENDPOINT, type LoggedEvent, type TelemetryState, flush, getState, installId, listEvents, resetInstallId, setEnabled } from '@/db/telemetry';
 import { Button, Card } from '@/ui/kit';

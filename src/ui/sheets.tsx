@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { View } from 'react-native';
+import { Text, TextInput } from '@/ui/Text';
 
 import type { Account, Category, Txn } from '@/db/queries';
 import { Button, Chip, Sheet } from '@/ui/kit';

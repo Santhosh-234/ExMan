@@ -3,7 +3,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Text, TextInput } from '@/ui/Text';
 
 import { type AccountStats, type Category, type Txn, getAccount, getAccountFirefly, setAccountFirefly, getAccountStats, getCategories, mergeAccount, queryTxns, renameAccount, setAccountArchived } from '@/db/queries';
 import { notifyIngested, onIngested } from '@/ingest/events';
