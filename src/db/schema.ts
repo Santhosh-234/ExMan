@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 // Bump when changing DDL; migrate() applies each step once, in order.
-const MIGRATIONS = [
+export const MIGRATIONS = [
   `
   CREATE TABLE categories (
     id INTEGER PRIMARY KEY,

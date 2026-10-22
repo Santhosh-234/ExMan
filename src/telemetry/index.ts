@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { flush, record } from '@/db/telemetry';
+import { takeCounters } from './counters';
 import { type EventName } from './schema';
 
 let db: SQLiteDatabase | null = null;
@@ -14,17 +15,9 @@ export function track(name: EventName, props: Record<string, unknown>) {
   if (db) void record(db, name, props);
 }
 
-// parser outcomes are counted in memory and emitted as one event per bank (never per message)
-const counters = new Map<string, { parsed: number; unrecognised: number; taught: number }>();
-export function countParse(bank: string | null, kind: 'parsed' | 'unrecognised' | 'taught') {
-  const k = bank ?? 'none';
-  const c = counters.get(k) ?? { parsed: 0, unrecognised: 0, taught: 0 };
-  c[kind]++;
-  counters.set(k, c);
-}
+export { countParse } from './counters';
 export function emitParserStats() {
-  for (const [bank, c] of counters) track('parser_stats', { bank, ...c });
-  counters.clear();
+  for (const [bank, c] of takeCounters()) track('parser_stats', { bank, ...c });
 }
 
 export function trackAppOpen() {

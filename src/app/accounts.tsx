@@ -37,7 +37,7 @@ export function AccountCard({ a, onPress }: { a: AccountStats; onPress: () => vo
       </View>
       <View className="mt-3 flex-row border-t border-line pt-3">
         <View className="flex-1"><Text className="text-xs text-muted">Spent</Text><Text className="text-fg">{rupees(a.spent)}</Text></View>
-        <View className="flex-1"><Text className="text-xs text-muted">Received</Text><Text className="text-accent">{rupees(a.received)}</Text></View>
+        <View className="flex-1"><Text className="text-xs text-muted">Received</Text><Text className="text-income">{rupees(a.received)}</Text></View>
         <View className="flex-1 items-end"><Text className="text-xs text-muted">Transactions</Text><Text className="text-fg">{a.n}</Text></View>
       </View>
     </Pressable>

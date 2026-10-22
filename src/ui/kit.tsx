@@ -45,8 +45,8 @@ export function Button({ label, onPress, variant = 'primary', disabled, classNam
 
 /** Soft elevation: a hairline border always, and a faint shadow in the light theme (shadows read as dirt on dark surfaces). */
 export function useElevation(level: 1 | 2 = 1): ViewStyle {
-  const { scheme } = useTheme();
-  if (scheme === 'dark') return {};
+  const { scheme, glass } = useTheme();
+  if (scheme === 'dark' || glass) return {}; // shadows show through translucent panes as dirt
   return { shadowColor: '#1B2430', shadowOpacity: level === 1 ? 0.05 : 0.1, shadowRadius: level === 1 ? 10 : 18, shadowOffset: { width: 0, height: level === 1 ? 3 : 8 }, elevation: level === 1 ? 1 : 3 };
 }
 
@@ -108,9 +108,10 @@ export function Chip({ label, color, selected, onPress }: { label: string; color
 export function Amount({ paise, direction, className = 'text-lg', approx, muted }: { paise: number; direction?: 'debit' | 'credit'; className?: string; approx?: boolean; muted?: boolean }) {
   const { hide } = useSecurity();
   const sign = direction === 'debit' ? '-' : direction === 'credit' ? '+' : '';
-  const tone = muted ? 'text-muted' : direction === 'debit' ? 'text-danger' : direction === 'credit' ? 'text-accent' : 'text-fg';
+  // colour always follows direction (green in, red out); transfers keep the hue but are dimmed so they still read as "not counted"
+  const tone = direction === 'debit' ? 'text-danger' : direction === 'credit' ? 'text-income' : muted ? 'text-muted' : 'text-fg';
   return (
-    <Text className={`font-semibold ${tone} ${className}`} style={{ fontVariant: ['tabular-nums'] }} accessibilityLabel={`${direction === 'credit' ? 'received' : direction === 'debit' ? 'spent' : ''} ${hide ? 'amount hidden' : rupees(paise)}`}>
+    <Text className={`font-semibold ${tone} ${muted && direction ? 'opacity-60' : ''} ${className}`} style={{ fontVariant: ['tabular-nums'] }} accessibilityLabel={`${direction === 'credit' ? 'received' : direction === 'debit' ? 'spent' : ''} ${hide ? 'amount hidden' : rupees(paise)}`}>
       {approx ? '≈' : ''}{sign}{rupees(paise)}
     </Text>
   );
@@ -150,7 +151,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <Pressable className="flex-1 justify-end bg-black/60" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
-          <Pressable className="rounded-t-[28px] bg-card px-5 pb-6 pt-3" style={{ maxHeight: '90%' }} onPress={() => {}} accessible={false} accessibilityViewIsModal>
+          <Pressable className="rounded-t-[28px] bg-sheet px-5 pb-6 pt-3" style={{ maxHeight: '90%' }} onPress={() => {}} accessible={false} accessibilityViewIsModal>
             <View className="mb-4 h-1 w-10 self-center rounded-full bg-line" importantForAccessibility="no" />
             <Text className="mb-3 text-lg font-semibold text-fg" accessibilityRole="header">{title}</Text>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>{children}</ScrollView>

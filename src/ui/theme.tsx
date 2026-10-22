@@ -3,7 +3,8 @@ import { vars } from 'nativewind';
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Appearance, View, useColorScheme } from 'react-native';
 
-import { PALETTES, type Palette, type Scheme } from './palettes';
+import { GlassBackdrop } from './GlassBackdrop';
+import { type Palette, type Scheme, paletteFor } from './palettes';
 
 export type Mode = 'system' | 'light' | 'dark';
 
@@ -11,10 +12,10 @@ const toVars = (p: Palette) =>
   vars({
     '--c-bg': p.bg, '--c-surface': p.surface, '--c-surface2': p.surface2, '--c-line': p.line,
     '--c-fg': p.fg, '--c-muted': p.muted, '--c-accent': p.accent, '--c-onaccent': p.onaccent,
-    '--c-danger': p.danger, '--c-warn': p.warn,
+    '--c-danger': p.danger, '--c-warn': p.warn, '--c-income': p.income, '--c-solid': p.solid, '--c-sheet': p.sheet,
   });
 
-type Ctx = { mode: Mode; scheme: Scheme; colors: Palette; setMode: (m: Mode) => void };
+type Ctx = { mode: Mode; scheme: Scheme; colors: Palette; glass: boolean; setMode: (m: Mode) => void; setGlass: (g: boolean) => void };
 const ThemeContext = createContext<Ctx | null>(null);
 
 export const useTheme = () => {
@@ -35,6 +36,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return 'system';
     }
   });
+  const [glass, setGlassState] = useState<boolean>(() => {
+    try { return db.getFirstSync<{ value: string }>("SELECT value FROM settings WHERE key = 'glass'")?.value === '1'; } catch { return false; }
+  });
   const scheme: Scheme = mode === 'system' ? (system === 'light' ? 'light' : 'dark') : mode;
 
   // keeps native chrome (dialogs, keyboard, status bar) in sync with the in-app choice
@@ -49,10 +53,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     ).catch(() => {});
   }, [db]);
 
-  const value = useMemo(() => ({ mode, scheme, colors: PALETTES[scheme], setMode }), [mode, scheme, setMode]);
+  const setGlass = useCallback((g: boolean) => {
+    setGlassState(g);
+    db.runAsync("INSERT INTO settings (key, value) VALUES ('glass', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", g ? '1' : '0').catch(() => {});
+  }, [db]);
+
+  const colors = useMemo(() => paletteFor(scheme, glass), [scheme, glass]);
+  const value = useMemo(() => ({ mode, scheme, colors, glass, setMode, setGlass }), [mode, scheme, colors, glass, setMode, setGlass]);
   return (
     <ThemeContext.Provider value={value}>
-      <View style={[{ flex: 1 }, toVars(PALETTES[scheme])]}>{children}</View>
+      <View style={[{ flex: 1, backgroundColor: colors.solid }, toVars(colors)]}>
+        {glass ? <GlassBackdrop scheme={scheme} /> : null}
+        {children}
+      </View>
     </ThemeContext.Provider>
   );
 }

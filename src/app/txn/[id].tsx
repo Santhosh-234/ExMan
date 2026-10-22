@@ -137,7 +137,7 @@ export default function TxnDetail() {
       <BackButton />
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="mb-4 items-center">
-          <Text className="text-xs uppercase tracking-wider text-muted">{t.direction === 'debit' ? 'Spent' : 'Received'}</Text>
+          <Text className={`text-xs font-semibold uppercase tracking-widest ${t.direction === 'debit' ? 'text-danger' : 'text-income'}`}>{t.direction === 'debit' ? 'Spent' : 'Received'}</Text>
           <Amount paise={t.amount_paise} direction={t.direction} approx={!!t.currency} className="text-5xl" />
           <Text className="mt-2 text-xl text-fg" accessibilityRole="header">{t.merchant ?? 'Unknown merchant'}</Text>
           {t.is_transfer ? (

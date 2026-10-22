@@ -201,7 +201,7 @@ export default function Home() {
             <Pressable onPress={() => router.push('/budgets')} hitSlop={8} accessibilityRole="button" className="mt-2"><Text className="text-accent">Budgets by category ›</Text></Pressable>
 
             <View className="mt-4 flex-row border-t border-line pt-3">
-              <View className="flex-1"><Text className="text-xs text-muted">Income</Text><Text className="text-lg font-semibold text-accent">{rupees(income)}</Text></View>
+              <View className="flex-1"><Text className="text-xs text-muted">Income</Text><Text className="text-lg font-semibold text-income">{rupees(income)}</Text></View>
               <View className="flex-1"><Text className="text-xs text-muted">Net</Text><Text className={`text-lg font-semibold ${income - spent < 0 ? 'text-danger' : 'text-fg'}`}>{income - spent < 0 ? '-' : ''}{rupees(Math.abs(income - spent))}</Text></View>
             </View>
           </Card></FadeIn>
@@ -214,10 +214,10 @@ export default function Home() {
               <Pressable onPress={() => router.push('/insights')} hitSlop={10} accessibilityRole="button"><Text className="text-accent">See all</Text></Pressable>
             </View>
             {top.map((s) => (
-              <View key={String(s.category_id)} className="mb-3">
-                <View className="mb-1 flex-row justify-between"><Text className="text-fg">{s.name}</Text><Text className="text-muted">{rupees(s.total)}</Text></View>
+              <Pressy key={String(s.category_id)} onPress={() => router.push(`/activity?category=${s.category_id ?? 'none'}&month=${month}&direction=debit&n=${Date.now()}`)} scaleTo={0.99} accessibilityRole="button" accessibilityLabel={`${s.name}, ${rupees(s.total)}. Show its transactions`} innerClassName="mb-3">
+                <View className="mb-1 flex-row justify-between"><Text className="text-fg">{s.name}</Text><Text className="text-muted" style={{ fontVariant: ['tabular-nums'] }}>{rupees(s.total)}</Text></View>
                 <AnimatedBar pct={s.total / topMax} color={s.color} height={8} />
-              </View>
+              </Pressy>
             ))}
           </Card></FadeIn>
         )}

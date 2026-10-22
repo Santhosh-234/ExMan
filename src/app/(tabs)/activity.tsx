@@ -15,7 +15,7 @@ import { useSnackbar } from '@/ui/Snackbar';
 import { useRuleOffer } from '@/ui/useRuleOffer';
 import { useTheme } from '@/ui/theme';
 import { TxnRow } from '@/ui/TxnRow';
-import { type TxnFilter, EMPTY_FILTER, activeFilterCount } from '@/utils/filters';
+import { type TxnFilter, EMPTY_FILTER, activeFilterCount, filterFromParams } from '@/utils/filters';
 import { rupees } from '@/utils/format';
 
 type Item = { kind: 'day'; key: string; label: string; spent: number } | { kind: 'txn'; key: string; t: Txn };
@@ -35,7 +35,7 @@ export default function Activity() {
   const router = useRouter();
   const snack = useSnackbar();
   const offerRule = useRuleOffer();
-  const { account, q: qParam, transfers } = useLocalSearchParams<{ account?: string; q?: string; transfers?: string }>();
+  const params = useLocalSearchParams<{ account?: string; q?: string; transfers?: string; category?: string; month?: string; direction?: string; n?: string }>();
   const { colors } = useTheme();
   const [filter, setFilter] = useState<TxnFilter>(EMPTY_FILTER);
   const [search, setSearch] = useState('');
@@ -50,17 +50,16 @@ export default function Activity() {
   const loading = useRef(false);
   const seq = useRef(0); // drops results from superseded queries
 
-  // arriving from an account screen: filter to that account (cleared via the filter sheet)
+  // arriving from another screen (an account, a chart slice, a merchant...): replace the filter with exactly what was asked for.
+  // `n` is a nonce so tapping the same link twice re-applies it after the user changed the filters in between.
+  const drill = JSON.stringify([params.account, params.q, params.transfers, params.category, params.month, params.direction, params.n]);
   useEffect(() => {
-    if (account) setFilter((f) => ({ ...f, accountIds: [Number(account)] }));
-  }, [account]);
-
-  useEffect(() => {
-    if (transfers === 'only') setFilter((f) => ({ ...f, transfers: 'only' }));
-  }, [transfers]);
-  useEffect(() => {
-    if (qParam) setSearch(qParam);
-  }, [qParam]);
+    if (!params.account && !params.q && !params.transfers && !params.category && !params.month && !params.direction) return;
+    const r = filterFromParams(params);
+    setFilter(r.filter);
+    setSearch(r.search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drill]);
 
   // debounce typing into the actual filter
   useEffect(() => {
@@ -167,7 +166,12 @@ export default function Activity() {
         </View>
       )}
 
-      {!selecting && <Text className="mb-1 text-xs text-muted">{summaryText}</Text>}
+      {!selecting && (
+        <View className="mb-1 flex-row items-center justify-between">
+          <Text className="flex-1 text-xs text-muted">{summaryText}</Text>
+          {(nFilters > 0 || search) ? <Pressable onPress={() => { setSearch(''); setFilter(EMPTY_FILTER); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear filters"><Text className="text-xs font-semibold text-accent">Clear filters</Text></Pressable> : null}
+        </View>
+      )}
 
       <FlatList
         data={items}

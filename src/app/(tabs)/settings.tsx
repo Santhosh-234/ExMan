@@ -75,7 +75,7 @@ function SecuritySection() {
         </View>
       )}
       <Row label="Hide amounts" hint="Shows •••• instead of rupee amounts. The eye on Home flips it quickly." value={sec.hide} onChange={(v) => void updateSecurity(db, { hide: v })} />
-      <Row label="Block screenshots and hide in recent apps" hint={sec.lock ? 'Always on while the lock is on.' : 'Blanks the app preview in the recent apps list.'} value={sec.capture || sec.lock} onChange={(v) => { if (!sec.lock) void updateSecurity(db, { capture: v }); }} />
+      <Row label="Block screenshots and hide in recent apps" hint="Blanks the app preview in the recent apps list and stops screenshots. Independent of the lock." value={sec.capture} onChange={(v) => void updateSecurity(db, { capture: v })} />
       {msg ? <Text className="text-sm text-warn">{msg}</Text> : null}
     </Section>
   );
@@ -150,7 +150,7 @@ export default function Settings() {
   const [notif, setNotif] = useState(false);
   const db = useSQLiteContext();
   const router = useRouter();
-  const { mode: themeMode, setMode: setThemeMode, colors } = useTheme();
+  const { mode: themeMode, setMode: setThemeMode, colors, glass, setGlass } = useTheme();
   const [endpoint, setEndpoint] = useState('');
   const [token, setToken] = useState('');
   const [mode, setMode] = useState('rest');
@@ -185,6 +185,13 @@ export default function Settings() {
             <Chip key={m} label={label} color={colors.accent} selected={themeMode === m} onPress={() => { setThemeMode(m); track('feature_used', { feature: 'theme_changed' }); }} />
           ))}
         </View>
+        <Card className="mt-1 flex-row items-center">
+          <View className="mr-3 flex-1">
+            <Text className="text-base font-semibold text-fg">Glass look</Text>
+            <Text className="mt-0.5 text-xs text-muted">Translucent panes over a soft gradient backdrop. Works in light and dark.</Text>
+          </View>
+          <Switch value={glass} onValueChange={(v) => { setGlass(v); track('feature_used', { feature: 'theme_changed' }); }} trackColor={{ true: colors.accent, false: colors.surface2 }} accessibilityLabel="Glass look" />
+        </Card>
       </Section>
 
       <Section title="Accounts" hint="Banks, cards and cash found from your messages.">

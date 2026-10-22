@@ -22,3 +22,16 @@ test('offers, reminders and OTPs are not', () => {
 test('a debit alert that also mentions an offer still counts', () => {
   assert.ok(yes('Rs 800 debited from A/c XX1234. Offer: get 5% cashback on your next UPI payment'));
 });
+
+import { isOtpMessage, mentionsAmount } from './transactional';
+
+test('OTP messages are recognised, real alerts that mention OTP are not', () => {
+  assert.ok(isOtpMessage('123456 is the OTP for txn of Rs 500 at AMAZON on card ending 1234. Do not share.'));
+  assert.ok(isOtpMessage('Your one time password is 4421 for INR 2,000 payment'));
+  assert.ok(!isOtpMessage('Rs 500 debited from a/c XX1234. Never share your OTP with anyone.'));
+});
+
+test('amounts are found in rupees and foreign currencies, in either order', () => {
+  for (const t of ['Rs.450 spent', 'INR 450', '₹450', '450 INR gone', '32 USD', 'USD 32', '$45.50', 'EUR 12.00', 'INR .32', 'Rs 500']) assert.ok(mentionsAmount(t), t);
+  for (const t of ['hello there', 'call 1800 425 00000', 'order 12345 shipped', 'OTP 123456']) assert.ok(!mentionsAmount(t), t);
+});
