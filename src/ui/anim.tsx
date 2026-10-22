@@ -44,7 +44,7 @@ export function CountUp({ value, format, className, accessibilityLabel }: { valu
 }
 
 /** A horizontal bar whose fill animates to `pct` (0-1) when it changes. */
-export function AnimatedBar({ pct, color, height = 10, track, className = '' }: { pct: number; color: string; height?: number; track?: string; className?: string }) {
+export function AnimatedBar({ pct, color, height = 10, track, className = '', marker }: { pct: number; color: string; height?: number; track?: string; className?: string; marker?: number }) {
   const reduced = useReducedMotion();
   const w = useRef(new Animated.Value(reduced ? pct : 0)).current;
   useEffect(() => {
@@ -54,6 +54,7 @@ export function AnimatedBar({ pct, color, height = 10, track, className = '' }: 
   return (
     <View className={`overflow-hidden rounded-full ${track ?? 'bg-card2'} ${className}`} style={{ height }}>
       <Animated.View style={{ height, borderRadius: height, backgroundColor: color, width: w.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'], extrapolate: 'clamp' }) }} />
+      {marker != null && marker > 0 && marker < 1 ? <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: `${marker * 100}%`, width: 2, backgroundColor: 'rgba(120,130,150,0.9)' }} /> : null}
     </View>
   );
 }

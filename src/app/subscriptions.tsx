@@ -9,7 +9,8 @@ import { dismissRecurring, getRecurring, monthlyTotal, restoreRecurring } from '
 import { onIngested } from '@/ingest/events';
 import { useSecurity } from '@/security/store';
 import { track } from '@/telemetry';
-import { Button, Card, EmptyState, Sheet, BackButton } from '@/ui/kit';
+import { FadeIn } from '@/ui/anim';
+import { BackButton, Button, Card, EmptyState, ListRow, PageHeader, Sheet } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
@@ -40,36 +41,32 @@ export default function Subscriptions() {
   const ended = (list ?? []).filter((r) => r.status === 'ended');
   const total = monthlyTotal(list ?? []);
 
-  const row = (r: Recurring) => (
-    <Pressable key={r.merchant_id} onPress={() => setSel(r)} accessibilityRole="button" className={`mb-2 min-h-16 flex-row items-center rounded-[22px] border border-line bg-card p-3 ${r.status === 'ended' ? 'opacity-60' : ''}`}>
-      <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-card2"><Repeat size={18} color={colors.muted} /></View>
-      <View className="flex-1">
-        <Text className="text-base text-fg" numberOfLines={1}>{r.merchant}</Text>
-        <Text className="text-xs text-muted" numberOfLines={1}>{cadenceLabel(r.cadence)}{r.varies ? ' · amount varies' : ''} · {r.status === 'ended' ? 'no recent charge' : dueText(r)}</Text>
-        {r.priceChange ? <Text className="text-xs text-warn">Price went up from {rupees(r.priceChange.from)} to {rupees(r.priceChange.to)}</Text> : null}
-      </View>
-      <Text className="text-base text-fg">{rupees(r.amount)}</Text>
-    </Pressable>
+  const row = (r: Recurring, i: number) => (
+    <FadeIn key={r.merchant_id} index={i}>
+      <ListRow icon={Repeat} muted={r.status === 'ended'} onPress={() => setSel(r)}
+        title={r.merchant}
+        subtitle={`${cadenceLabel(r.cadence)}${r.varies ? ' · amount varies' : ''} · ${r.status === 'ended' ? 'no recent charge' : dueText(r)}${r.priceChange ? ` · price up from ${rupees(r.priceChange.from)}` : ''}`}
+        right={<Text className="mr-1 text-base font-semibold text-fg" style={{ fontVariant: ['tabular-nums'] }}>{rupees(r.amount)}</Text>} />
+    </FadeIn>
   );
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
-      <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Subscriptions</Text>
-      <Text className="mb-3 text-xs text-muted">Payments that repeat on a schedule, found from your confirmed spending. A pattern needs about 3 charges (2 for yearly ones).</Text>
+      <PageHeader title="Subscriptions" subtitle="Payments that repeat on a schedule, found from your confirmed spending. A pattern needs about 3 charges (2 for yearly ones)." />
       <ScrollView showsVerticalScrollIndicator={false}>
         {live.length > 0 && (
           <Card className="mb-4">
-            <Text className="text-xs uppercase tracking-wider text-muted">About</Text>
-            <Text className="text-3xl font-bold text-fg">{rupees(total)} <Text className="text-base font-normal text-muted">a month</Text></Text>
-            <Text className="text-sm text-muted">{rupees(total * 12)} a year across {live.length} recurring payment{live.length === 1 ? '' : 's'}.</Text>
+            <Text className="text-xs font-semibold uppercase tracking-widest text-muted">About</Text>
+            <Text className="mt-1 text-4xl font-bold text-fg">{rupees(total)} <Text className="text-base font-normal text-muted">a month</Text></Text>
+            <Text className="mt-1 text-sm text-muted">{rupees(total * 12)} a year across {live.length} recurring payment{live.length === 1 ? '' : 's'}.</Text>
           </Card>
         )}
         {list && live.length === 0 && ended.length === 0 && <EmptyState icon={<Repeat size={44} color={colors.muted} />} title="No recurring payments found yet" body="They appear once a payee has charged you on a regular schedule a few times." />}
         {live.map(row)}
         {ended.length > 0 && (
           <>
-            <Pressable onPress={() => setShowEnded((v) => !v)} className="mb-2 mt-3" accessibilityRole="button"><Text className="text-accent">{showEnded ? 'Hide' : 'Show'} possibly cancelled ({ended.length})</Text></Pressable>
+            <Pressable onPress={() => setShowEnded((v) => !v)} className="mb-2 mt-3 min-h-9 justify-center" accessibilityRole="button"><Text className="font-semibold text-accent">{showEnded ? 'Hide' : 'Show'} possibly cancelled ({ended.length})</Text></Pressable>
             {showEnded && ended.map(row)}
           </>
         )}

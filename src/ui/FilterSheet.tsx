@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
 
 import type { Account, Category } from '@/db/queries';
@@ -34,8 +34,19 @@ export function FilterSheet({ value, cats, accounts, onApply, onClose }: { value
   const activePreset = PRESETS.findIndex((p) => { const [a, b] = p.range(); return Math.abs((a ?? 0) - (f.from ?? 0)) < 1000 && Math.abs((b ?? 0) - (f.to ?? 0)) < 1000; });
 
   return (
-    <Sheet title="Filters" onClose={onClose}>
-      <ScrollView style={{ maxHeight: 460 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <Sheet title="Filters" onClose={onClose} footer={
+      <View className="flex-row">
+        <Button className="mr-3" variant="ghost" label="Reset" onPress={() => { onApply({ q: value.q, ...EMPTY_FILTER }); }} />
+        <Button
+          className="flex-1" label="Apply"
+          onPress={() => {
+            const lo = parseFloat(min), hi = parseFloat(max);
+            onApply({ ...f, minPaise: lo > 0 ? Math.round(lo * 100) : undefined, maxPaise: hi > 0 ? Math.round(hi * 100) : undefined });
+          }}
+        />
+      </View>
+    }>
+      <>
         <Text className={label}>Type</Text>
         <View className="flex-row flex-wrap">
           <Chip label="All" color={colors.accent} selected={!f.direction} onPress={() => set({ direction: undefined })} />
@@ -77,17 +88,7 @@ export function FilterSheet({ value, cats, accounts, onApply, onClose }: { value
             <Chip key={k} label={l} color={colors.accent} selected={(f.transfers ?? 'show') === k} onPress={() => set({ transfers: k })} />
           ))}
         </View>
-      </ScrollView>
-      <View className="mt-4 flex-row">
-        <Button className="mr-3" variant="ghost" label="Reset" onPress={() => { onApply({ q: value.q, ...EMPTY_FILTER }); }} />
-        <Button
-          className="flex-1" label="Apply"
-          onPress={() => {
-            const lo = parseFloat(min), hi = parseFloat(max);
-            onApply({ ...f, minPaise: lo > 0 ? Math.round(lo * 100) : undefined, maxPaise: hi > 0 ? Math.round(hi * 100) : undefined });
-          }}
-        />
-      </View>
+      </>
     </Sheet>
   );
 }

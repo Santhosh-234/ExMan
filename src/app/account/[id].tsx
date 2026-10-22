@@ -9,7 +9,8 @@ import { Text, TextInput } from '@/ui/Text';
 import { type AccountStats, type Category, type Txn, getAccount, getAccountFirefly, setAccountFirefly, getAccountStats, getCategories, mergeAccount, queryTxns, renameAccount, setAccountArchived } from '@/db/queries';
 import { notifyIngested, onIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
-import { Button, Card, Chip, Sheet, BackButton } from '@/ui/kit';
+import { FadeIn } from '@/ui/anim';
+import { BackButton, Button, Card, Chip, PageHeader, SectionLabel, Sheet, Stats } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { TxnRow } from '@/ui/TxnRow';
@@ -59,23 +60,19 @@ export default function AccountDetail() {
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
       <ScrollView showsVerticalScrollIndicator={false}>
-        <Text className="text-3xl font-bold text-fg" accessibilityRole="header">{a.name}</Text>
-        <Text className="mb-4 text-sm text-muted">{sub}</Text>
+        <PageHeader title={a.name} subtitle={sub} />
 
-        <Card className="mb-4">
+        <FadeIn><Card className="mb-4">
           {a.balance_paise != null ? (
-            <>
-              <Text className="text-xs text-muted">{a.balance_kind === 'limit' ? 'Available limit' : 'Balance'} as of {asOf(a.balance_ts)}</Text>
-              <Text className="text-3xl font-bold text-fg">{rupees(a.balance_paise)}</Text>
-            </>
+            <View className="mb-3">
+              <Text className="text-xs font-semibold uppercase tracking-widest text-muted">{a.balance_kind === 'limit' ? 'Available limit' : 'Balance'} as of {asOf(a.balance_ts)}</Text>
+              <Text className="mt-1 text-4xl font-bold text-fg">{rupees(a.balance_paise)}</Text>
+            </View>
           ) : (
-            <Text className="text-muted">No balance seen in messages for this account yet.</Text>
+            <Text className="mb-3 text-muted">No balance seen in messages for this account yet.</Text>
           )}
-          <View className="mt-3 flex-row border-t border-line pt-3">
-            <View className="flex-1"><Text className="text-xs text-muted">Spent this month</Text><Text className="text-fg">{rupees(a.spent)}</Text></View>
-            <View className="flex-1"><Text className="text-xs text-muted">Received</Text><Text className="text-income">{rupees(a.received)}</Text></View>
-          </View>
-        </Card>
+          <Stats items={[{ label: 'Spent this month', value: rupees(a.spent) }, { label: 'Received', value: rupees(a.received), tone: 'income' }]} />
+        </Card></FadeIn>
 
         <View className="mb-4 flex-row flex-wrap">
           <Button className="mb-2 mr-2" variant="secondary" label="Rename" onPress={() => { setName(a.name); setSheet('rename'); }} />
@@ -84,10 +81,7 @@ export default function AccountDetail() {
           <Button className="mb-2" variant="secondary" label="Firefly account…" onPress={async () => { setFf(await getAccountFirefly(db, aid)); setSheet('firefly'); }} />
         </View>
 
-        <View className="mb-2 flex-row items-center justify-between">
-          <Text className="text-base font-semibold text-fg">Recent</Text>
-          <Pressable onPress={() => router.push(`/activity?account=${aid}`)} hitSlop={10} accessibilityRole="button"><Text className="text-accent">View all</Text></Pressable>
-        </View>
+        <SectionLabel right={<Pressable onPress={() => router.push(`/activity?account=${aid}`)} hitSlop={10} accessibilityRole="button"><Text className="text-sm font-semibold text-accent">View all</Text></Pressable>}>Recent</SectionLabel>
         {recent.length === 0 ? <Card><Text className="text-muted">No confirmed transactions yet.</Text></Card> : recent.map((t) => <TxnRow key={t.id} t={t} cat={catById.get(t.category_id ?? -1)} onPress={(x) => router.push(`/txn/${x.id}`)} />)}
         <View className="h-10" />
       </ScrollView>

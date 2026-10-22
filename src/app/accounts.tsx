@@ -8,7 +8,8 @@ import { Text, TextInput } from '@/ui/Text';
 
 import { type Account, type AccountStats, addAccount, getAccountStats } from '@/db/queries';
 import { onIngested } from '@/ingest/events';
-import { Button, Card, Chip, EmptyState, Sheet, BackButton } from '@/ui/kit';
+import { FadeIn, Pressy } from '@/ui/anim';
+import { BackButton, Button, Card, Chip, EmptyState, IconButton, PageHeader, SectionLabel, Sheet, Stats } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { monthKey, monthLabel, monthRange, rupees } from '@/utils/format';
 
@@ -21,9 +22,9 @@ export function AccountCard({ a, onPress }: { a: AccountStats; onPress: () => vo
   const Icon = ICON[a.kind];
   const sub = [a.bank, a.last4 ? `…${a.last4}` : null].filter(Boolean).join(' ');
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" className={`mb-3 rounded-[26px] border border-line bg-card p-4 ${a.archived ? 'opacity-50' : ''}`}>
-      <View className="flex-row items-center">
-        <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-card2"><Icon size={20} color={colors.accent} /></View>
+    <Pressy onPress={onPress} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={`${a.name}, ${a.n} transactions this month`} className="mb-3" innerClassName={`rounded-[26px] border border-line bg-card p-4 ${a.archived ? 'opacity-50' : ''}`}>
+      <View className="mb-3 flex-row items-center">
+        <View className="mr-3 h-11 w-11 items-center justify-center rounded-full bg-card2"><Icon size={20} color={colors.accent} /></View>
         <View className="flex-1">
           <Text className="text-base font-semibold text-fg">{a.name}{a.archived ? ' (archived)' : ''}</Text>
           {sub ? <Text className="text-xs text-muted">{sub}</Text> : null}
@@ -35,12 +36,8 @@ export function AccountCard({ a, onPress }: { a: AccountStats; onPress: () => vo
           </View>
         )}
       </View>
-      <View className="mt-3 flex-row border-t border-line pt-3">
-        <View className="flex-1"><Text className="text-xs text-muted">Spent</Text><Text className="text-fg">{rupees(a.spent)}</Text></View>
-        <View className="flex-1"><Text className="text-xs text-muted">Received</Text><Text className="text-income">{rupees(a.received)}</Text></View>
-        <View className="flex-1 items-end"><Text className="text-xs text-muted">Transactions</Text><Text className="text-fg">{a.n}</Text></View>
-      </View>
-    </Pressable>
+      <Stats items={[{ label: 'Spent', value: rupees(a.spent) }, { label: 'Received', value: rupees(a.received), tone: 'income' }, { label: 'Transactions', value: String(a.n) }]} />
+    </Pressy>
   );
 }
 
@@ -68,26 +65,22 @@ export default function Accounts() {
   const group = (title: string, list: AccountStats[]) =>
     list.length === 0 ? null : (
       <View key={title}>
-        <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-muted">{title}</Text>
-        {list.map((a) => <AccountCard key={a.id} a={a} onPress={() => router.push(`/account/${a.id}`)} />)}
+        <SectionLabel>{title}</SectionLabel>
+        {list.map((a, i) => <FadeIn key={a.id} index={i}><AccountCard a={a} onPress={() => router.push(`/account/${a.id}`)} /></FadeIn>)}
       </View>
     );
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
-      <View className="mb-1 flex-row items-center justify-between">
-        <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Accounts</Text>
-        <Pressable onPress={() => setAdding(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add account"><Plus color={colors.accent} /></Pressable>
-      </View>
-      <Text className="mb-3 text-xs text-muted">Activity shown for {monthLabel(month)}. Accounts are created automatically from your bank messages.</Text>
+      <PageHeader title="Accounts" subtitle={`Activity shown for ${monthLabel(month)}. Accounts are created automatically from your bank messages.`} right={<IconButton icon={Plus} label="Add account" onPress={() => setAdding(true)} />} />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {banks.length > 0 && (
-          <Card className="mb-3">
-            <Text className="text-xs text-muted">Latest known bank balances</Text>
-            <Text className="text-3xl font-bold text-fg">{rupees(total)}</Text>
-            <Text className="text-xs text-muted">From the most recent SMS of each account, so it can be out of date.</Text>
+          <Card className="mb-4">
+            <Text className="text-xs font-semibold uppercase tracking-widest text-muted">Latest known bank balances</Text>
+            <Text className="mt-1 text-4xl font-bold text-fg">{rupees(total)}</Text>
+            <Text className="mt-1 text-xs text-muted">From the most recent SMS of each account, so it can be out of date.</Text>
           </Card>
         )}
         {accts && accts.length === 0 && <EmptyState title="No accounts yet" body="They appear once bank messages arrive. You can also add a cash wallet or card by hand." />}
@@ -96,8 +89,8 @@ export default function Accounts() {
         {group('Cash', active.filter((a) => a.kind === 'cash'))}
         {archived.length > 0 && (
           <>
-            <Pressable onPress={() => setShowArchived((v) => !v)} className="mb-2 mt-2" accessibilityRole="button">
-              <Text className="text-accent">{showArchived ? 'Hide' : 'Show'} archived ({archived.length})</Text>
+            <Pressable onPress={() => setShowArchived((v) => !v)} className="mb-2 mt-2 min-h-9 justify-center" accessibilityRole="button">
+              <Text className="font-semibold text-accent">{showArchived ? 'Hide' : 'Show'} archived ({archived.length})</Text>
             </Pressable>
             {showArchived && archived.map((a) => <AccountCard key={a.id} a={a} onPress={() => router.push(`/account/${a.id}`)} />)}
           </>

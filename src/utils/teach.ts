@@ -163,3 +163,41 @@ export function toParsed(text: string, sender: string, ts: number, taught: Taugh
     bank: bankFor(sender, text), balance: extractBalance(text), mode: modeFor(text), source: sourceFor(sender), ts,
   };
 }
+
+
+const RUPEE_MARK = /^(?:rs|inr|₹)$/i;
+const MONEY_SYMBOL = /^[$€£]$/;
+const FOREIGN_CODE = /^(?:USD|EUR|GBP|AED|SGD|AUD|CAD|CHF|JPY|THB)$/i;
+const BALANCE_WORD = /^(?:bal|balance|avl|avail|available|limit|lmt|total|outstanding|due|minimum|min)$/i;
+const DEBIT_WORDS = /\b(?:debited|spent|paid|sent|withdrawn|purchase|charged|payment|debit|dr)\b/i;
+const CREDIT_WORDS = /\b(?:credited|received|deposited|refund(?:ed)?|credit|cr|arrived)\b/i;
+
+export type Suggestion = { amount: number | null; direction: 'debit' | 'credit' | null; currency: string | null };
+
+/**
+ * A first guess for the Teach screen so most messages need one tap: the first number that sits next to a currency marker (Rs, INR, a
+ * symbol, a currency code, either side) and is not a balance or limit figure; the direction from the first debit or credit word.
+ */
+export function suggestSelection(text: string): Suggestion {
+  const tokens = tokenize(text);
+  let amount: number | null = null;
+  let currency: string | null = null;
+  for (let i = 0; i < tokens.length && amount === null; i++) {
+    if (!NUMERIC.test(tokens[i].text)) continue;
+    const before = tokens.slice(Math.max(0, i - 3), i);
+    if (before.some((t) => BALANCE_WORD.test(t.text))) continue; // "Avl Lmt INR 90,000": not the transaction amount
+    const prev = tokens[i - 1]?.text ?? '';
+    const next = tokens[i + 1]?.text ?? '';
+    const prevPrev = tokens[i - 2]?.text ?? '';
+    // "Rs. 450": the dot may sit between the marker and the number
+    const marker = prev === '.' ? prevPrev : prev;
+    if (RUPEE_MARK.test(marker) || RUPEE_MARK.test(next)) { amount = i; currency = 'INR'; }
+    else if (MONEY_SYMBOL.test(marker)) { amount = i; currency = marker === '$' ? 'USD' : marker === '€' ? 'EUR' : 'GBP'; }
+    else if (FOREIGN_CODE.test(marker)) { amount = i; currency = marker.toUpperCase(); }
+    else if (FOREIGN_CODE.test(next)) { amount = i; currency = next.toUpperCase(); }
+  }
+  const d = text.search(DEBIT_WORDS);
+  const c = text.search(CREDIT_WORDS);
+  const direction = d < 0 && c < 0 ? null : c < 0 || (d >= 0 && d < c) ? 'debit' : 'credit';
+  return { amount, direction, currency };
+}

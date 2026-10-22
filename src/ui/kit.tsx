@@ -45,8 +45,8 @@ export function Button({ label, onPress, variant = 'primary', disabled, classNam
 
 /** Soft elevation: a hairline border always, and a faint shadow in the light theme (shadows read as dirt on dark surfaces). */
 export function useElevation(level: 1 | 2 = 1): ViewStyle {
-  const { scheme, glass } = useTheme();
-  if (scheme === 'dark' || glass) return {}; // shadows show through translucent panes as dirt
+  const { scheme } = useTheme();
+  if (scheme === 'dark') return {};
   return { shadowColor: '#1B2430', shadowOpacity: level === 1 ? 0.05 : 0.1, shadowRadius: level === 1 ? 10 : 18, shadowOffset: { width: 0, height: level === 1 ? 3 : 8 }, elevation: level === 1 ? 1 : 3 };
 }
 
@@ -76,6 +76,64 @@ export function NavRow({ icon: Icon, label, detail, tone, first, onPress }: { ic
       {detail ? <Text className={`mr-1 text-sm ${tone === 'warn' ? 'text-warn' : 'text-muted'}`}>{detail}</Text> : null}
       <ChevronRight size={18} color={colors.muted} />
     </Pressy>
+  );
+}
+
+/** Title block for a pushed screen: large title, optional one-line explanation, optional round action button on the right. */
+export function PageHeader({ title, subtitle, right }: { title: string; subtitle?: string; right?: ReactNode }) {
+  return (
+    <View className="mb-4">
+      <View className="flex-row items-center justify-between">
+        <Text className="flex-1 pr-3 text-3xl font-bold text-fg" accessibilityRole="header">{title}</Text>
+        {right}
+      </View>
+      {subtitle ? <Text className="mt-1 text-sm text-muted">{subtitle}</Text> : null}
+    </View>
+  );
+}
+
+/** Round bordered icon button (add, filter, close...). */
+export function IconButton({ icon: Icon, label, onPress, tone = 'accent' }: { icon: LucideIcon; label: string; onPress: () => void; tone?: 'accent' | 'fg' | 'danger' }) {
+  const { colors } = useTheme();
+  return (
+    <Pressy onPress={() => { tap(); onPress(); }} scaleTo={0.92} accessibilityRole="button" accessibilityLabel={label} hitSlop={8}
+      innerClassName="h-11 w-11 items-center justify-center rounded-full border border-line bg-card">
+      <Icon size={20} color={tone === 'accent' ? colors.accent : tone === 'danger' ? colors.danger : colors.fg} />
+    </Pressy>
+  );
+}
+
+/** A tappable card row: icon circle, title, optional subtitle, optional right-hand content, chevron. Used for lists of things that open a detail. */
+export function ListRow({ icon: Icon, leading, iconBg, iconColor, title, subtitle, right, muted, onPress, accessibilityLabel }: {
+  icon?: LucideIcon; leading?: ReactNode; iconBg?: string; iconColor?: string; title: string; subtitle?: string; right?: ReactNode; muted?: boolean; onPress: () => void; accessibilityLabel?: string;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressy onPress={() => { tap(); onPress(); }} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? `${title}${subtitle ? `, ${subtitle}` : ''}`} className="mb-2"
+      innerClassName={`min-h-[64px] flex-row items-center rounded-[22px] border border-line bg-card px-3 py-2.5 ${muted ? 'opacity-55' : ''}`}>
+      {leading ? <View className="mr-3">{leading}</View> : null}
+      {Icon ? <View className="mr-3 h-11 w-11 items-center justify-center rounded-full" style={{ backgroundColor: iconBg ?? colors.surface2 }}><Icon size={20} color={iconColor ?? colors.accent} /></View> : null}
+      <View className="flex-1 pr-2">
+        <Text className="text-base font-semibold text-fg" numberOfLines={1}>{title}</Text>
+        {subtitle ? <Text className="mt-0.5 text-xs text-muted" numberOfLines={2}>{subtitle}</Text> : null}
+      </View>
+      {right}
+      <ChevronRight size={18} color={colors.muted} />
+    </Pressy>
+  );
+}
+
+/** Evenly spaced label/value pairs on one line inside a card. */
+export function Stats({ items }: { items: { label: string; value: string; tone?: 'income' | 'danger' | 'fg' }[] }) {
+  return (
+    <View className="flex-row border-t border-line pt-3">
+      {items.map((it, i) => (
+        <View key={it.label} className={`flex-1 ${i === items.length - 1 && items.length > 1 ? 'items-end' : ''}`}>
+          <Text className="text-xs text-muted">{it.label}</Text>
+          <Text className={`mt-0.5 font-semibold ${it.tone === 'income' ? 'text-income' : it.tone === 'danger' ? 'text-danger' : 'text-fg'}`} style={{ fontVariant: ['tabular-nums'] }}>{it.value}</Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -144,17 +202,18 @@ export function Skeleton({ style }: { style?: ViewStyle }) {
 }
 
 /** Bottom sheet. Tapping the scrim closes it. */
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Sheet({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
   // The keyboard lifts the sheet (a Modal is its own window, so the app-level keyboard handling does not reach it), and tall content
   // scrolls inside it instead of running off the top.
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <Pressable className="flex-1 justify-end bg-black/60" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
-          <Pressable className="rounded-t-[28px] bg-sheet px-5 pb-6 pt-3" style={{ maxHeight: '90%' }} onPress={() => {}} accessible={false} accessibilityViewIsModal>
+          <Pressable className="rounded-t-[28px] bg-card px-5 pb-6 pt-3" style={{ maxHeight: '90%' }} onPress={() => {}} accessible={false} accessibilityViewIsModal>
             <View className="mb-4 h-1 w-10 self-center rounded-full bg-line" importantForAccessibility="no" />
             <Text className="mb-3 text-lg font-semibold text-fg" accessibilityRole="header">{title}</Text>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>{children}</ScrollView>
+            {footer ? <View className="pt-3">{footer}</View> : null}
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>

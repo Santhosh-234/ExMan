@@ -10,7 +10,7 @@ import { type Account, type Category, type Txn, getAccounts, getCategories, getE
 import { isTransferMerchant, markTransferByUser, rejectTransfer, setTransferMerchant } from '@/db/transfers';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
-import { Amount, Button, Card, Sheet, BackButton } from '@/ui/kit';
+import { Amount, BackButton, Button, Card, Group, Sheet } from '@/ui/kit';
 import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useRuleOffer } from '@/ui/useRuleOffer';
@@ -125,10 +125,10 @@ export default function TxnDetail() {
     router.back();
   };
 
-  const Row = ({ k, v }: { k: string; v: string }) => (
-    <View className="flex-row justify-between py-2">
-      <Text className="text-muted">{k}</Text>
-      <Text className="ml-4 flex-1 text-right text-fg">{v}</Text>
+  const Row = ({ k, v, first }: { k: string; v: string; first?: boolean }) => (
+    <View className={`min-h-[48px] flex-row items-center justify-between px-4 py-2 ${first ? '' : 'border-t border-line'}`}>
+      <Text className="text-sm text-muted">{k}</Text>
+      <Text className="ml-4 flex-1 text-right text-base text-fg">{v}</Text>
     </View>
   );
 
@@ -136,36 +136,41 @@ export default function TxnDetail() {
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View className="mb-4 items-center">
+        <View className="mb-5 items-center">
+          <View className="mb-3 mt-1 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: cat?.color ?? colors.surface2 }}>
+            <Text className="text-2xl font-bold" style={{ color: cat ? '#FFFFFF' : colors.muted }}>{(t.merchant ?? '?').trim()[0]?.toUpperCase() ?? '?'}</Text>
+          </View>
           <Text className={`text-xs font-semibold uppercase tracking-widest ${t.direction === 'debit' ? 'text-danger' : 'text-income'}`}>{t.direction === 'debit' ? 'Spent' : 'Received'}</Text>
           <Amount paise={t.amount_paise} direction={t.direction} approx={!!t.currency} className="text-5xl" />
-          <Text className="mt-2 text-xl text-fg" accessibilityRole="header">{t.merchant ?? 'Unknown merchant'}</Text>
+          <Text className="mt-2 text-xl font-semibold text-fg" accessibilityRole="header">{t.merchant ?? 'Unknown merchant'}</Text>
           {t.is_transfer ? (
             <View className="mt-2 flex-row items-center rounded-full bg-card2 px-3 py-1"><Repeat size={14} color={colors.muted} /><Text className="ml-1 text-xs text-muted">Transfer{t.transfer_reason ? ` · ${t.transfer_reason}` : ''}, not counted in totals</Text></View>
           ) : null}
         </View>
 
-        <Card className="mb-4">
-          {t.currency && t.foreign_minor ? <Row k="Original amount" v={`${formatForeign(t.foreign_minor, t.currency)} (≈ rupees, edit to match your statement)`} /> : null}
-          <Row k="Category" v={cat?.name ?? 'Uncategorised'} />
-          <Row k="Account" v={acct?.name ?? t.bank ?? 'Unknown'} />
-          <Row k="Date" v={new Date(t.ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} />
-          <Row k="Mode" v={t.payment_mode ?? (t.source === 'manual' ? 'Manual entry' : 'n/a')} />
-          <Row k="Source" v={t.source} />
-          <Row k="Status" v={t.status} />
+        <Group>
+          {([
+            t.currency && t.foreign_minor ? ['Original amount', `${formatForeign(t.foreign_minor, t.currency)} (≈ rupees, edit to match your statement)`] : null,
+            ['Category', cat?.name ?? 'Uncategorised'],
+            ['Account', acct?.name ?? t.bank ?? 'Unknown'],
+            ['Date', new Date(t.ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })],
+            ['Mode', t.payment_mode ?? (t.source === 'manual' ? 'Manual entry' : 'n/a')],
+            ['Source', t.source],
+            ['Status', t.status],
+            t.tags ? ['Tags', t.tags.split(',').join(', ')] : null,
+            t.notes ? ['Notes', t.notes] : null,
+          ].filter(Boolean) as [string, string][]).map(([k, v], i) => <Row key={k} k={k} v={v} first={i === 0} />)}
           {t.refund_of ? (
-            <Pressable onPress={() => router.push(`/txn/${t.refund_of}`)} accessibilityRole="button" className="flex-row justify-between py-2">
-              <Text className="text-muted">Refund of</Text><Text className="text-accent">View purchase ›</Text>
+            <Pressable onPress={() => router.push(`/txn/${t.refund_of}`)} accessibilityRole="button" className="min-h-[48px] flex-row items-center justify-between border-t border-line px-4">
+              <Text className="text-sm text-muted">Refund of</Text><Text className="font-semibold text-accent">View purchase ›</Text>
             </Pressable>
           ) : null}
           {t.is_transfer && t.transfer_pair_id ? (
-            <Pressable onPress={() => router.push(`/txn/${t.transfer_pair_id}`)} accessibilityRole="button" className="flex-row justify-between py-2">
-              <Text className="text-muted">Other leg</Text><Text className="text-accent">View ›</Text>
+            <Pressable onPress={() => router.push(`/txn/${t.transfer_pair_id}`)} accessibilityRole="button" className="min-h-[48px] flex-row items-center justify-between border-t border-line px-4">
+              <Text className="text-sm text-muted">Other leg</Text><Text className="font-semibold text-accent">View ›</Text>
             </Pressable>
           ) : null}
-          {t.tags ? <Row k="Tags" v={t.tags.split(',').join(', ')} /> : null}
-          {t.notes ? <Row k="Notes" v={t.notes} /> : null}
-        </Card>
+        </Group>
 
         <View className="mb-4 flex-row">
           <Button className="mr-3 flex-1" label="Edit" onPress={() => setEditing(true)} />

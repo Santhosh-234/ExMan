@@ -11,7 +11,7 @@ import { type Category, getCategories } from '@/db/queries';
 import { isTransferMerchant, setTransferMerchant } from '@/db/transfers';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
-import { Button, Card, EmptyState, Sheet, BackButton } from '@/ui/kit';
+import { Button, Card, EmptyState, Sheet, BackButton, ListRow, PageHeader } from '@/ui/kit';
 import { CategoryChips } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
@@ -43,8 +43,7 @@ export default function Merchants() {
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
-      <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Merchants</Text>
-      <Text className="mb-3 text-xs text-muted">ExMan groups different spellings of the same payee. Rename or merge here if it got one wrong.</Text>
+      <PageHeader title="Merchants" subtitle="ExMan groups different spellings of the same payee. Rename or merge here if it got one wrong." />
       <View className="mb-3 min-h-12 flex-row items-center rounded-[22px] border border-line bg-card px-3">
         <Search size={18} color={colors.muted} />
         <TextInput className="ml-2 flex-1 text-base text-fg" value={q} onChangeText={setQ} placeholder="Search merchants" placeholderTextColor={colors.muted} accessibilityLabel="Search merchants" />
@@ -59,16 +58,12 @@ export default function Merchants() {
         renderItem={({ item: m }) => {
           const c = catById.get(m.rule_category_id ?? m.category_id ?? -1);
           return (
-            <Pressable onPress={() => { setSel(m); setMode('menu'); void isTransferMerchant(db, m.id).then(setIsXfer); }} accessibilityRole="button" className="mb-2 min-h-16 flex-row items-center rounded-[22px] border border-line bg-card p-3">
-              <View className="mr-3 h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: c?.color ?? colors.surface2 }}>
-                <Text className="text-base font-bold text-white">{m.name[0]?.toUpperCase()}</Text>
-              </View>
-              <View className="flex-1">
-                <Text className="text-base text-fg" numberOfLines={1}>{m.name}</Text>
-                <Text className="text-xs text-muted" numberOfLines={1}>{m.n} transaction{m.n === 1 ? '' : 's'} · {c?.name ?? 'Uncategorised'}{m.rule_category_id ? ' · rule' : ''}</Text>
-              </View>
-              <Text className="text-muted">{rupees(m.spent)}</Text>
-            </Pressable>
+            <ListRow
+              onPress={() => { setSel(m); setMode('menu'); void isTransferMerchant(db, m.id).then(setIsXfer); }}
+              leading={<View className="h-11 w-11 items-center justify-center rounded-full" style={{ backgroundColor: c?.color ?? colors.surface2 }}><Text className="text-base font-bold" style={{ color: c ? '#FFFFFF' : colors.muted }}>{m.name[0]?.toUpperCase()}</Text></View>}
+              title={m.name}
+              subtitle={`${m.n} transaction${m.n === 1 ? '' : 's'} · ${c?.name ?? 'Uncategorised'}${m.rule_category_id ? ' · rule' : ''}`}
+              right={<Text className="mr-1 text-sm text-muted" style={{ fontVariant: ['tabular-nums'] }}>{rupees(m.spent)}</Text>} />
           );
         }}
       />

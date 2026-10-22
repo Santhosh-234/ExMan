@@ -10,7 +10,8 @@ import { onIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
 import { maskMessage } from '@/telemetry/mask';
 import { senderKey } from '@/utils/teach';
-import { Button, Card, EmptyState, Sheet, BackButton } from '@/ui/kit';
+import { BackButton, Button, Card, EmptyState, PageHeader, SectionLabel, Sheet } from '@/ui/kit';
+import { FadeIn } from '@/ui/anim';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 
@@ -38,8 +39,7 @@ export default function Unrecognised() {
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
-      <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Unrecognised messages</Text>
-      <Text className="mb-3 text-xs text-muted">Messages that mention an amount but that ExMan could not read. Teach it the format once and it will read similar messages from now on.</Text>
+      <PageHeader title="Unrecognised messages" subtitle="Messages that mention an amount but that ExMan could not read. Teach it the format once and it will read similar messages from now on." />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {msgs && msgs.length === 0 && (
@@ -47,24 +47,24 @@ export default function Unrecognised() {
         )}
         {(hidden > 0 || showAll) && (
           <Pressable onPress={() => setShowAll((v) => !v)} accessibilityRole="button" className="mb-3 min-h-9 justify-center">
-            <Text className="text-accent">{showAll ? 'Hide offers, reminders and other non-transactions' : `Show ${hidden} hidden message${hidden === 1 ? '' : 's'} (offers, reminders)`}</Text>
+            <Text className="font-semibold text-accent">{showAll ? 'Hide offers, reminders and other non-transactions' : `Show ${hidden} hidden message${hidden === 1 ? '' : 's'} (offers, reminders)`}</Text>
           </Pressable>
         )}
-        {(msgs ?? []).map((m) => (
-          <Card key={m.id} className="mb-3">
-            <Text className="text-xs text-muted">{m.sender} · {new Date(m.ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
-            <Text className="mt-1 text-fg" numberOfLines={6}>{m.text}</Text>
+        {(msgs ?? []).map((m, i) => (
+          <FadeIn key={m.id} index={Math.min(i, 5)}><Card className="mb-3">
+            <Text className="text-xs font-semibold uppercase tracking-wider text-muted">{m.sender} · {new Date(m.ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
+            <Text className="mt-2 text-base text-fg" numberOfLines={6}>{m.text}</Text>
             <View className="mt-3 flex-row">
               <Button className="mr-3 flex-1" label="Teach" onPress={() => router.push(`/teach/${m.id}`)} />
               <Button className="flex-1" variant="secondary" label="Not a transaction" onPress={() => dismiss(m)} />
             </View>
-            <Pressable onPress={() => setReporting(m)} accessibilityRole="button" className="mt-2 min-h-9 justify-center"><Text className="text-accent">Report this format to improve ExMan</Text></Pressable>
-          </Card>
+            <Pressable onPress={() => setReporting(m)} accessibilityRole="button" className="mt-2 min-h-9 justify-center"><Text className="text-sm font-semibold text-accent">Report this format to improve ExMan</Text></Pressable>
+          </Card></FadeIn>
         ))}
 
         {patterns.length > 0 && (
           <>
-            <Text className="mb-2 mt-4 text-lg font-semibold text-fg" accessibilityRole="header">Taught formats</Text>
+            <View className="mt-3"><SectionLabel>Taught formats</SectionLabel></View>
             {patterns.map((p) => (
               <Card key={p.id} className="mb-3">
                 <View className="flex-row items-center">

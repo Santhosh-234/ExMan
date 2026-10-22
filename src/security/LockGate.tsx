@@ -69,7 +69,7 @@ export function LockGate() {
 
   if (!locked) return null;
   return (
-    <View className="absolute inset-0 z-50 items-center justify-center bg-solid px-8" accessibilityViewIsModal>
+    <View className="absolute inset-0 z-50 items-center justify-center bg-base px-8" accessibilityViewIsModal>
       <Lock size={48} color={colors.accent} />
       <Text className="mt-4 text-2xl font-bold text-fg" accessibilityRole="header">ExMan is locked</Text>
       <Text className="mt-1 text-center text-muted">Your money data is hidden until you unlock.</Text>

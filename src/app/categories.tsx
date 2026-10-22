@@ -8,7 +8,7 @@ import { Text, TextInput } from '@/ui/Text';
 import { CATEGORY_COLORS, type Category, addCategory, deleteCategory, getCategories, getCategoryUsage, setCategoryArchived, updateCategory } from '@/db/queries';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
-import { Button, Card, Sheet, BackButton } from '@/ui/kit';
+import { BackButton, Button, Card, IconButton, ListRow, PageHeader, SectionLabel, Sheet } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 
@@ -62,26 +62,19 @@ export default function Categories() {
   };
 
   const row = (c: Category) => (
-    <Pressable key={c.id} onPress={() => open(c)} accessibilityRole="button" className={`mb-2 min-h-14 flex-row items-center rounded-[22px] border border-line bg-card p-3 ${c.archived ? 'opacity-50' : ''}`}>
-      <View className="mr-3 h-8 w-8 rounded-full" style={{ backgroundColor: c.color }} />
-      <View className="flex-1">
-        <Text className="text-base text-fg">{c.name}</Text>
-        <Text className="text-xs text-muted">{usage.get(c.id) ?? 0} transaction{(usage.get(c.id) ?? 0) === 1 ? '' : 's'}{c.is_custom ? ' · custom' : ''}{c.archived ? ' · archived' : ''}</Text>
-      </View>
-    </Pressable>
+    <ListRow key={c.id} muted={!!c.archived} onPress={() => open(c)}
+      leading={<View className="h-11 w-11 items-center justify-center rounded-full" style={{ backgroundColor: `${c.color}33` }}><View className="h-5 w-5 rounded-full" style={{ backgroundColor: c.color }} /></View>}
+      title={c.name}
+      subtitle={`${usage.get(c.id) ?? 0} transaction${(usage.get(c.id) ?? 0) === 1 ? '' : 's'}${c.is_custom ? ' · custom' : ''}${c.archived ? ' · archived' : ''}`} />
   );
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
-      <View className="mb-1 flex-row items-center justify-between">
-        <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Categories</Text>
-        <Pressable onPress={() => open()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add category"><Plus color={colors.accent} /></Pressable>
-      </View>
-      <Text className="mb-3 text-xs text-muted">Archiving hides a category from pickers but keeps it on old transactions.</Text>
+      <PageHeader title="Categories" subtitle="Archiving hides a category from pickers but keeps it on old transactions." right={<IconButton icon={Plus} label="Add category" onPress={() => open()} />} />
       <ScrollView showsVerticalScrollIndicator={false}>
         {cats.filter((c) => !c.archived).map(row)}
-        {cats.some((c) => c.archived) && <Text className="mb-2 mt-4 text-xs uppercase tracking-wider text-muted">Archived</Text>}
+        {cats.some((c) => c.archived) && <View className="mt-3"><SectionLabel>Archived</SectionLabel></View>}
         {cats.filter((c) => c.archived).map(row)}
         <View className="h-10" />
       </ScrollView>

@@ -37,7 +37,16 @@ export function EditSheet({ txn, cats, accounts, onClose, onSave }: { txn: Txn; 
   const paise = Math.round(parseFloat(amount) * 100);
   const input = 'mb-3 min-h-12 rounded-2xl bg-card2 px-4 py-3 text-base text-fg';
   return (
-    <Sheet title="Edit transaction" onClose={onClose}>
+    <Sheet title="Edit transaction" onClose={onClose} footer={
+      <View className="flex-row justify-end">
+        <Button variant="ghost" label="Cancel" onPress={onClose} />
+        <Button
+          label="Save"
+          disabled={!(paise > 0)}
+          onPress={() => onSave({ amount_paise: paise, merchant: merchant.trim() || null, tags: tags.split(',').map((t) => t.trim()).filter(Boolean).join(','), category_id: cat, notes: notes.trim() || null, ...(accounts ? { account_id: acct } : {}) })}
+        />
+      </View>
+    }>
       <Text className="mb-1 text-xs text-muted">Amount (₹)</Text>
       <TextInput className={input} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholderTextColor={colors.muted} />
       <Text className="mb-1 text-xs text-muted">Merchant</Text>
@@ -55,14 +64,6 @@ export function EditSheet({ txn, cats, accounts, onClose, onSave }: { txn: Txn; 
           </View>
         </>
       )}
-      <View className="mt-2 flex-row justify-end">
-        <Button variant="ghost" label="Cancel" onPress={onClose} />
-        <Button
-          label="Save"
-          disabled={!(paise > 0)}
-          onPress={() => onSave({ amount_paise: paise, merchant: merchant.trim() || null, tags: tags.split(',').map((t) => t.trim()).filter(Boolean).join(','), category_id: cat, notes: notes.trim() || null, ...(accounts ? { account_id: acct } : {}) })}
-        />
-      </View>
     </Sheet>
   );
 }
