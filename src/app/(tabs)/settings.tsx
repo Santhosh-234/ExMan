@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Linking, PermissionsAndroid, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Linking, PermissionsAndroid, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Text, TextInput } from '@/ui/Text';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Updates from 'expo-updates';
 import { useFocusEffect, useRouter } from 'expo-router';

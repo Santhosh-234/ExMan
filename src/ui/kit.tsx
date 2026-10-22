@@ -1,9 +1,11 @@
 import * as Haptics from 'expo-haptics';
 import { Plus } from 'lucide-react-native';
 import { type ReactNode, useEffect, useRef } from 'react';
-import { Animated, Modal, Pressable, Text, View, type ViewStyle } from 'react-native';
+import { Animated, Modal, Pressable, View, type ViewStyle } from 'react-native';
+import { Text } from '@/ui/Text';
 
 import { useSecurity } from '@/security/store';
+import { Pressy } from '@/ui/anim';
 import { useReducedMotion } from '@/ui/motion';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
@@ -28,31 +30,51 @@ const BTN = {
 export function Button({ label, onPress, variant = 'primary', disabled, className = '' }: BtnProps) {
   const [bg, fg] = BTN[variant];
   return (
-    <Pressable
+    <Pressy
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
       onPress={() => { tap(); onPress(); }}
-      className={`min-h-12 items-center justify-center rounded-2xl px-5 py-3 ${bg} ${disabled ? 'opacity-40' : ''} ${className}`}>
+      className={className}
+      innerClassName={`min-h-[52px] items-center justify-center rounded-[18px] px-5 py-3 ${bg} ${disabled ? 'opacity-40' : ''}`}>
       <Text className={`text-base font-semibold ${fg}`}>{label}</Text>
-    </Pressable>
+    </Pressy>
   );
 }
 
+/** Soft elevation: a hairline border always, and a faint shadow in the light theme (shadows read as dirt on dark surfaces). */
+export function useElevation(level: 1 | 2 = 1): ViewStyle {
+  const { scheme } = useTheme();
+  if (scheme === 'dark') return {};
+  return { shadowColor: '#1B2430', shadowOpacity: level === 1 ? 0.05 : 0.1, shadowRadius: level === 1 ? 10 : 18, shadowOffset: { width: 0, height: level === 1 ? 3 : 8 }, elevation: level === 1 ? 1 : 3 };
+}
+
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <View className={`rounded-3xl bg-card p-4 ${className}`}>{children}</View>;
+  const lift = useElevation(1);
+  return <View className={`rounded-[26px] border border-line bg-card p-4 ${className}`} style={lift}>{children}</View>;
+}
+
+/** Small caps label above a block of content. */
+export function SectionLabel({ children, right }: { children: ReactNode; right?: ReactNode }) {
+  return (
+    <View className="mb-2 mt-1 flex-row items-center justify-between px-1">
+      <Text className="text-xs font-semibold uppercase tracking-widest text-muted" accessibilityRole="header">{children}</Text>
+      {right}
+    </View>
+  );
 }
 
 export function Chip({ label, color, selected, onPress }: { label: string; color?: string; selected?: boolean; onPress?: () => void }) {
+  const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected }}
       onPress={onPress && (() => { tap(); onPress(); })}
       className={`mb-2 mr-2 min-h-9 flex-row items-center rounded-full px-3 py-1.5 ${selected ? '' : 'bg-card2'}`}
-      style={selected ? { backgroundColor: color ?? '#10B981' } : undefined}>
+      style={selected ? { backgroundColor: color ?? colors.accent } : undefined}>
       {color && !selected ? <View className="mr-1.5 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} /> : null}
-      <Text className={`text-sm ${selected ? 'font-semibold' : 'text-fg'}`} style={selected ? { color: onColor(color ?? '#10B981') } : undefined}>{label}</Text>
+      <Text className={`text-sm ${selected ? 'font-semibold' : 'text-fg'}`} style={selected ? { color: color ? onColor(color) : colors.onaccent } : undefined}>{label}</Text>
     </Pressable>
   );
 }
@@ -63,7 +85,7 @@ export function Amount({ paise, direction, className = 'text-lg', approx, muted 
   const sign = direction === 'debit' ? '-' : direction === 'credit' ? '+' : '';
   const tone = muted ? 'text-muted' : direction === 'debit' ? 'text-danger' : direction === 'credit' ? 'text-accent' : 'text-fg';
   return (
-    <Text className={`font-semibold ${tone} ${className}`} accessibilityLabel={`${direction === 'credit' ? 'received' : direction === 'debit' ? 'spent' : ''} ${hide ? 'amount hidden' : rupees(paise)}`}>
+    <Text className={`font-semibold ${tone} ${className}`} style={{ fontVariant: ['tabular-nums'] }} accessibilityLabel={`${direction === 'credit' ? 'received' : direction === 'debit' ? 'spent' : ''} ${hide ? 'amount hidden' : rupees(paise)}`}>
       {approx ? '≈' : ''}{sign}{rupees(paise)}
     </Text>
   );
@@ -100,7 +122,8 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <Pressable className="flex-1 justify-end bg-black/60" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
-        <Pressable className="rounded-t-3xl bg-card p-5 pb-8" onPress={() => {}} accessible={false} accessibilityViewIsModal>
+        <Pressable className="rounded-t-[28px] bg-card p-5 pb-8" onPress={() => {}} accessible={false} accessibilityViewIsModal>
+          <View className="mb-4 h-1 w-10 self-center rounded-full bg-line" importantForAccessibility="no" />
           <Text className="mb-3 text-lg font-semibold text-fg" accessibilityRole="header">{title}</Text>
           {children}
         </Pressable>
@@ -130,7 +153,7 @@ export function Fab({ onPress, label = 'Add transaction' }: { onPress: () => voi
       accessibilityLabel={label}
       onPress={() => { tap(); onPress(); }}
       className="absolute bottom-5 right-5 h-14 w-14 items-center justify-center rounded-full bg-accent"
-      style={{ elevation: 6, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } }}>
+      style={{ elevation: 6, shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } }}>
       <Plus color={colors.onaccent} size={28} />
     </Pressable>
   );

@@ -3,7 +3,8 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ListOrdered, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, View } from 'react-native';
+import { Text, TextInput } from '@/ui/Text';
 
 import { type Account, type Category, type Txn, PAGE, bulkUpdate, getAccounts, getCategories, queryTxns, summarize } from '@/db/queries';
 import { onIngested } from '@/ingest/events';

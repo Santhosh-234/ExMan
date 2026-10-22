@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { Linking, PermissionsAndroid, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Linking, PermissionsAndroid, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Text } from '@/ui/Text';
 import { useFocusEffect } from 'expo-router';
 
 import { setEnabled, markNoticeSeen, getState } from '@/db/telemetry';

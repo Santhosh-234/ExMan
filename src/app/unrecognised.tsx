@@ -2,7 +2,8 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft, MessageSquareWarning } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, Switch, View } from 'react-native';
+import { Text } from '@/ui/Text';
 
 import { type PatternRow, type Unparsed, countUnparsedSplit, deletePattern, deleteUnparsed, listPatterns, listUnparsed, setPatternEnabled } from '@/db/patterns';
 import { onIngested } from '@/ingest/events';

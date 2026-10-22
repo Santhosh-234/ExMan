@@ -1,7 +1,9 @@
 import '../global.css';
+import { useFonts } from 'expo-font';
 import { Stack, usePathname, useRouter } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 
@@ -9,9 +11,13 @@ import { migrate } from '@/db/schema';
 import { Ingest } from '@/ingest/Ingest';
 import { LockGate } from '@/security/LockGate';
 import { installErrorReporting, track } from '@/telemetry';
+import { FONT_FILES } from '@/ui/fonts';
 import { SnackbarProvider } from '@/ui/Snackbar';
 import { ThemeProvider, useTheme } from '@/ui/theme';
 import { screenOf } from '@/utils/screens';
+
+// keep the native splash up until the typeface is ready (a few ms), so text never flashes in the system font
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function Shell() {
   const { scheme, colors } = useTheme();
@@ -38,7 +44,7 @@ function Shell() {
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Ingest />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right', animationDuration: 240 }}>
         <Stack.Screen name="review" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
         <Stack.Screen name="add" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
@@ -49,6 +55,12 @@ function Shell() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(FONT_FILES);
+  const [waited, setWaited] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setWaited(true), 2500); return () => clearTimeout(t); }, []); // never block the app on a font
+  const ready = fontsLoaded || !!fontError || waited;
+  useEffect(() => { if (ready) void SplashScreen.hideAsync().catch(() => {}); }, [ready]);
+  if (!ready) return null;
   return (
     <SQLiteProvider databaseName="vibe.db" onInit={migrate}>
       <ThemeProvider>

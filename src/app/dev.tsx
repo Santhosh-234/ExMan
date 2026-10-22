@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Text } from '@/ui/Text';
 
 import { getTxns, monthlyTotals, spendByCategory } from '@/db/queries';
 import { Button } from '@/ui/kit';

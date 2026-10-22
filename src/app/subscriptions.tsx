@@ -2,7 +2,8 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft, Repeat } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Text } from '@/ui/Text';
 
 import { dismissRecurring, getRecurring, monthlyTotal, restoreRecurring } from '@/db/recurring';
 import { onIngested } from '@/ingest/events';

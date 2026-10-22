@@ -3,7 +3,8 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { CheckCheck, ChevronDown, ChevronUp, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, PanResponder, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Text } from '@/ui/Text';
 
 import { type Category, type Txn, getAccountNames, getCategories, getTxns, topCategoryIds, updateTxn } from '@/db/queries';
 import { Amount, Button, Chip, EmptyState, Skeleton, success, tap } from '@/ui/kit';

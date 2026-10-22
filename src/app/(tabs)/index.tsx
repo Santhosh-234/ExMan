@@ -4,7 +4,8 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronRight, Eye, EyeOff, Inbox, TrendingDown, TrendingUp } from 'lucide-react-native';
 import { updateSecurity } from '@/security/store';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { Text, TextInput } from '@/ui/Text';
 
 import { MonthBar } from '@/components/MonthBar';
 import { dueText } from '../subscriptions';
@@ -14,7 +15,8 @@ import { cachedApkUpdate, dismissApkUpdate } from '@/updates/apk';
 import { type ApkUpdate, isTrustedApkUrl } from '@/utils/apkUpdate';
 import { acknowledgeAutoTransfers, countAutoTransfers } from '@/db/transfers';
 import { notifyIngested, onIngested } from '@/ingest/events';
-import { Button, Card, Fab, Skeleton } from '@/ui/kit';
+import { Pressy, CountUp, FadeIn } from '@/ui/anim';
+import { Button, Card, Fab, SectionLabel, Skeleton } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { TxnRow } from '@/ui/TxnRow';
 import { monthKey, monthRange, rupees, shiftMonth } from '@/utils/format';
@@ -82,75 +84,78 @@ export default function Home() {
   return (
     <View className="flex-1 bg-base">
       <ScrollView className="px-4 pt-14" showsVerticalScrollIndicator={false}>
-        <View className="mb-4 flex-row items-center justify-between">
-          <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Home</Text>
+        <View className="mb-5 flex-row items-center justify-between">
+          <View>
+            <Text className="text-sm text-muted">{today.getHours() < 12 ? 'Good morning' : today.getHours() < 17 ? 'Good afternoon' : 'Good evening'}</Text>
+            <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Home</Text>
+          </View>
           <Pressable onPress={() => void updateSecurity(db, { hide: !hide })} hitSlop={12} accessibilityRole="button" accessibilityLabel={hide ? 'Show amounts' : 'Hide amounts'}>
             {hide ? <EyeOff color={colors.muted} /> : <Eye color={colors.muted} />}
           </Pressable>
         </View>
 
         {apk && (
-          <View className="mb-4 rounded-3xl bg-card p-4">
+          <Card className="mb-4">
             <Text className="text-base font-semibold text-fg">New app version available</Text>
             <Text className="mt-1 text-sm text-muted">{apk.name}{apk.sizeMb ? ` · ${apk.sizeMb} MB` : ''}. It includes changes that a normal update can't deliver. Download it, open the file, and install over this one. Your data is kept.</Text>
             <View className="mt-3 flex-row">
               <Button className="mr-3 flex-1" label="Download" onPress={() => { if (isTrustedApkUrl(apk.url)) void Linking.openURL(apk.url); }} />
               <Button className="flex-1" variant="secondary" label="Later" onPress={async () => { await dismissApkUpdate(db, apk.tag); setApk(null); }} />
             </View>
-          </View>
+          </Card>
         )}
 
         {pending > 0 && (
-          <Pressable onPress={() => router.push('/review')} accessibilityRole="button" accessibilityLabel={`${pending} transactions to review`} className="mb-4 flex-row items-center rounded-3xl bg-accent p-4">
+          <Pressy onPress={() => router.push('/review')} accessibilityRole="button" accessibilityLabel={`${pending} transactions to review`} className="mb-4" innerClassName="flex-row items-center rounded-[26px] bg-accent p-4">
             <Inbox color={colors.onaccent} />
             <View className="ml-3 flex-1">
               <Text className="text-base font-semibold text-onaccent">{pending} to review</Text>
               <Text className="text-sm text-onaccent opacity-80">Swipe through them in seconds</Text>
             </View>
             <ChevronRight color={colors.onaccent} />
-          </Pressable>
+          </Pressy>
         )}
 
         {upcoming.map((r) => (
-          <Pressable key={r.merchant_id} onPress={() => router.push('/subscriptions')} accessibilityRole="button" className="mb-4 flex-row items-center rounded-3xl bg-card p-4">
+          <Pressy key={r.merchant_id} onPress={() => router.push('/subscriptions')} accessibilityRole="button" className="mb-4" innerClassName="flex-row items-center rounded-[26px] border border-line bg-card p-4">
             <View className="flex-1">
               <Text className="text-base font-semibold text-fg">{r.merchant} · {rupees(r.amount)}</Text>
               <Text className="text-sm text-muted">{dueText(r)}{r.priceChange ? ` · price up from ${rupees(r.priceChange.from)}` : ''}</Text>
             </View>
             <ChevronRight color={colors.muted} />
-          </Pressable>
+          </Pressy>
         ))}
 
         {alerts.map((a) => (
-          <Pressable key={String(a.line.category_id)} onPress={() => router.push('/budgets')} accessibilityRole="button" className="mb-4 flex-row items-center rounded-3xl bg-card p-4">
+          <Pressy key={String(a.line.category_id)} onPress={() => router.push('/budgets')} accessibilityRole="button" className="mb-4" innerClassName="flex-row items-center rounded-[26px] border border-line bg-card p-4">
             <View className="mr-3 h-3 w-3 rounded-full" style={{ backgroundColor: a.over ? colors.danger : colors.warn }} />
             <View className="flex-1">
               <Text className="text-base font-semibold text-fg">{a.line.name}: {a.over ? 'over budget' : `${Math.round(a.pct * 100)}% used`}</Text>
               <Text className="text-sm text-muted">{a.over ? `${rupees(-a.left)} over its ${rupees(a.line.limit + a.line.carry)} budget` : `${rupees(a.left)} left this month`}</Text>
             </View>
             <ChevronRight color={colors.muted} />
-          </Pressable>
+          </Pressy>
         ))}
 
         {unparsed > 0 && (
-          <Pressable onPress={() => router.push('/unrecognised')} accessibilityRole="button" className="mb-4 flex-row items-center rounded-3xl bg-card p-4">
+          <Pressy onPress={() => router.push('/unrecognised')} accessibilityRole="button" className="mb-4" innerClassName="flex-row items-center rounded-[26px] border border-line bg-card p-4">
             <View className="flex-1">
               <Text className="text-base font-semibold text-fg">{unparsed} message{unparsed === 1 ? '' : 's'} couldn't be read</Text>
               <Text className="mt-1 text-sm text-muted">Teach ExMan the format once and it reads similar ones from now on.</Text>
             </View>
             <ChevronRight color={colors.muted} />
-          </Pressable>
+          </Pressy>
         )}
 
         {autoTransfers > 0 && (
-          <View className="mb-4 rounded-3xl bg-card p-4">
+          <Card className="mb-4">
             <Text className="text-base font-semibold text-fg">{autoTransfers} transfer{autoTransfers === 1 ? '' : 's'} detected</Text>
             <Text className="mt-1 text-sm text-muted">Moves between your own accounts and card bill payments are left out of spending and income.</Text>
             <View className="mt-3 flex-row">
               <Button className="mr-3 flex-1" variant="secondary" label="Review" onPress={() => router.push('/activity?transfers=only')} />
               <Button className="flex-1" variant="secondary" label="Looks right" onPress={async () => { await acknowledgeAutoTransfers(db); notifyIngested(); }} />
             </View>
-          </View>
+          </Card>
         )}
 
         <MonthBar month={month} onChange={setMonth} max={now} />
@@ -158,9 +163,9 @@ export default function Home() {
         {!loaded ? (
           <Card className="mb-4"><Skeleton style={{ width: 120, height: 14 }} /><Skeleton style={{ width: 200, height: 40, marginTop: 10 }} /><Skeleton style={{ height: 12, marginTop: 20 }} /></Card>
         ) : (
-          <Card className="mb-4">
-            <Text className="text-xs uppercase tracking-wider text-muted">Spent in {month === now ? 'this month' : 'the month'}</Text>
-            <Text className="text-4xl font-bold text-fg" accessibilityLabel={`Spent ${rupees(spent)}`}>{rupees(spent)}</Text>
+          <FadeIn index={1}><Card className="mb-4">
+            <Text className="text-xs font-semibold uppercase tracking-widest text-muted">Spent in {month === now ? 'this month' : 'the month'}</Text>
+            <CountUp value={spent} format={rupees} className="mt-1 text-5xl font-bold text-fg" accessibilityLabel={`Spent ${rupees(spent)}`} />
             {delta != null && (
               <View className="mt-1 flex-row items-center">
                 {delta > 0 ? <TrendingUp size={14} color={colors.danger} /> : <TrendingDown size={14} color={colors.accent} />}
@@ -168,8 +173,8 @@ export default function Home() {
               </View>
             )}
 
-            <View className="mt-4 h-3 overflow-hidden rounded-full bg-card2" accessibilityRole="progressbar" accessibilityValue={budget ? { min: 0, max: 100, now: Math.round(pct * 100) } : undefined}>
-              <View style={{ width: `${pct * 100}%`, backgroundColor: over ? colors.danger : colors.accent }} className="h-3 rounded-full" />
+            <View className="mt-5 h-2.5 overflow-hidden rounded-full bg-card2" accessibilityRole="progressbar" accessibilityValue={budget ? { min: 0, max: 100, now: Math.round(pct * 100) } : undefined}>
+              <View style={{ width: `${pct * 100}%`, backgroundColor: over ? colors.danger : colors.accent }} className="h-2.5 rounded-full" />
             </View>
             {editing ? (
               <View className="mt-3 flex-row items-center">
@@ -199,11 +204,11 @@ export default function Home() {
               <View className="flex-1"><Text className="text-xs text-muted">Income</Text><Text className="text-lg font-semibold text-accent">{rupees(income)}</Text></View>
               <View className="flex-1"><Text className="text-xs text-muted">Net</Text><Text className={`text-lg font-semibold ${income - spent < 0 ? 'text-danger' : 'text-fg'}`}>{income - spent < 0 ? '-' : ''}{rupees(Math.abs(income - spent))}</Text></View>
             </View>
-          </Card>
+          </Card></FadeIn>
         )}
 
         {top.length > 0 && (
-          <Card className="mb-4">
+          <FadeIn index={2}><Card className="mb-4">
             <View className="mb-3 flex-row items-center justify-between">
               <Text className="text-base font-semibold text-fg">Top categories</Text>
               <Pressable onPress={() => router.push('/insights')} hitSlop={10} accessibilityRole="button"><Text className="text-accent">See all</Text></Pressable>
@@ -214,13 +219,10 @@ export default function Home() {
                 <View className="h-2 overflow-hidden rounded-full bg-card2"><View className="h-2 rounded-full" style={{ width: `${(s.total / topMax) * 100}%`, backgroundColor: s.color }} /></View>
               </View>
             ))}
-          </Card>
+          </Card></FadeIn>
         )}
 
-        <View className="mb-2 flex-row items-center justify-between">
-          <Text className="text-base font-semibold text-fg" accessibilityRole="header">Recent</Text>
-          <Pressable onPress={() => router.push('/activity')} hitSlop={10} accessibilityRole="button"><Text className="text-accent">See all</Text></Pressable>
-        </View>
+        <SectionLabel right={<Pressable onPress={() => router.push('/activity')} hitSlop={10} accessibilityRole="button"><Text className="text-sm font-semibold text-accent">See all</Text></Pressable>}>Recent</SectionLabel>
         {loaded && recent.length === 0 ? (
           <Card className="mb-4"><Text className="text-muted">Nothing confirmed this month yet. Review new transactions, or tap + to add one.</Text></Card>
         ) : (

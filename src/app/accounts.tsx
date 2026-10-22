@@ -3,7 +3,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Banknote, ChevronLeft, CreditCard, Landmark, Plus } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Text, TextInput } from '@/ui/Text';
 
 import { type Account, type AccountStats, addAccount, getAccountStats } from '@/db/queries';
 import { onIngested } from '@/ingest/events';

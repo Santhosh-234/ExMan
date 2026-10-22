@@ -3,7 +3,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft, Repeat } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Text } from '@/ui/Text';
 
 import { type Account, type Category, type Txn, getAccounts, getCategories, getEditLog, getTxn, linkRefund, refundCandidates, unlinkRefund, updateTxn } from '@/db/queries';
 import { isTransferMerchant, markTransferByUser, rejectTransfer, setTransferMerchant } from '@/db/transfers';

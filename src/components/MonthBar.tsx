@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/ui/Text';
 
 import { useTheme } from '@/ui/theme';
 import { monthLabel, shiftMonth } from '@/utils/format';

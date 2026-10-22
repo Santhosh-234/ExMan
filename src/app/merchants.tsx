@@ -3,7 +3,8 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft, Search } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, View } from 'react-native';
+import { Text, TextInput } from '@/ui/Text';
 
 import { type MerchantStats, applyRuleToExisting, getMerchantStats, mergeMerchant, renameMerchant, setMerchantRule } from '@/db/merchants';
 import { type Category, getCategories } from '@/db/queries';

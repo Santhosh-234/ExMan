@@ -1,6 +1,7 @@
 import { ArrowDownLeft, ArrowUpRight, Check, Repeat } from 'lucide-react-native';
 import { memo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/ui/Text';
 
 import type { Category, Txn } from '@/db/queries';
 import { Amount } from '@/ui/kit';
