@@ -4,7 +4,7 @@ import { ChevronLeft, MessageSquareWarning } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
-import { type PatternRow, type Unparsed, deletePattern, deleteUnparsed, listPatterns, listUnparsed, setPatternEnabled } from '@/db/patterns';
+import { type PatternRow, type Unparsed, countUnparsedSplit, deletePattern, deleteUnparsed, listPatterns, listUnparsed, setPatternEnabled } from '@/db/patterns';
 import { onIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
 import { maskMessage } from '@/telemetry/mask';
@@ -21,8 +21,10 @@ export default function Unrecognised() {
   const [msgs, setMsgs] = useState<Unparsed[] | null>(null);
   const [patterns, setPatterns] = useState<PatternRow[]>([]);
   const [reporting, setReporting] = useState<Unparsed | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [hidden, setHidden] = useState(0);
 
-  const load = useCallback(async () => { setMsgs(await listUnparsed(db)); setPatterns(await listPatterns(db)); }, [db]);
+  const load = useCallback(async () => { setMsgs(await listUnparsed(db, 100, showAll)); setPatterns(await listPatterns(db)); setHidden((await countUnparsedSplit(db)).hidden); }, [db, showAll]);
   useEffect(() => void load(), [load]);
   useEffect(() => onIngested(() => void load()), [load]);
 
@@ -43,6 +45,11 @@ export default function Unrecognised() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {msgs && msgs.length === 0 && (
           <EmptyState icon={<MessageSquareWarning size={44} color={colors.muted} />} title="Nothing to teach" body="Every money message so far was understood." />
+        )}
+        {(hidden > 0 || showAll) && (
+          <Pressable onPress={() => setShowAll((v) => !v)} accessibilityRole="button" className="mb-3 min-h-9 justify-center">
+            <Text className="text-accent">{showAll ? 'Hide offers, reminders and other non-transactions' : `Show ${hidden} hidden message${hidden === 1 ? '' : 's'} (offers, reminders)`}</Text>
+          </Pressable>
         )}
         {(msgs ?? []).map((m) => (
           <Card key={m.id} className="mb-3">

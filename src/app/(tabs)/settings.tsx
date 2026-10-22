@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { PermissionsAndroid, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Linking, PermissionsAndroid, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Updates from 'expo-updates';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -12,6 +12,8 @@ import { syncNow } from '@/sync';
 import { TIMEOUTS } from '@/security/lock';
 import { updateSecurity, useSecurity } from '@/security/store';
 import { track } from '@/telemetry';
+import { apkCheckEnabled, checkApk } from '@/updates/apk';
+import { type ApkUpdate, isTrustedApkUrl } from '@/utils/apkUpdate';
 import { bucketMessages, bucketMs } from '@/telemetry/schema';
 import { Button, Card, Chip } from '@/ui/kit';
 import { type Mode, useTheme } from '@/ui/theme';
@@ -84,8 +86,22 @@ function SecuritySection() {
 
 /** Shows which build/update is running and lets the user pull a pending update without waiting for restarts. */
 function AppUpdates() {
+  const db = useSQLiteContext();
+  const { colors } = useTheme();
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [auto, setAuto] = useState(true);
+  const [apkBusy, setApkBusy] = useState(false);
+  const [apkMsg, setApkMsg] = useState('');
+  const [apkUpdate, setApkUpdate] = useState<ApkUpdate | null>(null);
+  useEffect(() => void apkCheckEnabled(db).then(setAuto), [db]);
+  const checkNow = async () => {
+    setApkBusy(true); setApkMsg('');
+    const r = await checkApk(db, true);
+    setApkUpdate(r.update);
+    setApkMsg(r.error ? r.error : r.update ? `${r.update.name} is available.` : 'You have the newest APK (normal updates above cover everything else).');
+    setApkBusy(false);
+  };
   const running = Updates.isEmbeddedLaunch ? 'built-in version (no update applied)' : `update ${Updates.updateId?.slice(0, 8) ?? '?'} · ${Updates.createdAt?.toLocaleString('en-IN') ?? ''}`;
   const check = async () => {
     if (!Updates.isEnabled) return setMsg('Updates are disabled in this build.');
@@ -115,6 +131,19 @@ function AppUpdates() {
       </Card>
       <Button label={busy ? 'Working…' : 'Check for updates'} variant="secondary" disabled={busy} onPress={check} />
       {msg ? <Text className="mt-2 text-sm text-muted">{msg}</Text> : null}
+
+      <Card className="mt-4">
+        <View className="flex-row items-center">
+          <View className="mr-3 flex-1">
+            <Text className="text-base font-semibold text-fg">New app versions (APK)</Text>
+            <Text className="mt-1 text-sm text-muted">Some changes need a fresh install file. ExMan can look at this project's public releases on GitHub once a day and tell you when one is out. Nothing about you or your data is sent.</Text>
+          </View>
+          <Switch value={auto} onValueChange={async (v) => { setAuto(v); await setSetting(db, 'apk_check', v ? '1' : '0'); }} trackColor={{ true: colors.accent, false: colors.surface2 }} accessibilityLabel="Check for new app versions automatically" />
+        </View>
+        <Button className="mt-3" variant="secondary" label={apkBusy ? 'Checking…' : 'Check for a new APK now'} disabled={apkBusy} onPress={checkNow} />
+        {apkMsg ? <Text className="mt-2 text-sm text-muted">{apkMsg}</Text> : null}
+        {apkUpdate && isTrustedApkUrl(apkUpdate.url) ? <Button className="mt-2" label={`Download ${apkUpdate.name}${apkUpdate.sizeMb ? ` (${apkUpdate.sizeMb} MB)` : ''}`} onPress={() => void Linking.openURL(apkUpdate.url)} /> : null}
+      </Card>
     </Section>
   );
 }
