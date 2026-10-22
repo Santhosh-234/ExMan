@@ -1,7 +1,7 @@
 import { useSecurity } from '@/security/store';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft } from 'lucide-react-native';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
@@ -9,7 +9,7 @@ import { Text, TextInput } from '@/ui/Text';
 import { type AccountStats, type Category, type Txn, getAccount, getAccountFirefly, setAccountFirefly, getAccountStats, getCategories, mergeAccount, queryTxns, renameAccount, setAccountArchived } from '@/db/queries';
 import { notifyIngested, onIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
-import { Button, Card, Chip, Sheet } from '@/ui/kit';
+import { Button, Card, Chip, Sheet, BackButton } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { TxnRow } from '@/ui/TxnRow';
@@ -57,9 +57,7 @@ export default function AccountDetail() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <ScrollView showsVerticalScrollIndicator={false}>
         <Text className="text-3xl font-bold text-fg" accessibilityRole="header">{a.name}</Text>
         <Text className="mb-4 text-sm text-muted">{sub}</Text>

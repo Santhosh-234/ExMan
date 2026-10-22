@@ -8,7 +8,7 @@ import { Text, TextInput } from '@/ui/Text';
 
 import { type Account, type Category, type Txn, PAGE, bulkUpdate, getAccounts, getCategories, queryTxns, summarize } from '@/db/queries';
 import { onIngested } from '@/ingest/events';
-import { Button, EmptyState, Fab } from '@/ui/kit';
+import { Button, EmptyState, Fab, useElevation } from '@/ui/kit';
 import { FilterSheet } from '@/ui/FilterSheet';
 import { CategorySheet } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
@@ -18,7 +18,7 @@ import { TxnRow } from '@/ui/TxnRow';
 import { type TxnFilter, EMPTY_FILTER, activeFilterCount } from '@/utils/filters';
 import { rupees } from '@/utils/format';
 
-type Item = { kind: 'day'; key: string; label: string } | { kind: 'txn'; key: string; t: Txn };
+type Item = { kind: 'day'; key: string; label: string; spent: number } | { kind: 'txn'; key: string; t: Txn };
 
 const dayLabel = (ts: number) => {
   const d = new Date(ts);
@@ -96,9 +96,11 @@ export default function Activity() {
   const items = useMemo<Item[]>(() => {
     const out: Item[] = [];
     let last = '';
+    let head: Extract<Item, { kind: 'day' }> | null = null;
     for (const t of rows) {
       const label = dayLabel(t.ts);
-      if (label !== last) { out.push({ kind: 'day', key: `d${label}`, label }); last = label; }
+      if (label !== last) { head = { kind: 'day', key: `d${label}`, label, spent: 0 }; out.push(head); last = label; }
+      if (head && t.direction === 'debit' && !t.is_transfer) head.spent += t.amount_paise; // day total: what was spent (transfers excluded)
       out.push({ kind: 'txn', key: `t${t.id}`, t });
     }
     return out;
@@ -125,6 +127,7 @@ export default function Activity() {
     snack({ message, actionLabel: 'Undo', onAction: () => void undo().then(load) });
   };
 
+  const lift = useElevation(1);
   const nFilters = activeFilterCount(filter);
   const summaryText = `${sum.n} transaction${sum.n === 1 ? '' : 's'}${sum.spent ? ` · ${rupees(sum.spent)} spent` : ''}${sum.received ? ` · ${rupees(sum.received)} received` : ''}`;
 
@@ -138,7 +141,7 @@ export default function Activity() {
           </View>
         </View>
       ) : (
-        <Text className="mb-3 text-3xl font-bold text-fg" accessibilityRole="header">Activity</Text>
+        <Text className="mb-4 text-3xl font-bold text-fg" accessibilityRole="header">Activity</Text>
       )}
 
       {selecting ? (
@@ -149,7 +152,7 @@ export default function Activity() {
         </View>
       ) : (
         <View className="mb-2 flex-row items-center">
-          <View className="mr-2 min-h-12 flex-1 flex-row items-center rounded-2xl bg-card px-3">
+          <View className="mr-2 min-h-12 flex-1 flex-row items-center rounded-2xl border border-line bg-card px-3" style={lift}>
             <Search size={18} color={colors.muted} />
             <TextInput
               className="ml-2 flex-1 text-base text-fg" value={search} onChangeText={setSearch}
@@ -157,7 +160,7 @@ export default function Activity() {
             />
             {search ? <Pressable onPress={() => setSearch('')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search"><X size={18} color={colors.muted} /></Pressable> : null}
           </View>
-          <Pressable onPress={() => setShowFilters(true)} accessibilityRole="button" accessibilityLabel={`Filters${nFilters ? `, ${nFilters} active` : ''}`} className="h-12 w-12 items-center justify-center rounded-2xl bg-card">
+          <Pressable onPress={() => setShowFilters(true)} accessibilityRole="button" accessibilityLabel={`Filters${nFilters ? `, ${nFilters} active` : ''}`} className="h-12 w-12 items-center justify-center rounded-2xl border border-line bg-card" style={lift}>
             <SlidersHorizontal size={20} color={nFilters ? colors.accent : colors.muted} />
             {nFilters > 0 && <View className="absolute right-1 top-1 h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1"><Text className="text-[10px] font-bold text-onaccent">{nFilters}</Text></View>}
           </Pressable>
@@ -186,7 +189,10 @@ export default function Activity() {
         contentContainerStyle={{ paddingBottom: 96 }}
         renderItem={({ item }) =>
           item.kind === 'day' ? (
-            <Text className="mb-1 mt-4 text-sm font-semibold text-muted" accessibilityRole="header">{item.label}</Text>
+            <View className="mb-2 mt-4 flex-row items-center justify-between px-1">
+              <Text className="text-xs font-semibold uppercase tracking-widest text-muted" accessibilityRole="header">{item.label}</Text>
+              {item.spent > 0 ? <Text className="text-xs text-muted" style={{ fontVariant: ['tabular-nums'] }}>{rupees(item.spent)} spent</Text> : null}
+            </View>
           ) : (
             <TxnRow t={item.t} cat={catById.get(item.t.category_id ?? -1)} selecting={selecting} selected={selected.has(item.t.id)} onPress={onPress} onLongPress={onLong} />
           )

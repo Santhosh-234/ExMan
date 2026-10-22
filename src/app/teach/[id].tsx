@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft } from 'lucide-react-native';
+
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/ui/Text';
@@ -8,7 +8,7 @@ import { Text } from '@/ui/Text';
 import { type Unparsed, getUnparsed, savePattern } from '@/db/patterns';
 import { reprocessUnparsed } from '@/ingest/run';
 import { track } from '@/telemetry';
-import { Button, Card, Chip } from '@/ui/kit';
+import { Button, Card, Chip, BackButton } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
@@ -90,9 +90,7 @@ export default function Teach() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Teach ExMan</Text>
       <Text className="mb-3 text-xs text-muted">From {msg.sender}. Show ExMan where the details are in this message.</Text>
 

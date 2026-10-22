@@ -1,7 +1,7 @@
 import { useSecurity } from '@/security/store';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft, Repeat } from 'lucide-react-native';
+import { Repeat } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/ui/Text';
@@ -10,7 +10,7 @@ import { type Account, type Category, type Txn, getAccounts, getCategories, getE
 import { isTransferMerchant, markTransferByUser, rejectTransfer, setTransferMerchant } from '@/db/transfers';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
-import { Amount, Button, Card, Sheet } from '@/ui/kit';
+import { Amount, Button, Card, Sheet, BackButton } from '@/ui/kit';
 import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useRuleOffer } from '@/ui/useRuleOffer';
@@ -134,9 +134,7 @@ export default function TxnDetail() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="mb-4 items-center">
           <Text className="text-xs uppercase tracking-wider text-muted">{t.direction === 'debit' ? 'Spent' : 'Received'}</Text>

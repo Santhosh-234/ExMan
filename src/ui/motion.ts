@@ -1,14 +1,25 @@
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 
+// One shared subscription for the whole app (lists create hundreds of components that read this).
+let reduced = false;
+let started = false;
+const listeners = new Set<(v: boolean) => void>();
+function start() {
+  if (started) return;
+  started = true;
+  void AccessibilityInfo.isReduceMotionEnabled().then((v) => { reduced = v; listeners.forEach((l) => l(v)); }).catch(() => {});
+  AccessibilityInfo.addEventListener('reduceMotionChanged', (v) => { reduced = v; listeners.forEach((l) => l(v)); });
+}
+
 /** True when the phone's "remove animations" setting is on. Animations then run with no duration. */
 export function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
+  const [v, setV] = useState(reduced);
   useEffect(() => {
-    let live = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then((v) => { if (live) setReduced(v); }).catch(() => {});
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
-    return () => { live = false; sub.remove(); };
+    start();
+    listeners.add(setV);
+    setV(reduced);
+    return () => { listeners.delete(setV); };
   }, []);
-  return reduced;
+  return v;
 }

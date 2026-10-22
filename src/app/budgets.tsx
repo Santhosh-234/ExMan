@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft, Plus } from 'lucide-react-native';
+import { Plus } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
@@ -10,7 +10,7 @@ import { type BudgetLine, type Category, budgetOverview, getBudgetRow, getCatego
 import { onIngested, notifyIngested } from '@/ingest/events';
 import { useSecurity } from '@/security/store';
 import { track } from '@/telemetry';
-import { Button, Card, Chip, EmptyState, Sheet } from '@/ui/kit';
+import { Button, Card, Chip, EmptyState, Sheet, BackButton } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { budgetStatus } from '@/utils/budgets';
@@ -63,9 +63,7 @@ export default function Budgets() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <View className="mb-1 flex-row items-center justify-between">
         <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Budgets</Text>
         <Pressable onPress={() => open()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add a budget"><Plus color={colors.accent} /></Pressable>

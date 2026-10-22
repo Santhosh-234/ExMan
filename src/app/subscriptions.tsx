@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft, Repeat } from 'lucide-react-native';
+import { Repeat } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/ui/Text';
@@ -9,7 +9,7 @@ import { dismissRecurring, getRecurring, monthlyTotal, restoreRecurring } from '
 import { onIngested } from '@/ingest/events';
 import { useSecurity } from '@/security/store';
 import { track } from '@/telemetry';
-import { Button, Card, EmptyState, Sheet } from '@/ui/kit';
+import { Button, Card, EmptyState, Sheet, BackButton } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
@@ -41,7 +41,7 @@ export default function Subscriptions() {
   const total = monthlyTotal(list ?? []);
 
   const row = (r: Recurring) => (
-    <Pressable key={r.merchant_id} onPress={() => setSel(r)} accessibilityRole="button" className={`mb-2 min-h-16 flex-row items-center rounded-2xl bg-card p-3 ${r.status === 'ended' ? 'opacity-60' : ''}`}>
+    <Pressable key={r.merchant_id} onPress={() => setSel(r)} accessibilityRole="button" className={`mb-2 min-h-16 flex-row items-center rounded-[22px] border border-line bg-card p-3 ${r.status === 'ended' ? 'opacity-60' : ''}`}>
       <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-card2"><Repeat size={18} color={colors.muted} /></View>
       <View className="flex-1">
         <Text className="text-base text-fg" numberOfLines={1}>{r.merchant}</Text>
@@ -54,9 +54,7 @@ export default function Subscriptions() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Subscriptions</Text>
       <Text className="mb-3 text-xs text-muted">Payments that repeat on a schedule, found from your confirmed spending. A pattern needs about 3 charges (2 for yearly ones).</Text>
       <ScrollView showsVerticalScrollIndicator={false}>

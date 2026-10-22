@@ -4,6 +4,7 @@ import { Stack, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
+import { KeyboardAvoidingView } from 'react-native';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 
@@ -44,11 +45,13 @@ function Shell() {
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Ingest />
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right', animationDuration: 240 }}>
         <Stack.Screen name="review" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
         <Stack.Screen name="add" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       </Stack>
+      </KeyboardAvoidingView>
       <LockGate />
     </>
   );

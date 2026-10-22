@@ -4,7 +4,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft } from 'lucide-react-native';
+
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
@@ -12,7 +12,7 @@ import { Text, TextInput } from '@/ui/Text';
 import { makeBackup, readBackup, restoreAll } from '@/backup/dump';
 import { exportRows } from '@/db/queries';
 import { notifyIngested } from '@/ingest/events';
-import { Button, Card, Chip, Sheet } from '@/ui/kit';
+import { Button, Card, Chip, Sheet, BackButton } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { toCsv } from '@/utils/csv';
@@ -122,9 +122,7 @@ export default function Backup() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <Text className="mb-3 text-3xl font-bold text-fg" accessibilityRole="header">Backup & export</Text>
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Card className="mb-4">

@@ -23,7 +23,7 @@ const Step = ({ n, title, children }: { n: number; title: string; children: Reac
 );
 
 const Perm = ({ label, ok, onPress }: { label: string; ok: boolean; onPress: () => void }) => (
-  <Pressable onPress={onPress} accessibilityRole="button" className="mb-2 min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
+  <Pressable onPress={onPress} accessibilityRole="button" className="mb-2 min-h-14 flex-row items-center justify-between rounded-[22px] border border-line bg-card p-4">
     <Text className="flex-1 text-base text-fg">{label}</Text>
     <Text className={ok ? 'text-accent' : 'text-warn'}>{ok ? 'Granted' : 'Tap to allow'}</Text>
   </Pressable>

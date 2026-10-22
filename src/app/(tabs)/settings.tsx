@@ -16,7 +16,8 @@ import { track } from '@/telemetry';
 import { apkCheckEnabled, checkApk } from '@/updates/apk';
 import { type ApkUpdate, isTrustedApkUrl } from '@/utils/apkUpdate';
 import { bucketMessages, bucketMs } from '@/telemetry/schema';
-import { Button, Card, Chip } from '@/ui/kit';
+import { Bell, DatabaseBackup, Landmark, ListChecks, MessageSquare, MessageSquareWarning, PiggyBank, Repeat, ShieldCheck, Store, Tags, Coins, Wallet, Smartphone } from 'lucide-react-native';
+import { Button, Card, Chip, Group, NavRow } from '@/ui/kit';
 import { type Mode, useTheme } from '@/ui/theme';
 
 import { notificationAccessGranted, openNotificationAccessSettings } from '../../../modules/vibe-listener';
@@ -31,13 +32,8 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
   );
 }
 
-function Row({ label, ok, onPress }: { label: string; ok: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" className="mb-3 min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
-      <Text className="text-base text-fg">{label}</Text>
-      <Text className={ok ? 'text-accent' : 'text-warn'}>{ok ? 'Granted' : 'Tap to enable'}</Text>
-    </Pressable>
-  );
+function Row({ icon, label, ok, first, onPress }: { icon: typeof Bell; label: string; ok: boolean; first?: boolean; onPress: () => void }) {
+  return <NavRow icon={icon} label={label} first={first} detail={ok ? 'Granted' : 'Tap to enable'} tone={ok ? undefined : 'warn'} onPress={onPress} />;
 }
 
 function SecuritySection() {
@@ -61,7 +57,7 @@ function SecuritySection() {
   };
 
   const Row = ({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) => (
-    <View className="mb-3 flex-row items-center rounded-2xl bg-card p-4">
+    <View className="mb-3 flex-row items-center rounded-[22px] border border-line bg-card p-4">
       <View className="mr-3 flex-1">
         <Text className="text-base text-fg">{label}</Text>
         {hint ? <Text className="mt-0.5 text-xs text-muted">{hint}</Text> : null}
@@ -180,7 +176,7 @@ export default function Settings() {
   );
 
   return (
-    <ScrollView className="flex-1 bg-base px-4 pt-14">
+    <ScrollView className="flex-1 bg-base px-4 pt-14" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <Text className="mb-6 text-3xl font-bold text-fg" accessibilityRole="header">Settings</Text>
 
       <Section title="Appearance" hint="System follows your phone's light/dark setting.">
@@ -192,42 +188,34 @@ export default function Settings() {
       </Section>
 
       <Section title="Accounts" hint="Banks, cards and cash found from your messages.">
-        <Pressable onPress={() => router.push('/accounts')} accessibilityRole="button" className="min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
-          <Text className="text-base text-fg">Manage accounts</Text>
-          <Text className="text-accent">Open</Text>
-        </Pressable>
+        <Group><NavRow first icon={Landmark} label="Manage accounts" onPress={() => router.push('/accounts')} /></Group>
       </Section>
 
       <Section title="Categorisation" hint="How ExMan groups payees and picks categories.">
-        {([['/merchants', 'Merchants', ''], ['/rules', 'Rules', ''], ['/budgets', 'Budgets', ''], ['/subscriptions', 'Subscriptions', ''], ['/categories', 'Categories', ''], ['/rates', 'Exchange rates', ''], ['/unrecognised', 'Unrecognised messages', unparsed ? String(unparsed) : '']] as const).map(([href, label, badge]) => (
-          <Pressable key={href} onPress={() => router.push(href)} accessibilityRole="button" className="mb-3 min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
-            <Text className="text-base text-fg">{label}</Text>
-            <Text className={badge ? 'text-warn' : 'text-accent'}>{badge ? `${badge} to teach` : 'Open'}</Text>
-          </Pressable>
-        ))}
+        <Group>
+          {([['/merchants', 'Merchants', Store, ''], ['/rules', 'Rules', ListChecks, ''], ['/budgets', 'Budgets', PiggyBank, ''], ['/subscriptions', 'Subscriptions', Repeat, ''], ['/categories', 'Categories', Tags, ''], ['/rates', 'Exchange rates', Coins, ''], ['/unrecognised', 'Unrecognised messages', MessageSquareWarning, unparsed ? `${unparsed} to teach` : '']] as const).map(([href, label, icon, detail], i) => (
+            <NavRow key={href} first={i === 0} icon={icon} label={label} detail={detail || undefined} tone={detail ? 'warn' : undefined} onPress={() => router.push(href)} />
+          ))}
+        </Group>
       </Section>
 
       <SecuritySection />
 
       <Section title="Backup & export" hint="Encrypted backup you can restore on a new phone, and CSV for spreadsheets.">
-        <Pressable onPress={() => router.push('/backup')} accessibilityRole="button" className="min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
-          <Text className="text-base text-fg">Backup, restore and export</Text>
-          <Text className="text-accent">Open</Text>
-        </Pressable>
+        <Group><NavRow first icon={DatabaseBackup} label="Backup, restore and export" onPress={() => router.push('/backup')} /></Group>
       </Section>
 
       <Section title="Privacy & data" hint="What ExMan reads, how long originals are kept, and a full wipe.">
-        <Pressable onPress={() => router.push('/privacy')} accessibilityRole="button" className="min-h-14 flex-row items-center justify-between rounded-2xl bg-card p-4">
-          <Text className="text-base text-fg">Privacy & data</Text>
-          <Text className="text-accent">Open</Text>
-        </Pressable>
+        <Group><NavRow first icon={ShieldCheck} label="Privacy & data" onPress={() => router.push('/privacy')} /></Group>
       </Section>
 
       <AppUpdates />
 
-      <Text className="mb-1 text-lg font-semibold text-fg" accessibilityRole="header">Permissions</Text>
-      <Text className="mb-3 text-xs text-muted">Notification access greyed out on Android 13+? Open App info, tap ⋮, choose “Allow restricted settings”, then try again.</Text>
+      <Section title="Permissions" hint="Notification access greyed out on Android 13+? Open App info, tap ⋮, choose “Allow restricted settings”, then try again.">
+      <Group>
       <Row
+        first
+        icon={MessageSquare}
         label="Read bank SMS"
         ok={sms}
         onPress={async () =>
@@ -235,18 +223,18 @@ export default function Settings() {
         }
       />
       <Row
+        icon={MessageSquare}
         label="Read old SMS (for import)"
         ok={readSms}
         onPress={async () =>
           setReadSms((await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.READ_SMS)) === 'granted')
         }
       />
-      <Row label="UPI app notifications" ok={notif} onPress={openNotificationAccessSettings} />
+      <Row icon={Smartphone} label="UPI app notifications" ok={notif} onPress={openNotificationAccessSettings} />
+      </Group>
+      </Section>
 
-      <Text className="mb-1 mt-4 text-lg font-semibold text-fg" accessibilityRole="header">Import past SMS</Text>
-      <Text className="mb-3 text-xs text-muted">
-        Scans bank/card messages already in your inbox (not personal chats) and adds them to the Inbox for review.
-      </Text>
+      <Section title="Import past SMS" hint="Scans bank/card messages already in your inbox (not personal chats) and adds them to the Inbox for review.">
       <View className="mb-2 flex-row">
         {[30, 90, 365].map((d) => (
           <Button
@@ -271,11 +259,9 @@ export default function Settings() {
         ))}
       </View>
       {importMsg ? <Text className="mb-2 text-muted">{importMsg}</Text> : null}
+      </Section>
 
-      <Text className="mb-1 mt-6 text-lg font-semibold text-fg" accessibilityRole="header">Sync (optional)</Text>
-      <Text className="mb-3 text-xs text-muted">
-        Push confirmed transactions to your own server. Data stays on this phone unless you set this up.
-      </Text>
+      <Section title="Sync (optional)" hint="Push confirmed transactions to your own server. Data stays on this phone unless you set this up.">
       <View className="mb-3 flex-row">
         {(['rest', 'firefly'] as const).map((m) => (
           <Chip key={m} label={m === 'rest' ? 'Custom REST' : 'Firefly III'} color={colors.accent} selected={mode === m} onPress={() => setMode(m)} />
@@ -303,6 +289,7 @@ export default function Settings() {
         }}
       />
       {status ? <Text className="mt-3 text-muted">{status}</Text> : null}
+      </Section>
       <Pressable onPress={() => router.push('/dev')} accessibilityRole="button" className="mt-8"><Text className="text-muted">Developer tools</Text></Pressable>
       <View className="h-8" />
     </ScrollView>

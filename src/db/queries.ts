@@ -160,6 +160,13 @@ export const totalFor = async (db: SQLiteDatabase, direction: 'debit' | 'credit'
     )
   )?.s ?? 0;
 
+/** Merchants the user typed into manual entries most recently (for one-tap suggestions on the Add screen). */
+export const recentManualMerchants = (db: SQLiteDatabase, limit = 6) =>
+  db.getAllAsync<{ merchant: string }>(
+    `SELECT merchant FROM transactions WHERE source = 'manual' AND merchant IS NOT NULL AND merchant <> '' AND status = 'confirmed'
+     GROUP BY merchant ORDER BY MAX(ts) DESC LIMIT ?`, limit,
+  );
+
 export const topMerchants = (db: SQLiteDatabase, from: number, to: number, limit = 5) =>
   db.getAllAsync<{ merchant: string; total: number; n: number }>(
     `SELECT t.merchant, SUM(${SPEND}) AS total, COUNT(*) AS n FROM transactions t

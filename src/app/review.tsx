@@ -3,11 +3,12 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { CheckCheck, ChevronDown, ChevronUp, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Animated, PanResponder, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { type Category, type Txn, getAccountNames, getCategories, getTxns, topCategoryIds, updateTxn } from '@/db/queries';
-import { Amount, Button, Chip, EmptyState, Skeleton, success, tap } from '@/ui/kit';
+import { AnimatedBar, PopIn } from '@/ui/anim';
+import { Amount, BackButton, Button, Chip, EmptyState, Skeleton, success, tap, useElevation } from '@/ui/kit';
 import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useRuleOffer } from '@/ui/useRuleOffer';
@@ -36,6 +37,7 @@ type CardProps = {
 /** Draggable card: right = confirm, left = dismiss. Buttons below do the same, so gestures are optional. */
 function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, onCategory, onMore, onNotTransfer }: CardProps) {
   const { colors } = useTheme();
+  const lift = useElevation(2);
   const { width } = useWindowDimensions();
   const reduced = useReducedMotion();
   const x = useRef(new Animated.Value(0)).current;
@@ -63,21 +65,29 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
   const rotate = x.interpolate({ inputRange: [-width, 0, width], outputRange: ['-8deg', '0deg', '8deg'] });
   const confirmOpacity = x.interpolate({ inputRange: [0, THRESHOLD], outputRange: [0, 1], extrapolate: 'clamp' });
   const dismissOpacity = x.interpolate({ inputRange: [-THRESHOLD, 0], outputRange: [1, 0], extrapolate: 'clamp' });
+  const confirmTint = x.interpolate({ inputRange: [0, THRESHOLD], outputRange: [0, 0.16], extrapolate: 'clamp' });
+  const dismissTint = x.interpolate({ inputRange: [-THRESHOLD, 0], outputRange: [0.16, 0], extrapolate: 'clamp' });
   const cat = cats.find((c) => c.id === txn.category_id);
   const when = new Date(txn.ts).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
   return (
     <View>
-      <Animated.View {...pan.panHandlers} style={{ transform: [{ translateX: x }, { rotate }] }} className="rounded-3xl bg-card p-5">
-        <Animated.Text style={{ opacity: confirmOpacity }} className="absolute left-5 top-4 text-sm font-bold text-accent">CONFIRM</Animated.Text>
-        <Animated.Text style={{ opacity: dismissOpacity }} className="absolute right-5 top-4 text-sm font-bold text-danger">DISMISS</Animated.Text>
+      <Animated.View {...pan.panHandlers} style={[{ transform: [{ translateX: x }, { rotate }] }, lift]} className="overflow-hidden rounded-[32px] border border-line bg-card p-5">
+        {/* swipe feedback: the card tints toward the action and a stamp appears */}
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.accent, opacity: confirmTint }]} />
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.danger, opacity: dismissTint }]} />
+        <Animated.View style={{ opacity: confirmOpacity, borderColor: colors.accent }} className="absolute left-5 top-5 rounded-full border-2 px-3 py-1" pointerEvents="none"><Text className="text-sm font-bold tracking-widest text-accent">CONFIRM</Text></Animated.View>
+        <Animated.View style={{ opacity: dismissOpacity, borderColor: colors.danger }} className="absolute right-5 top-5 rounded-full border-2 px-3 py-1" pointerEvents="none"><Text className="text-sm font-bold tracking-widest text-danger">DISMISS</Text></Animated.View>
 
         <View className="mt-4 items-center">
-          <Text className="text-xs uppercase tracking-wider text-muted">{txn.direction === 'debit' ? 'Spent' : 'Received'}</Text>
-          <Amount paise={txn.amount_paise} direction={txn.direction} approx={!!txn.currency} className="text-5xl" />
+          <View className="mb-3 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: cat?.color ?? colors.surface2 }}>
+            <Text className="text-2xl font-bold" style={{ color: cat ? '#FFFFFF' : colors.muted }}>{(txn.merchant ?? '?').trim()[0]?.toUpperCase() ?? '?'}</Text>
+          </View>
+          <Text className="text-xs font-semibold uppercase tracking-widest text-muted">{txn.direction === 'debit' ? 'Spent' : 'Received'}</Text>
+          <Amount paise={txn.amount_paise} direction={txn.direction} approx={!!txn.currency} className="mt-1 text-5xl" />
           {txn.currency && txn.foreign_minor ? <Text className="mt-1 text-sm text-muted">{formatForeign(txn.foreign_minor, txn.currency)} converted at an approximate rate. Tap the merchant to set the exact rupee amount from your statement.</Text> : null}
           <Pressable onPress={onEdit} accessibilityRole="button" accessibilityLabel="Edit merchant and amount" hitSlop={8}>
-            <Text className="mt-2 text-xl text-fg" accessibilityRole="header">{txn.merchant ?? 'Unknown merchant'}</Text>
+            <Text className="mt-2 text-xl font-semibold text-fg" accessibilityRole="header">{txn.merchant ?? 'Unknown merchant'}</Text>
           </Pressable>
           <Text className="mt-1 text-sm text-muted">
             {[account ?? txn.bank, txn.payment_mode, when].filter(Boolean).join(' · ')}
@@ -91,7 +101,7 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
           </View>
         ) : null}
 
-        <Text className="mb-2 mt-6 text-xs uppercase tracking-wider text-muted">Category</Text>
+        <Text className="mb-2 mt-6 text-xs font-semibold uppercase tracking-widest text-muted">Category</Text>
         <View className="flex-row flex-wrap">
           {quick.map((c) => <Chip key={c.id} label={c.name} color={c.color} selected={cat?.id === c.id} onPress={() => onCategory(c.id)} />)}
           {cat && !quick.some((q) => q.id === cat.id) && <Chip label={cat.name} color={cat.color} selected onPress={onMore} />}
@@ -107,7 +117,7 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
         {showRaw && <Text className="mt-2 rounded-2xl bg-card2 p-3 text-xs text-muted" selectable>{txn.raw_text}</Text>}
       </Animated.View>
 
-      <View className="mt-5 flex-row">
+      <View className="mt-6 flex-row">
         <Button className="mr-3 flex-1" variant="danger" label="Dismiss" onPress={() => fling(-1)} />
         <Button className="flex-1" label="Confirm" onPress={() => fling(1)} />
       </View>
@@ -196,14 +206,12 @@ export default function Review() {
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <View className="mb-4 flex-row items-center justify-between">
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close review"><X color={colors.fg} /></Pressable>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close review" className="h-10 w-10 items-center justify-center rounded-full border border-line bg-card"><X size={20} color={colors.fg} /></Pressable>
         <Text className="text-base font-semibold text-fg" accessibilityRole="header">{queue && queue.length ? `${done + 1} of ${total}` : 'Review'}</Text>
-        <Pressable onPress={confirmCategorised} hitSlop={12} accessibilityRole="button" accessibilityLabel="Confirm all categorised"><CheckCheck color={colors.accent} /></Pressable>
+        <Pressable onPress={confirmCategorised} hitSlop={12} accessibilityRole="button" accessibilityLabel="Confirm all categorised" className="h-10 w-10 items-center justify-center rounded-full border border-line bg-card"><CheckCheck size={20} color={colors.accent} /></Pressable>
       </View>
       {queue && total > 0 && (
-        <View className="mb-4 h-1.5 overflow-hidden rounded-full bg-card2">
-          <View className="h-1.5 rounded-full bg-accent" style={{ width: `${(done / total) * 100}%` }} />
-        </View>
+        <AnimatedBar className="mb-5" pct={done / total} color={colors.accent} height={6} />
       )}
 
       {!queue ? (
@@ -233,7 +241,7 @@ export default function Review() {
         </ScrollView>
       ) : (
         <EmptyState
-          icon={<CheckCheck size={48} color={colors.accent} />}
+          icon={<PopIn><View className="h-20 w-20 items-center justify-center rounded-full" style={{ backgroundColor: `${colors.accent}22` }}><CheckCheck size={40} color={colors.accent} /></View></PopIn>}
           title="All caught up"
           body={total ? `You reviewed ${total} transaction${total === 1 ? '' : 's'}.` : 'New transactions will show up here.'}
           action={<Button label="Back to Home" onPress={() => router.back()} />}

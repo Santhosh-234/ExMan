@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Easing, Pressable, type PressableProps, type StyleProp, View, type ViewStyle } from 'react-native';
 
 import { Text } from '@/ui/Text';
 import { useReducedMotion } from '@/ui/motion';
@@ -41,4 +41,34 @@ export function CountUp({ value, format, className, accessibilityLabel }: { valu
     return () => { a.removeListener(id); from.current = value; };
   }, [value, reduced]);
   return <Text className={className} accessibilityLabel={accessibilityLabel ?? format(value)}>{format(Math.round(shown))}</Text>;
+}
+
+/** A horizontal bar whose fill animates to `pct` (0-1) when it changes. */
+export function AnimatedBar({ pct, color, height = 10, track, className = '' }: { pct: number; color: string; height?: number; track?: string; className?: string }) {
+  const reduced = useReducedMotion();
+  const w = useRef(new Animated.Value(reduced ? pct : 0)).current;
+  useEffect(() => {
+    if (reduced) { w.setValue(pct); return; }
+    Animated.timing(w, { toValue: pct, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [pct, w, reduced]);
+  return (
+    <View className={`overflow-hidden rounded-full ${track ?? 'bg-card2'} ${className}`} style={{ height }}>
+      <Animated.View style={{ height, borderRadius: height, backgroundColor: color, width: w.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'], extrapolate: 'clamp' }) }} />
+    </View>
+  );
+}
+
+/** Pops in with a spring (success checkmarks, empty states). */
+export function PopIn({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
+  const reduced = useReducedMotion();
+  const s = useRef(new Animated.Value(reduced ? 1 : 0.6)).current;
+  const o = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduced) return;
+    Animated.parallel([
+      Animated.spring(s, { toValue: 1, delay, friction: 6, tension: 90, useNativeDriver: true }),
+      Animated.timing(o, { toValue: 1, duration: 220, delay, useNativeDriver: true }),
+    ]).start();
+  }, [s, o, delay, reduced]);
+  return <Animated.View style={{ opacity: o, transform: [{ scale: s }] }}>{children}</Animated.View>;
 }

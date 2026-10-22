@@ -15,7 +15,7 @@ import { cachedApkUpdate, dismissApkUpdate } from '@/updates/apk';
 import { type ApkUpdate, isTrustedApkUrl } from '@/utils/apkUpdate';
 import { acknowledgeAutoTransfers, countAutoTransfers } from '@/db/transfers';
 import { notifyIngested, onIngested } from '@/ingest/events';
-import { Pressy, CountUp, FadeIn } from '@/ui/anim';
+import { AnimatedBar, Pressy, CountUp, FadeIn } from '@/ui/anim';
 import { Button, Card, Fab, SectionLabel, Skeleton } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { TxnRow } from '@/ui/TxnRow';
@@ -173,8 +173,8 @@ export default function Home() {
               </View>
             )}
 
-            <View className="mt-5 h-2.5 overflow-hidden rounded-full bg-card2" accessibilityRole="progressbar" accessibilityValue={budget ? { min: 0, max: 100, now: Math.round(pct * 100) } : undefined}>
-              <View style={{ width: `${pct * 100}%`, backgroundColor: over ? colors.danger : colors.accent }} className="h-2.5 rounded-full" />
+            <View className="mt-5" accessibilityRole="progressbar" accessibilityValue={budget ? { min: 0, max: 100, now: Math.round(pct * 100) } : undefined}>
+              <AnimatedBar pct={pct} color={over ? colors.danger : colors.accent} height={10} />
             </View>
             {editing ? (
               <View className="mt-3 flex-row items-center">
@@ -216,7 +216,7 @@ export default function Home() {
             {top.map((s) => (
               <View key={String(s.category_id)} className="mb-3">
                 <View className="mb-1 flex-row justify-between"><Text className="text-fg">{s.name}</Text><Text className="text-muted">{rupees(s.total)}</Text></View>
-                <View className="h-2 overflow-hidden rounded-full bg-card2"><View className="h-2 rounded-full" style={{ width: `${(s.total / topMax) * 100}%`, backgroundColor: s.color }} /></View>
+                <AnimatedBar pct={s.total / topMax} color={s.color} height={8} />
               </View>
             ))}
           </Card></FadeIn>

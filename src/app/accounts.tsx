@@ -1,14 +1,14 @@
 import { useSecurity } from '@/security/store';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { Banknote, ChevronLeft, CreditCard, Landmark, Plus } from 'lucide-react-native';
+import { Banknote, CreditCard, Landmark, Plus } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
 
 import { type Account, type AccountStats, addAccount, getAccountStats } from '@/db/queries';
 import { onIngested } from '@/ingest/events';
-import { Button, Card, Chip, EmptyState, Sheet } from '@/ui/kit';
+import { Button, Card, Chip, EmptyState, Sheet, BackButton } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { monthKey, monthLabel, monthRange, rupees } from '@/utils/format';
 
@@ -21,7 +21,7 @@ export function AccountCard({ a, onPress }: { a: AccountStats; onPress: () => vo
   const Icon = ICON[a.kind];
   const sub = [a.bank, a.last4 ? `…${a.last4}` : null].filter(Boolean).join(' ');
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" className={`mb-3 rounded-3xl bg-card p-4 ${a.archived ? 'opacity-50' : ''}`}>
+    <Pressable onPress={onPress} accessibilityRole="button" className={`mb-3 rounded-[26px] border border-line bg-card p-4 ${a.archived ? 'opacity-50' : ''}`}>
       <View className="flex-row items-center">
         <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-card2"><Icon size={20} color={colors.accent} /></View>
         <View className="flex-1">
@@ -75,9 +75,7 @@ export default function Accounts() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <View className="mb-1 flex-row items-center justify-between">
         <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Accounts</Text>
         <Pressable onPress={() => setAdding(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add account"><Plus color={colors.accent} /></Pressable>

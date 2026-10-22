@@ -2,14 +2,16 @@ import { useSecurity } from '@/security/store';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { Bars, Pie } from '@/components/Charts';
 import { MonthBar } from '@/components/MonthBar';
 import { type CategorySpend, monthlyTotals, spendByCategory, topMerchants, totalFor } from '@/db/queries';
 import { onIngested } from '@/ingest/events';
-import { Card, Chip } from '@/ui/kit';
+import { Lightbulb, Repeat } from 'lucide-react-native';
+import { AnimatedBar, FadeIn, Pressy } from '@/ui/anim';
+import { Card, Chip, SectionLabel } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { monthKey, monthLabel, monthRange, rupees, shiftMonth } from '@/utils/format';
 import { buildCallouts } from '@/utils/insights';
@@ -19,7 +21,6 @@ import { useRouter } from 'expo-router';
 export default function Insights() {
   useSecurity(); // re-render when "hide amounts" changes
   const db = useSQLiteContext();
-  const { width } = useWindowDimensions();
   const { colors } = useTheme();
   const nowKey = monthKey(new Date());
   const [month, setMonth] = useState(nowKey);
@@ -59,7 +60,6 @@ export default function Insights() {
   useEffect(() => onIngested(() => void load()), [load]);
 
   const shown = useMemo(() => (filter === 'all' ? spend : spend.filter((s) => s.category_id === filter)), [spend, filter]);
-  const cw = width - 64;
   const rangeLabel = range === 6 ? '6 months' : '12 months';
 
   return (
@@ -68,19 +68,25 @@ export default function Insights() {
       <MonthBar month={month} onChange={setMonth} max={nowKey} />
 
       {subs.n > 0 && (
-        <Pressable onPress={() => router.push('/subscriptions')} accessibilityRole="button" className="mb-4">
-          <Card>
+        <Pressy onPress={() => router.push('/subscriptions')} accessibilityRole="button" className="mb-4" innerClassName="flex-row items-center rounded-[26px] border border-line bg-card p-4">
+          <View className="mr-3 h-11 w-11 items-center justify-center rounded-full bg-card2"><Repeat size={20} color={colors.accent} /></View>
+          <View className="flex-1">
             <Text className="text-base font-semibold text-fg">Subscriptions</Text>
-            <Text className="mt-1 text-fg">About {rupees(subs.monthly)} a month across {subs.n} recurring payment{subs.n === 1 ? '' : 's'}</Text>
-            <Text className="mt-1 text-accent">See them all ›</Text>
-          </Card>
-        </Pressable>
+            <Text className="mt-0.5 text-sm text-muted">About {rupees(subs.monthly)} a month across {subs.n} recurring payment{subs.n === 1 ? '' : 's'}</Text>
+          </View>
+          <Text className="text-lg text-muted">›</Text>
+        </Pressy>
       )}
 
       {callouts.length > 0 && (
         <Card className="mb-4">
           <Text className="mb-2 text-base font-semibold text-fg">This month</Text>
-          {callouts.map((c) => <Text key={c} className="mb-1.5 text-fg">• {c}</Text>)}
+          {callouts.map((c) => (
+            <View key={c} className="mb-2 flex-row items-start">
+              <View className="mr-3 mt-0.5 h-7 w-7 items-center justify-center rounded-full bg-card2"><Lightbulb size={14} color={colors.accent} /></View>
+              <Text className="flex-1 text-fg">{c}</Text>
+            </View>
+          ))}
         </Card>
       )}
 
@@ -94,46 +100,54 @@ export default function Insights() {
           <Text className="text-muted">Nothing confirmed this month.</Text>
         ) : (
           <View className="items-center">
-            <Pie data={shown.map((s) => ({ label: s.name, value: s.total, color: s.color }))} label={`Spending in ${monthLabel(month)}`} />
-            <View className="mt-3 w-full">
-              {shown.map((s) => (
-                <View key={String(s.category_id)} className="mb-1.5 flex-row items-center justify-between">
-                  <View className="flex-row items-center"><View className="mr-2 h-3 w-3 rounded-full" style={{ backgroundColor: s.color }} /><Text className="text-fg">{s.name}</Text></View>
-                  <Text className="text-muted">{rupees(s.total)}</Text>
-                </View>
-              ))}
+            <Pie data={shown.map((s) => ({ label: s.name, value: s.total, color: s.color }))} label={`Spending in ${monthLabel(month)}`} center={{ title: filter === 'all' ? 'Spent' : shown[0]?.name ?? '', value: rupees(shown.reduce((a, s) => a + s.total, 0)) }} />
+            <View className="mt-4 w-full">
+              {shown.map((s) => {
+                const sum = shown.reduce((a, x) => a + x.total, 0) || 1;
+                return (
+                  <View key={String(s.category_id)} className="mb-3">
+                    <View className="mb-1 flex-row items-center justify-between">
+                      <View className="flex-row items-center"><View className="mr-2 h-3 w-3 rounded-full" style={{ backgroundColor: s.color }} /><Text className="text-fg">{s.name}</Text></View>
+                      <Text className="text-muted" style={{ fontVariant: ['tabular-nums'] }}>{rupees(s.total)} · {Math.round((s.total / sum) * 100)}%</Text>
+                    </View>
+                    <AnimatedBar pct={s.total / sum} color={s.color} height={6} />
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
       </Card>
 
-      <View className="mb-2 flex-row items-center justify-between">
-        <Text className="text-lg font-semibold text-fg" accessibilityRole="header">Trends</Text>
+      <SectionLabel right={
         <View className="flex-row">
           <Chip label="6M" selected={range === 6} color={colors.accent} onPress={() => setRange(6)} />
           <Chip label="12M" selected={range === 12} color={colors.accent} onPress={() => setRange(12)} />
         </View>
-      </View>
+      }>Trends</SectionLabel>
       <Card className="mb-4">
         <Text className="mb-3 text-base font-semibold text-fg">Spending, last {rangeLabel}</Text>
-        <Bars data={series} width={cw} label={`Spending, last ${rangeLabel}`} />
+        <Bars data={series} label={`Spending, last ${rangeLabel}`} />
       </Card>
       <Card className="mb-4">
         <Text className="mb-3 text-base font-semibold text-fg">Income, last {rangeLabel}</Text>
-        <Bars data={income} width={cw} label={`Income, last ${rangeLabel}`} />
+        <Bars data={income} label={`Income, last ${rangeLabel}`} />
       </Card>
       <Card className="mb-4">
         <Text className="mb-1 text-base font-semibold text-fg">Saved, last {rangeLabel}</Text>
         <Text className="mb-3 text-xs text-muted">Income minus spending, per month (never below zero).</Text>
-        <Bars data={saved} width={cw} label={`Saved, last ${rangeLabel}`} />
+        <Bars data={saved} label={`Saved, last ${rangeLabel}`} />
       </Card>
       <Card className="mb-4">
         <Text className="mb-3 text-base font-semibold text-fg">Top merchants ({rangeLabel})</Text>
         {merchants.length === 0 && <Text className="text-muted">Nothing confirmed yet.</Text>}
         {merchants.map((m) => (
-          <View key={m.merchant} className="mb-2 flex-row justify-between">
-            <Text className="text-fg">{m.merchant} <Text className="text-xs text-muted">×{m.n}</Text></Text>
-            <Text className="text-muted">{rupees(m.total)}</Text>
+          <View key={m.merchant} className="mb-3">
+            <View className="mb-1 flex-row justify-between">
+              <Text className="flex-1 pr-2 text-fg" numberOfLines={1}>{m.merchant} <Text className="text-xs text-muted">×{m.n}</Text></Text>
+              <Text className="text-muted" style={{ fontVariant: ['tabular-nums'] }}>{rupees(m.total)}</Text>
+            </View>
+            <AnimatedBar pct={m.total / Math.max(1, merchants[0]?.total ?? 1)} color={colors.accent} height={5} />
           </View>
         ))}
       </Card>

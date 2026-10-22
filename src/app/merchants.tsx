@@ -1,7 +1,7 @@
 import { useSecurity } from '@/security/store';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ChevronLeft, Search } from 'lucide-react-native';
+import { Search } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
@@ -11,7 +11,7 @@ import { type Category, getCategories } from '@/db/queries';
 import { isTransferMerchant, setTransferMerchant } from '@/db/transfers';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
-import { Button, Card, EmptyState, Sheet } from '@/ui/kit';
+import { Button, Card, EmptyState, Sheet, BackButton } from '@/ui/kit';
 import { CategoryChips } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
@@ -42,12 +42,10 @@ export default function Merchants() {
 
   return (
     <View className="flex-1 bg-base px-4 pt-14">
-      <Pressable onPress={() => router.back()} hitSlop={12} className="mb-2 flex-row items-center" accessibilityRole="button" accessibilityLabel="Back">
-        <ChevronLeft color={colors.fg} /><Text className="text-fg">Back</Text>
-      </Pressable>
+      <BackButton />
       <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Merchants</Text>
       <Text className="mb-3 text-xs text-muted">ExMan groups different spellings of the same payee. Rename or merge here if it got one wrong.</Text>
-      <View className="mb-3 min-h-12 flex-row items-center rounded-2xl bg-card px-3">
+      <View className="mb-3 min-h-12 flex-row items-center rounded-[22px] border border-line bg-card px-3">
         <Search size={18} color={colors.muted} />
         <TextInput className="ml-2 flex-1 text-base text-fg" value={q} onChangeText={setQ} placeholder="Search merchants" placeholderTextColor={colors.muted} accessibilityLabel="Search merchants" />
       </View>
@@ -61,7 +59,7 @@ export default function Merchants() {
         renderItem={({ item: m }) => {
           const c = catById.get(m.rule_category_id ?? m.category_id ?? -1);
           return (
-            <Pressable onPress={() => { setSel(m); setMode('menu'); void isTransferMerchant(db, m.id).then(setIsXfer); }} accessibilityRole="button" className="mb-2 min-h-16 flex-row items-center rounded-2xl bg-card p-3">
+            <Pressable onPress={() => { setSel(m); setMode('menu'); void isTransferMerchant(db, m.id).then(setIsXfer); }} accessibilityRole="button" className="mb-2 min-h-16 flex-row items-center rounded-[22px] border border-line bg-card p-3">
               <View className="mr-3 h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: c?.color ?? colors.surface2 }}>
                 <Text className="text-base font-bold text-white">{m.name[0]?.toUpperCase()}</Text>
               </View>
