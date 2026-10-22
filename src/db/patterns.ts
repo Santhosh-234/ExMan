@@ -1,3 +1,4 @@
+import { looksLikeTransaction } from '@/utils/transactional';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { type Pattern, type Taught, applyPattern, senderKey } from '@/utils/teach';
@@ -40,7 +41,17 @@ export async function loadPatternIndex(db: SQLiteDatabase) {
 }
 
 export type Unparsed = { id: number; sender: string; text: string; ts: number };
-export const listUnparsed = (db: SQLiteDatabase, limit = 100) => db.getAllAsync<Unparsed>('SELECT id, sender, text, ts FROM unparsed ORDER BY ts DESC LIMIT ?', limit);
+/** Unrecognised messages, newest first. By default only ones that look like money movements; offers and reminders stay stored but hidden. */
+export async function listUnparsed(db: SQLiteDatabase, limit = 100, showAll = false) {
+  const rows = await db.getAllAsync<Unparsed>('SELECT id, sender, text, ts FROM unparsed ORDER BY ts DESC');
+  return (showAll ? rows : rows.filter((r) => looksLikeTransaction(r.text))).slice(0, limit);
+}
 export const getUnparsed = (db: SQLiteDatabase, id: number) => db.getFirstAsync<Unparsed>('SELECT id, sender, text, ts FROM unparsed WHERE id = ?', id);
 export const deleteUnparsed = (db: SQLiteDatabase, id: number) => db.runAsync('DELETE FROM unparsed WHERE id = ?', id);
-export const countUnparsed = async (db: SQLiteDatabase) => (await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM unparsed'))?.n ?? 0;
+/** How many stored unrecognised messages look like transactions, and how many are hidden promos/reminders. */
+export async function countUnparsedSplit(db: SQLiteDatabase) {
+  const rows = await db.getAllAsync<{ text: string }>('SELECT text FROM unparsed');
+  const likely = rows.filter((r) => looksLikeTransaction(r.text)).length;
+  return { likely, hidden: rows.length - likely };
+}
+export const countUnparsed = async (db: SQLiteDatabase) => (await countUnparsedSplit(db)).likely;

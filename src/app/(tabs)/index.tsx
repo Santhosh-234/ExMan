@@ -4,12 +4,14 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronRight, Eye, EyeOff, Inbox, TrendingDown, TrendingUp } from 'lucide-react-native';
 import { updateSecurity } from '@/security/store';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { MonthBar } from '@/components/MonthBar';
 import { dueText } from '../subscriptions';
 import { type BudgetLine, type Category, type CategorySpend, type Txn, budgetOverview, countPending, getBudget, getCategories, queryTxns, setBudget, spendByCategory, totalFor } from '@/db/queries';
 import { countUnparsed } from '@/db/patterns';
+import { cachedApkUpdate, dismissApkUpdate } from '@/updates/apk';
+import { type ApkUpdate, isTrustedApkUrl } from '@/utils/apkUpdate';
 import { acknowledgeAutoTransfers, countAutoTransfers } from '@/db/transfers';
 import { notifyIngested, onIngested } from '@/ingest/events';
 import { Button, Card, Fab, Skeleton } from '@/ui/kit';
@@ -31,6 +33,7 @@ export default function Home() {
   const [pending, setPending] = useState(0);
   const [autoTransfers, setAutoTransfers] = useState(0);
   const [unparsed, setUnparsed] = useState(0);
+  const [apk, setApk] = useState<ApkUpdate | null>(null);
   const [upcoming, setUpcoming] = useState<Recurring[]>([]);
   const [alerts, setAlerts] = useState<{ line: BudgetLine; pct: number; over: boolean; left: number }[]>([]);
   const [spend, setSpend] = useState<CategorySpend[]>([]);
@@ -56,6 +59,7 @@ export default function Home() {
     // subscriptions due in the next week (current month view only)
     const rec = month === monthKey(new Date()) ? await getRecurring(db) : [];
     setUpcoming(rec.filter((r) => r.status === 'active' && r.nextTs - Date.now() <= 7 * 864e5).slice(0, 2));
+    setApk(await cachedApkUpdate(db));
     setPending(p); setAutoTransfers(at); setUnparsed(up); setSpend(s); setIncome(i); setPrevSpent(ps); setBudgetState(b); setRecent(r.slice(0, 5)); setCats(c); setLoaded(true);
   }, [db, month]);
   useFocusEffect(useCallback(() => void load(), [load]));
@@ -84,6 +88,17 @@ export default function Home() {
             {hide ? <EyeOff color={colors.muted} /> : <Eye color={colors.muted} />}
           </Pressable>
         </View>
+
+        {apk && (
+          <View className="mb-4 rounded-3xl bg-card p-4">
+            <Text className="text-base font-semibold text-fg">New app version available</Text>
+            <Text className="mt-1 text-sm text-muted">{apk.name}{apk.sizeMb ? ` · ${apk.sizeMb} MB` : ''}. It includes changes that a normal update can't deliver. Download it, open the file, and install over this one. Your data is kept.</Text>
+            <View className="mt-3 flex-row">
+              <Button className="mr-3 flex-1" label="Download" onPress={() => { if (isTrustedApkUrl(apk.url)) void Linking.openURL(apk.url); }} />
+              <Button className="flex-1" variant="secondary" label="Later" onPress={async () => { await dismissApkUpdate(db, apk.tag); setApk(null); }} />
+            </View>
+          </View>
+        )}
 
         {pending > 0 && (
           <Pressable onPress={() => router.push('/review')} accessibilityRole="button" accessibilityLabel={`${pending} transactions to review`} className="mb-4 flex-row items-center rounded-3xl bg-accent p-4">
