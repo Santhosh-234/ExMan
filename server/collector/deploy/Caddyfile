@@ -1,0 +1,19 @@
+# Replace HOST with your hostname, e.g. 13-232-10-4.sslip.io (see docs/telemetry-server.md)
+HOST {
+	# the collector must never learn or keep who is calling: no access logs at all
+	log {
+		output discard
+	}
+	request_body {
+		max_size 300KB
+	}
+	handle /t* {
+		reverse_proxy 127.0.0.1:8787
+	}
+	handle /healthz {
+		reverse_proxy 127.0.0.1:8787
+	}
+	handle {
+		respond 404
+	}
+}
