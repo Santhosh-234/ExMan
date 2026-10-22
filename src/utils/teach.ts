@@ -24,7 +24,9 @@ export function tokenize(text: string): Token[] {
   const out: Token[] = [];
   for (let i = 0; i < raw.length; i++) {
     const t = raw[i], n = raw[i + 1];
-    const startsWord = t.start === 0 || /\s/.test(text[t.start - 1]);
+    const prev = out[out.length - 1];
+    // ".32" is one number when the dot starts a word, or directly follows a foreign currency code or symbol ("USD.32", "$.32"); "Rs.500" keeps its dot apart
+    const startsWord = t.start === 0 || /\s/.test(text[t.start - 1]) || (!!prev && prev.end === t.start && /^(?:USD|EUR|GBP|AED|SGD|AUD|CAD|CHF|JPY|THB|[$€£])$/i.test(prev.text));
     if (t.text === '.' && startsWord && n && n.start === t.end && /^\d+$/.test(n.text)) { out.push({ text: `.${n.text}`, start: t.start, end: n.end }); i++; }
     else out.push(t);
   }
@@ -46,12 +48,67 @@ const AMOUNT_CAP = String.raw`((?:[\d,]+(?:\.\d{1,2})?|\.\d{1,2}))`;
 const ACCOUNT_CAP = String.raw`(\d{3,4})`;
 const MERCHANT_CAP = String.raw`([A-Za-z0-9][A-Za-z0-9 &'.@_/\-]*?)`;
 
-/** Regex = up to 3 words before the span, a capture group, and the next word after it. */
-function fieldRegex(tokens: Token[], [a, b]: [number, number], capture: string, lazyTail = false): string {
-  const before = tokens.slice(Math.max(0, a - 3), a);
-  const after = tokens.slice(b + 1, b + 2);
+// Wording that belongs to a bank's template rather than to one transaction (lower-case compare).
+const STABLE_WORDS = new Set((
+  'inr rs usd eur gbp aed sgd aud cad chf jpy thb upi neft imps rtgs atm pos ecs emi sms otp nach vpa ist xx debited credited debit credit spent paid pay payment payments received receive sent send withdrawn withdrawal deposited deposit '
+  + 'transferred transfer purchase purchased txn trans transaction card account acct ac bank ending with at on to from for via using towards by of in your you has have been is was are successful successfully thank thanks dear customer '
+  + 'alert info notice avl available bal balance limit lmt total ref reference rrn id no number not call if then block mandate online amount amt sale refund reversed reversal charged charge'
+).split(/\s+/));
+
+/**
+ * Which tokens probably change from message to message (a merchant such as "Netflix", "AT&T" or "Joe's Cafe"), judged from one example:
+ * a capitalised or ALL-CAPS word that is not known template wording. A whole run of characters with no space (SPOTIFY.COM, Joe's) counts
+ * as one word. Such words must not become part of a pattern's context or it would only match that one merchant. In a message written
+ * entirely in capitals case says nothing, so only dictionary wording counts as stable there.
+ */
+function variableWords(text: string, tokens: Token[]): (t: Token) => boolean {
+  const alpha = (t: Token) => /^[A-Za-z]+$/.test(t.text);
+  const letters = tokens.filter((t) => alpha(t) && t.text.length >= 2);
+  const allCaps = letters.length > 2 && letters.filter((t) => t.text === t.text.toUpperCase()).length / letters.length > 0.8;
+  const looksVariable = (t: Token) => {
+    if (!alpha(t) || t.text.length < 2 || STABLE_WORDS.has(t.text.toLowerCase()) || /^x+$/i.test(t.text)) return false;
+    return allCaps ? true : t.text[0] === t.text[0].toUpperCase();
+  };
+  // group tokens into space-free chunks; one variable word makes the whole chunk variable
+  const chunkOf = new Map<Token, Token[]>();
+  let cur: Token[] = [];
+  const flush = () => { for (const t of cur) chunkOf.set(t, cur); cur = []; };
+  tokens.forEach((t, i) => {
+    if (i > 0 && t.start > tokens[i - 1].end) flush();
+    cur.push(t);
+  });
+  flush();
+  void text;
+  const memo = new Map<Token[], boolean>();
+  return (t) => {
+    const chunk = chunkOf.get(t) ?? [t];
+    if (!memo.has(chunk)) memo.set(chunk, chunk.some(looksVariable) || (chunk.length > 1 && chunk.some((x) => x.text === '&')));
+    return memo.get(chunk)!;
+  };
+}
+
+/** The stable words around a span: up to 3 before it (stopping at a variable word) and the next word if it is stable. */
+function contextOf(text: string, tokens: Token[], [a, b]: [number, number]) {
+  const variable = variableWords(text, tokens);
+  const before: Token[] = [];
+  // three tokens back, and keep going (up to six) until at least one real word is included: "card 1234 : $" alone says nothing
+  for (let i = a - 1; i >= 0 && (before.length < 3 || (!before.some((t) => /^[A-Za-z]+$/.test(t.text)) && before.length < 6)); i--) {
+    if (variable(tokens[i])) break;
+    before.unshift(tokens[i]);
+  }
+  const next = tokens[b + 1];
+  const after = next && !variable(next) ? [next] : [];
+  return { before, after };
+}
+
+// the captured number must be the whole number, not the start of a longer one
+const WHOLE_NUMBER = String.raw`(?![\d]|[.,]\d)`;
+
+/** Regex = stable words before the span, a capture group, and the stable word after it (or a boundary when the next word varies). */
+function fieldRegex(text: string, tokens: Token[], span: [number, number], capture: string, lazyTail = false, wholeNumber = false): string {
+  const { before, after } = contextOf(text, tokens, span);
   const head = before.length ? `${frag(before)}${String.raw`\s*`}` : '';
-  const tail = after.length ? `${String.raw`\s*`}${frag(after)}` : lazyTail ? String.raw`\s*(?:[.,;]|$)` : '';
+  const tail = after.length ? `${String.raw`\s*`}${frag(after)}` : lazyTail ? String.raw`\s*(?:[.,;]|$)` : wholeNumber ? WHOLE_NUMBER : '';
   return `${head}${capture}${tail}`;
 }
 
@@ -64,13 +121,13 @@ export function buildPattern(text: string, sel: Selection, direction: 'debit' | 
   if (sel.account && !num(sel.account)) return { ok: false, error: 'The account must be a single number (last 3-4 digits).' };
 
   // too little context would match any number in any message from this sender
-  const aCtx = tokens.slice(Math.max(0, sel.amount[0] - 3), sel.amount[0]).concat(tokens.slice(sel.amount[1] + 1, sel.amount[1] + 2));
-  if (!hasWord(aCtx)) return { ok: false, error: 'There are no words next to the amount to recognise this format. Pick a message with text around the amount.' };
+  const aCtx = contextOf(text, tokens, sel.amount);
+  if (!hasWord([...aCtx.before, ...aCtx.after])) return { ok: false, error: 'There are no fixed words next to the amount to recognise this format (a merchant name next to it changes between messages). Try a message with wording like "debited" or "spent" beside the amount.' };
 
   const pattern: Pattern = {
-    amount_re: fieldRegex(tokens, sel.amount, AMOUNT_CAP),
-    merchant_re: sel.merchant ? fieldRegex(tokens, sel.merchant, MERCHANT_CAP, true) : null,
-    account_re: sel.account ? fieldRegex(tokens, sel.account, ACCOUNT_CAP) : null,
+    amount_re: fieldRegex(text, tokens, sel.amount, AMOUNT_CAP, false, true),
+    merchant_re: sel.merchant ? fieldRegex(text, tokens, sel.merchant, MERCHANT_CAP, true) : null,
+    account_re: sel.account ? fieldRegex(text, tokens, sel.account, ACCOUNT_CAP) : null,
     direction,
     currency,
   };

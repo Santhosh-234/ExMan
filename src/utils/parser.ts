@@ -41,16 +41,22 @@ const ACCOUNTS: RegExp[] = [
   /\b[xX*]{2,}\s?(\d{4})\b/,
 ];
 const STOP = String.raw`(?=\s+(?:on|via|ref|upi|using|from|avl|bal|linked|dt|date|txn|info|if|not|call|thru|through|\()|[.,;(/]|\s*$)`;
-const NAME = String.raw`(?!a\/c|ac\b|acct|account|your|card|vpa)([A-Za-z][A-Za-z0-9 &'\-]*?)`;
+// not a merchant: account words, and the call-to-action phrases banks append ("To dispute call 1800...", "to block UPI")
+const NAME = String.raw`(?!(?:upi|neft|imps|rtgs|ref|cheque|cash|atm|sms)\s|a\/c|ac\b|acct|account|your|card|vpa|dispute|report|block|know|stop|unsubscribe|opt|view|check|click|reply|download|register|avoid|activate|manage|call)([A-Za-z][A-Za-z0-9 &'\-]*?)`;
 const merchantAfter = (words: string) => new RegExp(String.raw`\b(?:${words})\s+${NAME}${STOP}`, 'i');
 const TO_DEBIT = merchantAfter('to|at|towards');
 const FROM_CREDIT = merchantAfter('from|by');
+// UPI apps: "Rahul Sharma paid you ₹1,500" is money in, from the person named first
+const PAID_YOU = /^\s*([A-Za-z][A-Za-z .'\-]{1,40}?)\s+(?:has\s+)?(?:paid|sent)\s+you\b/i;
 const VPA = /\bVPA\s+([\w.\-]+@\w+)/i;
 const VPA_BARE = /\b([\w.\-]{2,}@(?:ok\w+|ybl|ibl|axl|paytm|upi|sbi|icici|hdfcbank|apl|oksbi|axisbank|okaxis|okhdfcbank|okicici|ptyes|ptsbi|pthdfc|fbl|idfcbank|kotak|yesbank|indus|rbl|boi|cnrb|pnb|unionbank|barodampay|freecharge|jupiteraxis|slc|waaxis|wahdfcbank|wasbi|waicici|abfspay))\b/i;
 const ICICI_PAYEE = /;\s*([^;]+?)\s+credited/i; // "debited for Rs 5; SWIGGY credited."
 const UPI_SLASH = /\bUPI\/(?:P2[AMPB]|CR|DR|MOB)?\/?\d{6,}\/([^\/\n]+?)(?=\/|\s+(?:SMS|UPI|Ref|if|not|avl|bal)\b|\s*$)/i; // Axis: "UPI/P2M/123456789012/Swiggy"
 const UPI_DASH = /\bUPI[-\/:]\s*([A-Za-z][A-Za-z0-9 .&'\-]*?)(?:[-\/][\w.\-]+@\w+|\s*[-\/]\d{6,}|\.|,|$)/; // "UPI-SWIGGY-swiggy@ybl-123"
 const INFO = /\bInfo\s*[:\-]\s*(?:UPI\/\w+\/\d+\/|NEFT[-\/]|IMPS[-\/]|INF\/\w+\/\d+\/)?([A-Za-z][A-Za-z0-9 .&'\-]*?)(?:\/|\.\s|\s*$|;)/i;
+// ICICI/Axis card style: "... Card XX1234 on 07-Oct-26 on AMAZON. Avl Lmt ..." (a date, then on/at, then the merchant)
+const DATE_THEN = /\bon\s+\d{1,2}[-\/ ](?:[A-Za-z]{3,9}|\d{1,2})[-\/ ]\d{2,4}(?:,?\s+(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?)?\s+(?:on|at)\s+([A-Za-z0-9][A-Za-z0-9 .&'*\-]*?)(?=\s+(?:avl|bal|limit|lmt|ref|if|not|call|to|using)\b|[.,;(]|\s*$)/i;
+const AFTER_TIME = /\b\d{1,2}:\d{2}:\d{2}\s+([A-Za-z][A-Za-z0-9 .&'*\-]*?)(?=\s+(?:avl|bal|limit|lmt|sms|if|not|call|ref)\b|[.,;(]|\s*$)/i; // Axis card: "... 20-10-26 13:01:02 AMAZON PAY IN Avl Lmt ..."
 const CARD_AT = /\bat\s+([A-Za-z0-9][A-Za-z0-9 .&'*\-]*?)(?=\s+(?:on|dt|date|ref|avl|bal|limit|using|if|not|call)\b|[.,;(]|\s*$)/i;
 
 // Sender-ID (or text) -> bank. Sender is checked first so "to HDFC" in a SBI text does not win.
@@ -160,15 +166,18 @@ export function parseMessage(
   const c = text.search(CREDIT);
   if (d < 0 && c < 0) d = text.search(DEBIT_WEAK);
   if (d < 0 && c < 0) return null;
-  const direction = c < 0 || (d >= 0 && d < c) ? 'debit' : 'credit';
+  const payer = text.match(PAID_YOU)?.[1]?.trim() ?? null;
+  const direction = payer || !(c < 0 || (d >= 0 && d < c)) ? 'credit' : 'debit';
 
   const sender = opts.sender ?? '';
   const bank = bankFor(sender, text);
 
-  const merchant =
+  const merchantRaw = payer ?? (
     direction === 'debit'
-      ? firstMatch([VPA, UPI_SLASH, ICICI_PAYEE, TO_DEBIT, CARD_AT, VPA_BARE, UPI_DASH, INFO], text)
-      : firstMatch([VPA, UPI_SLASH, FROM_CREDIT, VPA_BARE, UPI_DASH, INFO], text);
+      ? firstMatch([VPA, UPI_SLASH, ICICI_PAYEE, DATE_THEN, AFTER_TIME, TO_DEBIT, CARD_AT, VPA_BARE, UPI_DASH, INFO], text)
+      : firstMatch([VPA, UPI_SLASH, FROM_CREDIT, VPA_BARE, UPI_DASH, INFO], text));
+  // "NEFT-ACME LTD" -> "ACME LTD"; a trailing full stop is sentence punctuation, not part of the name
+  const merchant = merchantRaw ? merchantRaw.replace(/^(?:NEFT|IMPS|RTGS|UPI)[-\/]\s*/i, '').replace(/\s+(?:successful|successfully|completed|done|pending)$/i, '').replace(/[.\s]+$/, '').trim() || null : null;
 
   return {
     amountPaise,

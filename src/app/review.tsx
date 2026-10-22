@@ -83,7 +83,7 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
           <View className="mb-3 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: cat?.color ?? colors.surface2 }}>
             <Text className="text-2xl font-bold" style={{ color: cat ? '#FFFFFF' : colors.muted }}>{(txn.merchant ?? '?').trim()[0]?.toUpperCase() ?? '?'}</Text>
           </View>
-          <Text className="text-xs font-semibold uppercase tracking-widest text-muted">{txn.direction === 'debit' ? 'Spent' : 'Received'}</Text>
+          <Text className={`text-xs font-semibold uppercase tracking-widest ${txn.direction === 'debit' ? 'text-danger' : 'text-income'}`}>{txn.direction === 'debit' ? 'Spent' : 'Received'}</Text>
           <Amount paise={txn.amount_paise} direction={txn.direction} approx={!!txn.currency} className="mt-1 text-5xl" />
           {txn.currency && txn.foreign_minor ? <Text className="mt-1 text-sm text-muted">{formatForeign(txn.foreign_minor, txn.currency)} converted at an approximate rate. Tap the merchant to set the exact rupee amount from your statement.</Text> : null}
           <Pressable onPress={onEdit} accessibilityRole="button" accessibilityLabel="Edit merchant and amount" hitSlop={8}>

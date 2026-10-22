@@ -56,3 +56,25 @@ export function activeFilterCount(f: TxnFilter): number {
     f.minPaise != null || f.maxPaise != null, f.tag, f.transfers && f.transfers !== 'show',
   ].filter(Boolean).length;
 }
+
+
+/** Query-string parameters accepted by the Activity screen when another screen drills down into it. */
+export type ActivityParams = { account?: string; q?: string; transfers?: string; category?: string; month?: string; direction?: string };
+
+/** Turns drill-down parameters into a filter (and search text). A month is "YYYY-MM"; category "none" means uncategorised. Bad values are ignored. */
+export function filterFromParams(p: ActivityParams): { filter: TxnFilter; search: string } {
+  const filter: TxnFilter = { ...EMPTY_FILTER };
+  if (p.account && Number.isInteger(Number(p.account))) filter.accountIds = [Number(p.account)];
+  if (p.transfers === 'only' || p.transfers === 'hide') filter.transfers = p.transfers;
+  if (p.category === 'none') filter.categoryIds = [0];
+  else if (p.category && /^\d+$/.test(p.category)) filter.categoryIds = [Number(p.category)];
+  if (p.direction === 'debit' || p.direction === 'credit') filter.direction = p.direction;
+  const m = p.month?.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
+  if (m) {
+    filter.from = new Date(Number(m[1]), Number(m[2]) - 1, 1).getTime();
+    filter.to = new Date(Number(m[1]), Number(m[2]), 1).getTime();
+  }
+  const search = p.q?.trim() ?? '';
+  if (search) filter.q = search;
+  return { filter, search };
+}

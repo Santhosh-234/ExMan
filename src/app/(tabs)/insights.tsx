@@ -11,7 +11,7 @@ import { type CategorySpend, monthlyTotals, spendByCategory, topMerchants, total
 import { onIngested } from '@/ingest/events';
 import { Lightbulb, Repeat } from 'lucide-react-native';
 import { AnimatedBar, FadeIn, Pressy } from '@/ui/anim';
-import { Card, Chip, SectionLabel } from '@/ui/kit';
+import { Button, Card, Chip, SectionLabel } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { monthKey, monthLabel, monthRange, rupees, shiftMonth } from '@/utils/format';
 import { buildCallouts } from '@/utils/insights';
@@ -30,13 +30,16 @@ export default function Insights() {
   const router = useRouter();
   const [subs, setSubs] = useState<{ n: number; monthly: number }>({ n: 0, monthly: 0 });
   const [filter, setFilter] = useState<number | null | 'all'>('all');
+  const [sel, setSel] = useState<string | null>(null); // selected donut slice (category name)
+  const months = useMemo(() => Array.from({ length: range }, (_, i) => shiftMonth(nowKey, -(range - 1 - i))), [range, nowKey]);
+  const monthIdx = months.indexOf(month);
+  useEffect(() => setSel(null), [month, filter]);
   const [series, setSeries] = useState<{ label: string; value: number }[]>([]);
   const [income, setIncome] = useState<{ label: string; value: number }[]>([]);
   const [saved, setSaved] = useState<{ label: string; value: number }[]>([]);
   const [merchants, setMerchants] = useState<{ merchant: string; total: number; n: number }[]>([]);
 
   const load = useCallback(async () => {
-    const months = Array.from({ length: range }, (_, i) => shiftMonth(nowKey, -(range - 1 - i)));
     const lab = (m: string) => monthLabel(m).split(' ')[0];
     const rows = await monthlyTotals(db, monthRange(months[0])[0], monthRange(nowKey)[1]);
     const sum = (m: string, dir: string) => rows.find((r) => r.month === m && r.direction === dir)?.total ?? 0;
@@ -55,7 +58,7 @@ export default function Insights() {
     const rec = (await getRecurring(db)).filter((r) => r.status !== 'ended');
     setSubs({ n: rec.length, monthly: monthlyTotal(rec) });
     setCallouts(buildCallouts({ spend: cur, history, spent, prevSpent, income: inc }));
-  }, [db, month, range, nowKey]);
+  }, [db, month, range, nowKey, months]);
   useFocusEffect(useCallback(() => void load(), [load]));
   useEffect(() => onIngested(() => void load()), [load]);
 
@@ -100,18 +103,27 @@ export default function Insights() {
           <Text className="text-muted">Nothing confirmed this month.</Text>
         ) : (
           <View className="items-center">
-            <Pie data={shown.map((s) => ({ label: s.name, value: s.total, color: s.color }))} label={`Spending in ${monthLabel(month)}`} center={{ title: filter === 'all' ? 'Spent' : shown[0]?.name ?? '', value: rupees(shown.reduce((a, s) => a + s.total, 0)) }} />
+            <Pie data={shown.map((s) => ({ label: s.name, value: s.total, color: s.color }))} label={`Spending in ${monthLabel(month)}`} selected={sel} onSelect={setSel}
+              center={{ title: filter === 'all' ? 'Spent' : shown[0]?.name ?? '', value: rupees(shown.reduce((a, s) => a + s.total, 0)) }} />
+            {sel ? (
+              <View className="mt-3 w-full flex-row items-center">
+                <Text className="mr-3 flex-1 text-sm text-muted">Showing <Text className="font-semibold text-fg">{sel}</Text></Text>
+                <Button label="View transactions" variant="secondary" onPress={() => { const c = shown.find((x) => x.name === sel); router.push(`/activity?category=${c?.category_id ?? 'none'}&month=${month}&direction=debit&n=${Date.now()}`); }} />
+              </View>
+            ) : <Text className="mt-2 text-xs text-muted">Tap a slice or a category to focus on it.</Text>}
             <View className="mt-4 w-full">
               {shown.map((s) => {
                 const sum = shown.reduce((a, x) => a + x.total, 0) || 1;
+                const on = sel === s.name;
                 return (
-                  <View key={String(s.category_id)} className="mb-3">
+                  <Pressy key={String(s.category_id)} onPress={() => setSel(on ? null : s.name)} scaleTo={0.99} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={`${s.name}, ${rupees(s.total)}, ${Math.round((s.total / sum) * 100)} percent. ${on ? 'Selected' : 'Tap to focus'}`}
+                    innerClassName={`mb-1 rounded-2xl px-2 py-2 ${on ? 'bg-card2' : ''}`}>
                     <View className="mb-1 flex-row items-center justify-between">
-                      <View className="flex-row items-center"><View className="mr-2 h-3 w-3 rounded-full" style={{ backgroundColor: s.color }} /><Text className="text-fg">{s.name}</Text></View>
+                      <View className="flex-row items-center"><View className="mr-2 h-3 w-3 rounded-full" style={{ backgroundColor: s.color }} /><Text className={on ? 'font-semibold text-fg' : 'text-fg'}>{s.name}</Text></View>
                       <Text className="text-muted" style={{ fontVariant: ['tabular-nums'] }}>{rupees(s.total)} · {Math.round((s.total / sum) * 100)}%</Text>
                     </View>
                     <AnimatedBar pct={s.total / sum} color={s.color} height={6} />
-                  </View>
+                  </Pressy>
                 );
               })}
             </View>
@@ -124,31 +136,31 @@ export default function Insights() {
           <Chip label="6M" selected={range === 6} color={colors.accent} onPress={() => setRange(6)} />
           <Chip label="12M" selected={range === 12} color={colors.accent} onPress={() => setRange(12)} />
         </View>
-      }>Trends</SectionLabel>
+      }>Trends · tap a bar to jump to that month</SectionLabel>
       <Card className="mb-4">
         <Text className="mb-3 text-base font-semibold text-fg">Spending, last {rangeLabel}</Text>
-        <Bars data={series} label={`Spending, last ${rangeLabel}`} />
+        <Bars data={series} label={`Spending, last ${rangeLabel}`} selected={monthIdx >= 0 ? monthIdx : null} onSelect={(i) => setMonth(months[i])} />
       </Card>
       <Card className="mb-4">
         <Text className="mb-3 text-base font-semibold text-fg">Income, last {rangeLabel}</Text>
-        <Bars data={income} label={`Income, last ${rangeLabel}`} />
+        <Bars data={income} label={`Income, last ${rangeLabel}`} selected={monthIdx >= 0 ? monthIdx : null} onSelect={(i) => setMonth(months[i])} />
       </Card>
       <Card className="mb-4">
         <Text className="mb-1 text-base font-semibold text-fg">Saved, last {rangeLabel}</Text>
         <Text className="mb-3 text-xs text-muted">Income minus spending, per month (never below zero).</Text>
-        <Bars data={saved} label={`Saved, last ${rangeLabel}`} />
+        <Bars data={saved} label={`Saved, last ${rangeLabel}`} selected={monthIdx >= 0 ? monthIdx : null} onSelect={(i) => setMonth(months[i])} />
       </Card>
       <Card className="mb-4">
         <Text className="mb-3 text-base font-semibold text-fg">Top merchants ({rangeLabel})</Text>
         {merchants.length === 0 && <Text className="text-muted">Nothing confirmed yet.</Text>}
         {merchants.map((m) => (
-          <View key={m.merchant} className="mb-3">
+          <Pressy key={m.merchant} onPress={() => router.push(`/activity?q=${encodeURIComponent(m.merchant)}&direction=debit&n=${Date.now()}`)} scaleTo={0.99} accessibilityRole="button" accessibilityLabel={`${m.merchant}, ${rupees(m.total)}. Show its transactions`} innerClassName="mb-3">
             <View className="mb-1 flex-row justify-between">
               <Text className="flex-1 pr-2 text-fg" numberOfLines={1}>{m.merchant} <Text className="text-xs text-muted">×{m.n}</Text></Text>
               <Text className="text-muted" style={{ fontVariant: ['tabular-nums'] }}>{rupees(m.total)}</Text>
             </View>
             <AnimatedBar pct={m.total / Math.max(1, merchants[0]?.total ?? 1)} color={colors.accent} height={5} />
-          </View>
+          </Pressy>
         ))}
       </Card>
       <View className="h-8" />

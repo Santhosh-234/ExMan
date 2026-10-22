@@ -6,7 +6,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { type Unparsed, getUnparsed, savePattern } from '@/db/patterns';
-import { reprocessUnparsed } from '@/ingest/run';
+import { reprocessDetailed } from '@/ingest/run';
 import { track } from '@/telemetry';
 import { Button, Card, Chip, BackButton } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
@@ -75,9 +75,11 @@ export default function Teach() {
     setSaving(true);
     try {
       await savePattern(db, msg.sender, built.pattern, msg.text);
-      const n = await reprocessUnparsed(db);
+      const r = await reprocessDetailed(db);
       track('feature_used', { feature: 'teach_saved' });
-      snack({ message: `Learned this format · added ${n} transaction${n === 1 ? '' : 's'} to Review` });
+      const parts = [`added ${r.added} transaction${r.added === 1 ? '' : 's'} to Review`];
+      if (r.alreadyRecorded) parts.push(`${r.alreadyRecorded} already recorded`);
+      snack({ message: `Learned this format · ${parts.join(' · ')}` });
       router.back();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save');
@@ -98,7 +100,7 @@ export default function Teach() {
         <Text className="mb-1 text-xs uppercase tracking-wider text-muted">1 · What is it?</Text>
         <View className="mb-2 flex-row">
           <Chip label="Spent" color={colors.danger} selected={direction === 'debit'} onPress={() => setDirection('debit')} />
-          <Chip label="Received" color={colors.accent} selected={direction === 'credit'} onPress={() => setDirection('credit')} />
+          <Chip label="Received" color={colors.income} selected={direction === 'credit'} onPress={() => setDirection('credit')} />
         </View>
 
         <Text className="mb-1 mt-2 text-xs uppercase tracking-wider text-muted">Currency of the amount</Text>

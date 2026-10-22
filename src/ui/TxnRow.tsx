@@ -35,7 +35,7 @@ export const TxnRow = memo(function TxnRow({ t, cat, selecting, selected, onPres
     : t.is_transfer
       ? { bg: colors.surface2, icon: <Repeat size={18} color={colors.muted} /> }
       : income
-        ? { bg: `${colors.accent}2E`, icon: <ArrowDownLeft size={20} color={colors.accent} /> }
+        ? { bg: `${colors.income}2E`, icon: <ArrowDownLeft size={20} color={colors.income} /> }
         : { bg: cat?.color ?? colors.surface2, icon: <ArrowUpRight size={20} color={cat ? '#FFFFFF' : colors.muted} /> };
 
   return (
@@ -51,7 +51,9 @@ export const TxnRow = memo(function TxnRow({ t, cat, selecting, selected, onPres
       <View className="mr-3 h-11 w-11 items-center justify-center rounded-full" style={{ backgroundColor: circle.bg }}>{circle.icon}</View>
       <View className="flex-1 pr-2">
         <Text className="text-base font-semibold text-fg" numberOfLines={1}>{t.merchant ?? 'Unknown'}</Text>
-        <Text className="mt-0.5 text-xs text-muted" numberOfLines={1}>{sub}</Text>
+        <Text className="mt-0.5 text-xs text-muted" numberOfLines={1}>
+          <Text className={`text-xs ${income ? 'font-semibold text-income' : 'text-muted'}`}>{what}</Text>{sub.slice(what.length)}
+        </Text>
       </View>
       <View className="items-end">
         <Amount paise={t.amount_paise} direction={t.direction} muted={!!t.is_transfer} approx={!!t.currency} className="text-base" />

@@ -40,7 +40,7 @@ export function FilterSheet({ value, cats, accounts, onApply, onClose }: { value
         <View className="flex-row flex-wrap">
           <Chip label="All" color={colors.accent} selected={!f.direction} onPress={() => set({ direction: undefined })} />
           <Chip label="Spent" color={colors.danger} selected={f.direction === 'debit'} onPress={() => set({ direction: 'debit' })} />
-          <Chip label="Received" color={colors.accent} selected={f.direction === 'credit'} onPress={() => set({ direction: 'credit' })} />
+          <Chip label="Received" color={colors.income} selected={f.direction === 'credit'} onPress={() => set({ direction: 'credit' })} />
         </View>
 
         <Text className={label}>Date</Text>
