@@ -8,16 +8,16 @@ Almost nothing. A few thousand events a day is a few hundred KB of data and a tr
 
 | Choice | Recommendation |
 |---|---|
-| Instance type | **t4g.nano** (2 vCPU ARM, 0.5 GiB RAM, roughly US$3 a month). Node idles around 50 MB and Caddy around 30 MB. If you want more comfort, **t4g.micro** (1 GiB, roughly US$6 a month) is the same thing with more room; you can switch later by stopping the instance and changing its type. |
+| Instance type | **t3.micro** (2 vCPU Intel/AMD x86, 1 GiB RAM). Node idles around 50 MB and Caddy around 30 MB, so 1 GiB is plenty. The cheaper ARM **t4g.nano / t4g.micro** also work (pick the Arm image instead), but t3.micro is fine. |
 | Region | **ap-south-1 (Mumbai)**, closest to the users. |
-| OS image | **Ubuntu Server 24.04 LTS, Arm (64-bit)**. Pick the ARM architecture to match t4g. |
+| OS image | **Ubuntu Server 24.04 LTS, 64-bit (x86)**. The architecture must match the instance type: x86 for t3, Arm for t4g. |
 | Disk | The default 8 GiB gp3 is far more than enough. |
 | Public address | An **Elastic IP**, so the address survives a stop/start. |
 
 ## 1. Launch the VM (AWS console)
 
 1. EC2 > **Launch instance**. Name it `exman-collector`.
-2. Image: Ubuntu Server 24.04 LTS, architecture **64-bit (Arm)**. Instance type: `t4g.nano`.
+2. Image: Ubuntu Server 24.04 LTS, architecture **64-bit (x86)**. Instance type: `t3.micro`.
 3. Key pair: create one (`.pem`) and keep it safe; it is how you log in.
 4. Network settings > security group, three inbound rules:
    - SSH (22) from **My IP** only
