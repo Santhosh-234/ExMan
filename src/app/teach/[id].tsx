@@ -8,12 +8,12 @@ import { Text } from '@/ui/Text';
 import { type Unparsed, getUnparsed, savePattern } from '@/db/patterns';
 import { reprocessDetailed } from '@/ingest/run';
 import { track } from '@/telemetry';
-import { Button, Card, Chip, BackButton } from '@/ui/kit';
+import { BackButton, Button, Card, Chip, PageHeader, SectionLabel } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 import { CURRENCIES, formatForeign, isForeign } from '@/utils/currency';
-import { type Selection, buildPattern, NUMERIC, detectCurrency, tokenize } from '@/utils/teach';
+import { type Selection, buildPattern, NUMERIC, detectCurrency, suggestSelection, tokenize } from '@/utils/teach';
 
 type Field = 'amount' | 'merchant' | 'account';
 
@@ -37,6 +37,16 @@ export default function Teach() {
 
   useEffect(() => void getUnparsed(db, Number(id)).then(setMsg), [db, id]);
   const tokens = useMemo(() => (msg ? tokenize(msg.text) : []), [msg]);
+  const [guessed, setGuessed] = useState(false);
+  // a first guess (amount, direction, currency) so most messages need a single tap; the user can change any of it
+  useEffect(() => {
+    if (!msg || guessed) return;
+    setGuessed(true);
+    const g = suggestSelection(msg.text);
+    if (g.amount !== null) setAmount(g.amount);
+    if (g.direction) setDirection(g.direction);
+    if (g.currency) { setCurrency(g.currency); if (g.currency !== 'INR') setDetected(g.currency); }
+  }, [msg, guessed]);
 
   const selection: Selection | null = amount == null ? null : {
     amount: [amount, amount],
@@ -93,24 +103,23 @@ export default function Teach() {
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
-      <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Teach ExMan</Text>
-      <Text className="mb-3 text-xs text-muted">From {msg.sender}. Show ExMan where the details are in this message.</Text>
+      <PageHeader title="Teach ExMan" subtitle={`From ${msg.sender}. ExMan made a first guess below. Check it, fix anything that is off, then teach it.`} />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Text className="mb-1 text-xs uppercase tracking-wider text-muted">1 · What is it?</Text>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <SectionLabel>1 · What is it?</SectionLabel>
         <View className="mb-2 flex-row">
           <Chip label="Spent" color={colors.danger} selected={direction === 'debit'} onPress={() => setDirection('debit')} />
           <Chip label="Received" color={colors.income} selected={direction === 'credit'} onPress={() => setDirection('credit')} />
         </View>
 
-        <Text className="mb-1 mt-2 text-xs uppercase tracking-wider text-muted">Currency of the amount</Text>
+        <SectionLabel>Currency of the amount</SectionLabel>
         <View className="mb-1 flex-row flex-wrap">
           {['INR', ...CURRENCIES.map((c) => c.code)].map((c) => <Chip key={c} label={c} color={colors.accent} selected={currency === c} onPress={() => setCurrency(c)} />)}
         </View>
         {detected && <Text className="mb-1 text-xs text-accent">Detected {detected} next to the amount in this message.</Text>}
         {isForeign(currency) && <Text className="mb-2 text-xs text-muted">Foreign amounts are converted to rupees at the rate in Settings, Exchange rates. It's approximate; edit the transaction if your statement differs.</Text>}
 
-        <Text className="mb-1 mt-2 text-xs uppercase tracking-wider text-muted">2 · Pick what to mark</Text>
+        <SectionLabel>2 · Tap the details in the message</SectionLabel>
         <View className="mb-1 flex-row">
           <Chip label="Amount" color={colors.accent} selected={field === 'amount'} onPress={() => setField('amount')} />
           <Chip label="Merchant" color="#3B82F6" selected={field === 'merchant'} onPress={() => setField('merchant')} />
@@ -134,18 +143,24 @@ export default function Teach() {
 
         {built?.ok && (
           <Card className="mb-3">
-            <Text className="mb-1 text-xs uppercase tracking-wider text-muted">ExMan will read this as</Text>
-            <Text className="text-base text-fg">
+            <Text className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted">ExMan will read this as</Text>
+            <Text className="text-lg font-semibold text-fg">
               {built.preview.direction === 'debit' ? 'Spent' : 'Received'} {isForeign(currency) ? formatForeign(Math.round(built.preview.amountPaise / 100 * 10 ** (CURRENCIES.find((c) => c.code === currency)?.minor ?? 2)), currency) : rupees(built.preview.amountPaise)}
               {built.preview.merchant ? ` · ${built.preview.merchant}` : ''}{built.preview.account ? ` · a/c ${built.preview.account}` : ''}
             </Text>
           </Card>
         )}
-        {(error || (built && !built.ok)) && <Text className="mb-3 text-danger">{error || (built && !built.ok ? built.error : '')}</Text>}
-        {!direction && <Text className="mb-3 text-sm text-muted">Choose Spent or Received first.</Text>}
-
-        <Button label={saving ? 'Saving…' : 'Teach this format'} disabled={!built?.ok || saving} onPress={save} className="mb-10" />
+        <View className="h-4" />
       </ScrollView>
+      {/* always reachable, with the reason it is disabled spelled out */}
+      <View className="border-t border-line bg-base pb-4 pt-3">
+        {(error || (built && !built.ok) || amount == null || !direction) ? (
+          <Text className="mb-2 text-sm text-danger" accessibilityLiveRegion="polite">
+            {error || (built && !built.ok ? built.error : amount == null ? 'Tap the amount in the message.' : 'Choose Spent or Received.')}
+          </Text>
+        ) : null}
+        <Button label={saving ? 'Saving…' : 'Teach this format'} disabled={!built?.ok || saving} onPress={save} />
+      </View>
     </View>
   );
 }

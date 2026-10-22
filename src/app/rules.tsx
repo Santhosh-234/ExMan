@@ -8,7 +8,8 @@ import { Text, TextInput } from '@/ui/Text';
 import { addKeywordRule, applyRuleToExisting, deleteRule, getRules, setRuleCategory, setRuleEnabled } from '@/db/merchants';
 import { type Category, getCategories } from '@/db/queries';
 import { notifyIngested } from '@/ingest/events';
-import { Button, Card, EmptyState, Sheet, BackButton } from '@/ui/kit';
+import { FadeIn } from '@/ui/anim';
+import { BackButton, Button, Card, EmptyState, IconButton, PageHeader, SectionLabel, Sheet } from '@/ui/kit';
 import { CategoryChips } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
@@ -45,21 +46,21 @@ export default function Rules() {
   const section = (title: string, list: RuleRow[]) =>
     list.length === 0 ? null : (
       <View key={title}>
-        <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-muted">{title}</Text>
-        {list.map((r) => (
-          <Card key={r.id} className="mb-2">
+        <SectionLabel>{title}</SectionLabel>
+        {list.map((r, i) => (
+          <FadeIn key={r.id} index={i}><Card className={`mb-2 ${r.enabled ? '' : 'opacity-60'}`}>
             <View className="flex-row items-center">
               <View className="flex-1">
-                <Text className="text-base text-fg">{r.kind === 'merchant' ? r.merchant_name : `Contains “${r.keyword}”`}</Text>
-                <Pressable onPress={() => setEditing(r)} accessibilityRole="button" accessibilityLabel={`Change category, currently ${r.category_name}`} className="mt-1 flex-row items-center">
-                  <View className="mr-2 h-3 w-3 rounded-full" style={{ backgroundColor: r.category_color }} />
-                  <Text className="text-accent">→ {r.category_name}</Text>
+                <Text className="text-base font-semibold text-fg">{r.kind === 'merchant' ? r.merchant_name : `Contains “${r.keyword}”`}</Text>
+                <Pressable onPress={() => setEditing(r)} accessibilityRole="button" accessibilityLabel={`Change category, currently ${r.category_name}`} className="mt-1.5 min-h-9 flex-row items-center self-start rounded-full bg-card2 px-3">
+                  <View className="mr-2 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: r.category_color }} />
+                  <Text className="text-sm font-semibold text-fg">{r.category_name}</Text>
                 </Pressable>
               </View>
               <Switch value={!!r.enabled} onValueChange={async (v) => { await setRuleEnabled(db, r.id, v); load(); }} trackColor={{ true: colors.accent, false: colors.surface2 }} accessibilityLabel="Rule enabled" />
               <Pressable onPress={() => remove(r)} hitSlop={10} className="ml-3" accessibilityRole="button" accessibilityLabel="Delete rule"><Trash2 size={18} color={colors.muted} /></Pressable>
             </View>
-          </Card>
+          </Card></FadeIn>
         ))}
       </View>
     );
@@ -67,11 +68,7 @@ export default function Rules() {
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
-      <View className="mb-1 flex-row items-center justify-between">
-        <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Rules</Text>
-        <Pressable onPress={() => { setKw(''); setKwCat(null); setAdding(true); }} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add keyword rule"><Plus color={colors.accent} /></Pressable>
-      </View>
-      <Text className="mb-3 text-xs text-muted">New transactions are categorised by these rules first. Merchant rules are created when you answer “Always put … under …?”.</Text>
+      <PageHeader title="Rules" subtitle="New transactions are categorised by these rules first. Merchant rules are created when you answer “Always put … under …?”." right={<IconButton icon={Plus} label="Add keyword rule" onPress={() => { setKw(''); setKwCat(null); setAdding(true); }} />} />
       <ScrollView showsVerticalScrollIndicator={false}>
         {rules && rules.length === 0 && <EmptyState title="No rules yet" body="Change a transaction's category and ExMan will offer to remember it for that merchant." />}
         {section('Merchants', (rules ?? []).filter((r) => r.kind === 'merchant'))}

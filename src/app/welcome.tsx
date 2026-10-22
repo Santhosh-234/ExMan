@@ -10,23 +10,24 @@ import { setSetting } from '@/db/queries';
 import { importHistory } from '@/ingest/run';
 import { track } from '@/telemetry';
 import { bucketMessages, bucketMs } from '@/telemetry/schema';
-import { Button, Card } from '@/ui/kit';
+import { CheckCircle2, Smartphone } from 'lucide-react-native';
+import { Button, Card, Group, NavRow } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 
 import { notificationAccessGranted, openNotificationAccessSettings } from '../../modules/vibe-listener';
 
 const Step = ({ n, title, children }: { n: number; title: string; children: React.ReactNode }) => (
   <View className="mb-6">
-    <Text className="mb-2 text-lg font-semibold text-fg" accessibilityRole="header">{n}. {title}</Text>
+    <View className="mb-2 flex-row items-center">
+      <View className="mr-2 h-7 w-7 items-center justify-center rounded-full bg-accent"><Text className="text-sm font-bold text-onaccent">{n}</Text></View>
+      <Text className="flex-1 text-lg font-semibold text-fg" accessibilityRole="header">{title}</Text>
+    </View>
     {children}
   </View>
 );
 
 const Perm = ({ label, ok, onPress }: { label: string; ok: boolean; onPress: () => void }) => (
-  <Pressable onPress={onPress} accessibilityRole="button" className="mb-2 min-h-14 flex-row items-center justify-between rounded-[22px] border border-line bg-card p-4">
-    <Text className="flex-1 text-base text-fg">{label}</Text>
-    <Text className={ok ? 'text-accent' : 'text-warn'}>{ok ? 'Granted' : 'Tap to allow'}</Text>
-  </Pressable>
+  <Group><NavRow first icon={ok ? CheckCircle2 : Smartphone} label={label} detail={ok ? 'Granted' : 'Tap to allow'} tone={ok ? undefined : 'warn'} onPress={onPress} /></Group>
 );
 
 /** First-run walkthrough: what ExMan does, why each permission is needed, optional import, and the usage-data notice. */
@@ -54,8 +55,8 @@ export default function Welcome() {
 
   return (
     <ScrollView className="flex-1 bg-base px-4 pt-16" showsVerticalScrollIndicator={false}>
-      <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Welcome to ExMan</Text>
-      <Text className="mb-6 mt-2 text-base text-muted">Your money, tracked for you, seen only by you. ExMan reads the bank and UPI alerts already on your phone, so you never type an expense. Everything stays on this phone.</Text>
+      <Text className="text-4xl font-bold text-fg" accessibilityRole="header">Welcome to ExMan</Text>
+      <Text className="mb-8 mt-2 text-base text-muted">Your money, tracked for you, seen only by you. ExMan reads the bank and UPI alerts already on your phone, so you never type an expense. Everything stays on this phone.</Text>
 
       <Step n={1} title="Let ExMan see your alerts">
         <Perm

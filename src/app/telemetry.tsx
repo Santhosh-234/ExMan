@@ -6,7 +6,7 @@ import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { ENDPOINT, type LoggedEvent, type TelemetryState, flush, getState, installId, listEvents, resetInstallId, setEnabled } from '@/db/telemetry';
-import { Button, Card, BackButton } from '@/ui/kit';
+import { BackButton, Button, Card, PageHeader } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 
@@ -28,7 +28,7 @@ export default function Telemetry() {
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
-      <Text className="mb-3 text-3xl font-bold text-fg" accessibilityRole="header">Usage data</Text>
+      <PageHeader title="Usage data" subtitle="Anonymous and content-free. Nothing about your money, merchants or messages." />
       <ScrollView showsVerticalScrollIndicator={false}>
         <Card className="mb-4">
           <View className="flex-row items-center">

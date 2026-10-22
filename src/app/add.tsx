@@ -118,7 +118,7 @@ export default function Add() {
         <View className="h-4" />
       </ScrollView>
       {/* always reachable, even with the keyboard open */}
-      <View className="border-t border-line bg-solid px-4 pb-4 pt-3">
+      <View className="border-t border-line bg-base px-4 pb-4 pt-3">
         <Button label={valid ? `Save ${rupees(paise)}` : 'Save'} disabled={!valid} onPress={save} />
       </View>
     </View>

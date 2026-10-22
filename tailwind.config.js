@@ -18,8 +18,6 @@ module.exports = {
         danger: 'var(--c-danger)',
         warn: 'var(--c-warn)',
         income: 'var(--c-income)',
-        solid: 'var(--c-solid)',
-        sheet: 'var(--c-sheet)',
       },
     },
   },

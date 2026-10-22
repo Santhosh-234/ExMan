@@ -12,7 +12,7 @@ import { Text, TextInput } from '@/ui/Text';
 import { makeBackup, readBackup, restoreAll } from '@/backup/dump';
 import { exportRows } from '@/db/queries';
 import { notifyIngested } from '@/ingest/events';
-import { Button, Card, Chip, Sheet, BackButton } from '@/ui/kit';
+import { BackButton, Button, Card, Chip, PageHeader, Sheet } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { toCsv } from '@/utils/csv';
@@ -123,7 +123,7 @@ export default function Backup() {
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
-      <Text className="mb-3 text-3xl font-bold text-fg" accessibilityRole="header">Backup & export</Text>
+      <PageHeader title="Backup & export" subtitle="Your data lives only on this phone. A backup lets you move to a new phone or recover after a reset." />
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Card className="mb-4">
           <Text className="text-base font-semibold text-fg">Export to a spreadsheet (CSV)</Text>

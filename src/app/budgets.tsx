@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Plus } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Switch, View } from 'react-native';
+import { ScrollView, Switch, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
 
 import { MonthBar } from '@/components/MonthBar';
@@ -10,10 +10,11 @@ import { type BudgetLine, type Category, budgetOverview, getBudgetRow, getCatego
 import { onIngested, notifyIngested } from '@/ingest/events';
 import { useSecurity } from '@/security/store';
 import { track } from '@/telemetry';
-import { Button, Card, Chip, EmptyState, Sheet, BackButton } from '@/ui/kit';
+import { AnimatedBar, FadeIn, Pressy } from '@/ui/anim';
+import { BackButton, Button, Card, Chip, EmptyState, IconButton, PageHeader, Sheet } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
-import { budgetStatus } from '@/utils/budgets';
+import { budgetStatus, monthProgress } from '@/utils/budgets';
 import { monthKey, monthLabel, rupees } from '@/utils/format';
 
 type Edit = { id: number | null; name: string; amount: string; rollover: boolean; isNew: boolean };
@@ -64,27 +65,23 @@ export default function Budgets() {
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
-      <View className="mb-1 flex-row items-center justify-between">
-        <Text className="text-3xl font-bold text-fg" accessibilityRole="header">Budgets</Text>
-        <Pressable onPress={() => open()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Add a budget"><Plus color={colors.accent} /></Pressable>
-      </View>
-      <Text className="mb-3 text-xs text-muted">A budget you set applies to that month and every later month until you change it.</Text>
+      <PageHeader title="Budgets" subtitle="A budget applies to that month and every later one until you change it. The grey tick shows where an even pace would put you today." right={<IconButton icon={Plus} label="Add a budget" onPress={() => open()} />} />
       <MonthBar month={month} onChange={setMonth} max={nowKey} />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {lines && lines.length === 0 && <EmptyState title="No budgets yet" body="Set an overall monthly budget, or one for a category like Food or Shopping." action={<Button label="Add a budget" onPress={() => open()} />} />}
-        {(lines ?? []).map((l) => {
+        {(lines ?? []).map((l, i) => {
           const st = budgetStatus({ limit: l.limit, carry: l.carry, spent: l.spent, month, now });
           const tone = st.state === 'over' ? colors.danger : st.state === 'near' || st.aheadOfPace ? colors.warn : colors.accent;
           return (
-            <Pressable key={String(l.category_id)} onPress={() => open(l)} accessibilityRole="button" accessibilityLabel={`${l.name} budget, ${Math.round(st.pct * 100)} percent used`}>
+            <FadeIn key={String(l.category_id)} index={i}><Pressy onPress={() => open(l)} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={`${l.name} budget, ${Math.round(st.pct * 100)} percent used. Tap to edit`}>
               <Card className="mb-3">
                 <View className="mb-2 flex-row items-center justify-between">
                   <View className="flex-row items-center"><View className="mr-2 h-3 w-3 rounded-full" style={{ backgroundColor: l.color }} /><Text className="text-base font-semibold text-fg">{l.name}</Text></View>
                   <Text className="text-sm text-muted">{rupees(st.spent)} of {rupees(st.available)}</Text>
                 </View>
-                <View className="h-3 overflow-hidden rounded-full bg-card2" accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.min(100, Math.round(st.pct * 100)) }}>
-                  <View className="h-3 rounded-full" style={{ width: `${Math.min(1, st.pct) * 100}%`, backgroundColor: tone }} />
+                <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.min(100, Math.round(st.pct * 100)) }}>
+                  <AnimatedBar pct={Math.min(1, st.pct)} color={tone} height={12} marker={month === nowKey ? monthProgress(month, now).elapsed : undefined} />
                 </View>
                 <Text className="mt-2 text-sm" style={{ color: tone }}>
                   {st.state === 'over' ? `Over by ${rupees(-st.remaining)}` : `${rupees(st.remaining)} left`}
@@ -93,7 +90,7 @@ export default function Budgets() {
                 {st.aheadOfPace && st.projected != null && <Text className="mt-1 text-xs text-warn">At this pace you'll reach {rupees(st.projected)} by month end.</Text>}
                 {l.carry > 0 && <Text className="mt-1 text-xs text-muted">Includes {rupees(l.carry)} rolled over from last month.</Text>}
               </Card>
-            </Pressable>
+            </Pressy></FadeIn>
           );
         })}
         <View className="h-10" />

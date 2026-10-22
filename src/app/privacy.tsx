@@ -7,7 +7,8 @@ import { Text, TextInput } from '@/ui/Text';
 
 import { deleteAllData, purgeRawText, readSummary } from '@/db/data';
 import { notifyIngested } from '@/ingest/events';
-import { Button, Card, Sheet, BackButton } from '@/ui/kit';
+import { BarChart3 } from 'lucide-react-native';
+import { BackButton, Button, Card, Group, NavRow, PageHeader, Sheet } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 
@@ -35,7 +36,7 @@ export default function Privacy() {
   return (
     <View className="flex-1 bg-base px-4 pt-14">
       <BackButton />
-      <Text className="mb-3 text-3xl font-bold text-fg" accessibilityRole="header">Privacy & data</Text>
+      <PageHeader title="Privacy & data" subtitle="What ExMan reads, what it keeps, and how to remove it." />
       <ScrollView showsVerticalScrollIndicator={false}>
         <Card className="mb-4">
           <Text className="text-base font-semibold text-fg">What ExMan reads</Text>
@@ -50,10 +51,7 @@ export default function Privacy() {
           ))}
         </Card>
 
-        <Pressable onPress={() => router.push('/telemetry')} accessibilityRole="button" className="mb-4 min-h-14 flex-row items-center justify-between rounded-[26px] border border-line bg-card p-4">
-          <View className="flex-1"><Text className="text-base font-semibold text-fg">Usage data</Text><Text className="text-sm text-muted">Anonymous, content-free, on by default. See exactly what is recorded, or turn it off.</Text></View>
-          <Text className="ml-3 text-accent">Open</Text>
-        </Pressable>
+        <Group><NavRow first icon={BarChart3} label="Usage data" detail="See what is recorded" onPress={() => router.push('/telemetry')} /></Group>
 
         <Card className="mb-4">
           <Text className="text-base font-semibold text-fg">Original messages</Text>
