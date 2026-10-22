@@ -1,0 +1,27 @@
+[Unit]
+Description=ExMan telemetry collector
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning /opt/exman-collector/server.mjs
+WorkingDirectory=/opt/exman-collector
+Environment=DATA_DIR=/var/lib/exman-collector
+Environment=PORT=8787
+Environment=BASE_PATH=/t
+Restart=always
+RestartSec=3
+# runs as a throwaway user that can only write its own data directory
+DynamicUser=yes
+StateDirectory=exman-collector
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=200M
+
+[Install]
+WantedBy=multi-user.target
