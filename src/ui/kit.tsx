@@ -7,6 +7,7 @@ import { Text } from '@/ui/Text';
 
 import { useSecurity } from '@/security/store';
 import { Pressy } from '@/ui/anim';
+import { Page, useInsets } from '@/ui/insets';
 import { useReducedMotion } from '@/ui/motion';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
@@ -203,13 +204,14 @@ export function Skeleton({ style }: { style?: ViewStyle }) {
 
 /** Bottom sheet. Tapping the scrim closes it. */
 export function Sheet({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+  const insets = useInsets();
   // The keyboard lifts the sheet (a Modal is its own window, so the app-level keyboard handling does not reach it), and tall content
   // scrolls inside it instead of running off the top.
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <Pressable className="flex-1 justify-end bg-black/60" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
-          <Pressable className="rounded-t-[28px] bg-card px-5 pb-6 pt-3" style={{ maxHeight: '90%' }} onPress={() => {}} accessible={false} accessibilityViewIsModal>
+          <Pressable className="rounded-t-[28px] bg-card px-5 pt-3" style={{ maxHeight: '90%', paddingBottom: Math.max(insets.bottom, 12) + 12 }} onPress={() => {}} accessible={false} accessibilityViewIsModal>
             <View className="mb-4 h-1 w-10 self-center rounded-full bg-line" importantForAccessibility="no" />
             <Text className="mb-3 text-lg font-semibold text-fg" accessibilityRole="header">{title}</Text>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>{children}</ScrollView>
@@ -234,13 +236,13 @@ export function BackButton({ label = 'Back' }: { label?: string }) {
 
 export function Screen({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <View className="mb-4 flex-row items-center justify-between">
         <Text className="text-3xl font-bold text-fg" accessibilityRole="header">{title}</Text>
         {right}
       </View>
       {children}
-    </View>
+    </Page>
   );
 }
 

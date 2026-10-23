@@ -3,6 +3,7 @@ import { AccessibilityInfo, Animated, Pressable } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { useReducedMotion } from './motion';
+import { useInsets } from './insets';
 
 type Snack = { message: string; actionLabel?: string; onAction?: () => void; secondLabel?: string; onSecond?: () => void };
 const Ctx = createContext<(s: Snack) => void>(() => {});
@@ -10,6 +11,7 @@ export const useSnackbar = () => useContext(Ctx);
 
 /** One global snackbar (undo for every commit action). A newer message replaces the older one. */
 export function SnackbarProvider({ children }: { children: ReactNode }) {
+  const insets = useInsets();
   const [snack, setSnack] = useState<Snack | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -36,7 +38,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
       {children}
       {snack && (
         <Animated.View
-          style={{ opacity, position: 'absolute', left: 16, right: 16, bottom: 88 }}
+          style={{ opacity, position: 'absolute', left: 16, right: 16, bottom: 80 + insets.bottom }}
           accessibilityLiveRegion="polite">
           {/* same dark pill in both themes so contrast is constant */}
           <Pressable

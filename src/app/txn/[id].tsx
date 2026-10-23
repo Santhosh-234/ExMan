@@ -18,6 +18,7 @@ import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 import { formatForeign } from '@/utils/currency';
 import { describeRate } from '@/utils/fx';
+import { Page } from '@/ui/insets';
 
 const FIELD: Record<string, string> = { amount_paise: 'Amount', merchant: 'Merchant', category_id: 'Category', tags: 'Tags', notes: 'Notes', account_id: 'Account', is_transfer: 'Transfer', ts: 'Date', direction: 'Direction' };
 
@@ -134,7 +135,7 @@ export default function TxnDetail() {
   );
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="mb-5 items-center">
@@ -225,6 +226,6 @@ export default function TxnDetail() {
       )}
       {picking && <CategorySheet cats={cats} value={t.category_id} onClose={() => setPicking(false)} onPick={(cid) => { setPicking(false); void patch({ category_id: cid }); }} />}
       {editing && <EditSheet txn={t} cats={cats} accounts={accts} onClose={() => setEditing(false)} onSave={(p: TxnPatch) => { setEditing(false); void patch(p); }} />}
-    </View>
+    </Page>
   );
 }

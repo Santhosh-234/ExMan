@@ -12,6 +12,7 @@ import { FadeIn, Pressy } from '@/ui/anim';
 import { BackButton, Button, Card, Chip, EmptyState, IconButton, PageHeader, SectionLabel, Sheet, Stats } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { monthKey, monthLabel, monthRange, rupees } from '@/utils/format';
+import { Page } from '@/ui/insets';
 
 export const asOf = (ts: number | null) => (ts ? new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '');
 
@@ -71,7 +72,7 @@ export default function Accounts() {
     );
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Accounts" subtitle={`Activity shown for ${monthLabel(month)}. Accounts are created automatically from your bank messages.`} right={<IconButton icon={Plus} label="Add account" onPress={() => setAdding(true)} />} />
 
@@ -107,6 +108,6 @@ export default function Accounts() {
           <Button label="Add" disabled={!name.trim()} onPress={async () => { await addAccount(db, name.trim(), kind); setName(''); setAdding(false); load(); }} />
         </Sheet>
       )}
-    </View>
+    </Page>
   );
 }

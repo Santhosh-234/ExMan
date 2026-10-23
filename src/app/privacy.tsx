@@ -11,6 +11,7 @@ import { BarChart3 } from 'lucide-react-native';
 import { BackButton, Button, Card, Group, NavRow, PageHeader, Sheet } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
+import { Page } from '@/ui/insets';
 
 export default function Privacy() {
   const db = useSQLiteContext();
@@ -34,7 +35,7 @@ export default function Privacy() {
   };
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Privacy & data" subtitle="What ExMan reads, what it keeps, and how to remove it." />
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -80,6 +81,6 @@ export default function Privacy() {
           }} />
         </Sheet>
       )}
-    </View>
+    </Page>
   );
 }

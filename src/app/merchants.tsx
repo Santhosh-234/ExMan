@@ -16,6 +16,7 @@ import { CategoryChips } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
+import { Page } from '@/ui/insets';
 
 type Mode = null | 'menu' | 'rename' | 'category' | 'merge';
 
@@ -41,7 +42,7 @@ export default function Merchants() {
   const close = () => { setMode(null); setSel(null); setMq(''); };
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Merchants" subtitle="ExMan groups different spellings of the same payee. Rename or merge here if it got one wrong." />
       <View className="mb-3 min-h-12 flex-row items-center rounded-[22px] border border-line bg-card px-3">
@@ -116,6 +117,6 @@ export default function Merchants() {
           ))}
         </Sheet>
       )}
-    </View>
+    </Page>
   );
 }

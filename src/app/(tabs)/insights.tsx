@@ -17,6 +17,7 @@ import { monthKey, monthLabel, monthRange, rupees, shiftMonth } from '@/utils/fo
 import { buildCallouts } from '@/utils/insights';
 import { getRecurring, monthlyTotal } from '@/db/recurring';
 import { useRouter } from 'expo-router';
+import { PageScroll } from '@/ui/insets';
 
 export default function Insights() {
   useSecurity(); // re-render when "hide amounts" changes
@@ -66,7 +67,7 @@ export default function Insights() {
   const rangeLabel = range === 6 ? '6 months' : '12 months';
 
   return (
-    <ScrollView className="flex-1 bg-base px-4 pt-14" showsVerticalScrollIndicator={false}>
+    <PageScroll tab>
       <Text className="mb-4 text-3xl font-bold text-fg" accessibilityRole="header">Insights</Text>
       <MonthBar month={month} onChange={setMonth} max={nowKey} />
 
@@ -164,6 +165,6 @@ export default function Insights() {
         ))}
       </Card>
       <View className="h-8" />
-    </ScrollView>
+    </PageScroll>
   );
 }

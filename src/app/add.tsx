@@ -12,6 +12,7 @@ import { Button, Chip, success } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
+import { PageScroll, useBarPadding } from '@/ui/insets';
 
 const DAY = 864e5;
 const startOfDay = (ts: number) => new Date(new Date(ts).setHours(0, 0, 0, 0)).getTime();
@@ -66,7 +67,7 @@ export default function Add() {
 
   return (
     <View className="flex-1 bg-base">
-      <ScrollView className="px-4 pt-14" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <PageScroll keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 24 }} style={{ flex: 1 }}>
         <View className="mb-4 flex-row items-center justify-between">
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close" className="h-10 w-10 items-center justify-center rounded-full border border-line bg-card"><X size={20} color={colors.fg} /></Pressable>
           <Text className="text-lg font-semibold text-fg" accessibilityRole="header">Add transaction</Text>
@@ -116,9 +117,9 @@ export default function Add() {
         <Text className="mb-1 text-xs text-muted">Tags (comma separated)</Text>
         <TextInput ref={tagsRef} className={input} value={tags} onChangeText={setTags} autoCapitalize="none" placeholder="trip, work" placeholderTextColor={colors.muted} returnKeyType="done" onSubmitEditing={() => { if (valid) void save(); }} />
         <View className="h-4" />
-      </ScrollView>
+      </PageScroll>
       {/* always reachable, even with the keyboard open */}
-      <View className="border-t border-line bg-base px-4 pb-4 pt-3">
+      <View className="border-t border-line bg-base pt-3" style={useBarPadding()}>
         <Button label={valid ? `Save ${rupees(paise)}` : 'Save'} disabled={!valid} onPress={save} />
       </View>
     </View>

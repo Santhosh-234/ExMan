@@ -21,6 +21,7 @@ import { Button, Card, Chip, Group, NavRow } from '@/ui/kit';
 import { type Mode, useTheme } from '@/ui/theme';
 
 import { notificationAccessGranted, openNotificationAccessSettings } from '../../../modules/vibe-listener';
+import { PageScroll } from '@/ui/insets';
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -176,7 +177,7 @@ export default function Settings() {
   );
 
   return (
-    <ScrollView className="flex-1 bg-base px-4 pt-14" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <PageScroll tab keyboardShouldPersistTaps="handled">
       <Text className="mb-6 text-3xl font-bold text-fg" accessibilityRole="header">Settings</Text>
 
       <Section title="Appearance" hint="System follows your phone's light/dark setting.">
@@ -292,6 +293,6 @@ export default function Settings() {
       </Section>
       <Pressable onPress={() => router.push('/dev')} accessibilityRole="button" className="mt-8"><Text className="text-muted">Developer tools</Text></Pressable>
       <View className="h-8" />
-    </ScrollView>
+    </PageScroll>
   );
 }

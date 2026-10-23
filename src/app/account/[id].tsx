@@ -16,6 +16,7 @@ import { useTheme } from '@/ui/theme';
 import { TxnRow } from '@/ui/TxnRow';
 import { monthKey, monthRange, rupees } from '@/utils/format';
 import { asOf } from '../accounts';
+import { Page } from '@/ui/insets';
 
 export default function AccountDetail() {
   useSecurity(); // re-render when "hide amounts" changes
@@ -57,7 +58,7 @@ export default function AccountDetail() {
   };
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <ScrollView showsVerticalScrollIndicator={false}>
         <PageHeader title={a.name} subtitle={sub} />
@@ -118,6 +119,6 @@ export default function AccountDetail() {
           />
         </Sheet>
       )}
-    </View>
+    </Page>
   );
 }

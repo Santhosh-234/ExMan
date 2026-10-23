@@ -14,6 +14,7 @@ import { BackButton, Button, Card, EmptyState, PageHeader, SectionLabel, Sheet }
 import { FadeIn } from '@/ui/anim';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
+import { Page } from '@/ui/insets';
 
 export default function Unrecognised() {
   const db = useSQLiteContext();
@@ -37,7 +38,7 @@ export default function Unrecognised() {
   };
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Unrecognised messages" subtitle="Messages that mention an amount but that ExMan could not read. Teach it the format once and it will read similar messages from now on." />
 
@@ -97,6 +98,6 @@ export default function Unrecognised() {
           }} />
         </Sheet>
       )}
-    </View>
+    </Page>
   );
 }

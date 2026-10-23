@@ -9,6 +9,7 @@ import { ENDPOINT, type LoggedEvent, type TelemetryState, flush, getState, insta
 import { BackButton, Button, Card, PageHeader } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
+import { Page } from '@/ui/insets';
 
 export default function Telemetry() {
   const db = useSQLiteContext();
@@ -26,7 +27,7 @@ export default function Telemetry() {
   const queued = events.filter((e) => !e.sent_at).length;
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Usage data" subtitle="Anonymous and content-free. Nothing about your money, merchants or messages." />
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -71,6 +72,6 @@ export default function Telemetry() {
         ))}
         <View className="h-10" />
       </ScrollView>
-    </View>
+    </Page>
   );
 }

@@ -14,6 +14,7 @@ import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 import { CURRENCIES, formatForeign, isForeign } from '@/utils/currency';
 import { type Selection, buildPattern, NUMERIC, detectCurrency, suggestSelection, tokenize } from '@/utils/teach';
+import { Page } from '@/ui/insets';
 
 type Field = 'amount' | 'merchant' | 'account';
 
@@ -101,7 +102,7 @@ export default function Teach() {
   const hint = field === 'amount' ? 'Tap the amount.' : field === 'merchant' ? 'Tap the first and last word of the merchant (optional).' : 'Tap the last digits of the account (optional).';
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Teach ExMan" subtitle={`From ${msg.sender}. ExMan made a first guess below. Check it, fix anything that is off, then teach it.`} />
 
@@ -161,6 +162,6 @@ export default function Teach() {
         ) : null}
         <Button label={saving ? 'Saving…' : 'Teach this format'} disabled={!built?.ok || saving} onPress={save} />
       </View>
-    </View>
+    </Page>
   );
 }

@@ -2,6 +2,7 @@ import type { ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
 import { BarChart3, Home, ListOrdered, Settings } from 'lucide-react-native';
 
+import { useInsets } from '@/ui/insets';
 import { useTheme } from '@/ui/theme';
 
 const tab = (title: string, Icon: typeof Home) => ({
@@ -11,6 +12,7 @@ const tab = (title: string, Icon: typeof Home) => ({
 
 export default function TabsLayout() {
   const { colors } = useTheme();
+  const { bottom } = useInsets();
   return (
     <Tabs
       screenOptions={{
@@ -18,7 +20,7 @@ export default function TabsLayout() {
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.line, borderTopWidth: 1, height: 64, paddingTop: 6, paddingBottom: 8, elevation: 0 },
+        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.line, borderTopWidth: 1, height: 60 + bottom, paddingTop: 6, paddingBottom: 6 + bottom, elevation: 0 },
         tabBarLabelStyle: { fontFamily: 'Manrope_600SemiBold', fontSize: 11, letterSpacing: 0.2 },
         sceneStyle: { backgroundColor: colors.bg },
       }}>

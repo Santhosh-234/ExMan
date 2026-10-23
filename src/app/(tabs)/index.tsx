@@ -23,6 +23,7 @@ import { monthKey, monthRange, rupees, shiftMonth } from '@/utils/format';
 import { budgetStatus } from '@/utils/budgets';
 import { getRecurring } from '@/db/recurring';
 import { type Recurring } from '@/utils/recurring';
+import { PageScroll } from '@/ui/insets';
 
 export default function Home() {
   const { hide } = useSecurity(); // re-render when "hide amounts" changes
@@ -83,7 +84,7 @@ export default function Home() {
 
   return (
     <View className="flex-1 bg-base">
-      <ScrollView className="px-4 pt-14" showsVerticalScrollIndicator={false}>
+      <PageScroll tab>
         <View className="mb-5 flex-row items-center justify-between">
           <View>
             <Text className="text-sm text-muted">{today.getHours() < 12 ? 'Good morning' : today.getHours() < 17 ? 'Good afternoon' : 'Good evening'}</Text>
@@ -229,7 +230,7 @@ export default function Home() {
           recent.map((t) => <TxnRow key={t.id} t={t} cat={catById.get(t.category_id ?? -1)} onPress={(x) => router.push(`/txn/${x.id}`)} />)
         )}
         <View className="h-28" />
-      </ScrollView>
+      </PageScroll>
       <Fab onPress={() => router.push('/add')} />
     </View>
   );
