@@ -19,6 +19,7 @@ import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 import { formatForeign } from '@/utils/currency';
 import { describeRate } from '@/utils/fx';
+import { Page } from '@/ui/insets';
 
 const THRESHOLD = 110;
 
@@ -205,7 +206,7 @@ export default function Review() {
 
   const done = total - (queue?.length ?? total);
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <View className="mb-4 flex-row items-center justify-between">
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close review" className="h-10 w-10 items-center justify-center rounded-full border border-line bg-card"><X size={20} color={colors.fg} /></Pressable>
         <Text className="text-base font-semibold text-fg" accessibilityRole="header">{queue && queue.length ? `${done + 1} of ${total}` : 'Review'}</Text>
@@ -250,6 +251,6 @@ export default function Review() {
 
       {picking && head && <CategorySheet cats={cats} value={head.category_id} onClose={() => setPicking(false)} onPick={(id) => { patchHead({ category_id: id }); setPicking(false); }} />}
       {editing && head && <EditSheet txn={head} cats={cats} onClose={() => setEditing(false)} onSave={(f) => { patchHead(f); setEditing(false); }} />}
-    </View>
+    </Page>
   );
 }

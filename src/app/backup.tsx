@@ -18,6 +18,7 @@ import { useTheme } from '@/ui/theme';
 import { toCsv } from '@/utils/csv';
 import { utf8Encode } from '@/backup/crypto';
 import { monthKey, monthRange, shiftMonth } from '@/utils/format';
+import { Page } from '@/ui/insets';
 
 const RANGES = {
   'This month': () => monthRange(monthKey(new Date())),
@@ -121,7 +122,7 @@ export default function Backup() {
   };
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Backup & export" subtitle="Your data lives only on this phone. A backup lets you move to a new phone or recover after a reset." />
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -169,6 +170,6 @@ export default function Backup() {
           <Button variant="danger" label={busy === 'restore' ? 'Restoring…' : 'Replace and restore'} disabled={!!busy} onPress={restore} />
         </Sheet>
       )}
-    </View>
+    </Page>
   );
 }

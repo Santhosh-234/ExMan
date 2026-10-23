@@ -15,6 +15,7 @@ import { Button, Card, Group, NavRow } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 
 import { notificationAccessGranted, openNotificationAccessSettings } from '../../modules/vibe-listener';
+import { PageScroll } from '@/ui/insets';
 
 const Step = ({ n, title, children }: { n: number; title: string; children: React.ReactNode }) => (
   <View className="mb-6">
@@ -54,7 +55,7 @@ export default function Welcome() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-base px-4 pt-16" showsVerticalScrollIndicator={false}>
+    <PageScroll>
       <Text className="text-4xl font-bold text-fg" accessibilityRole="header">Welcome to ExMan</Text>
       <Text className="mb-8 mt-2 text-base text-muted">Your money, tracked for you, seen only by you. ExMan reads the bank and UPI alerts already on your phone, so you never type an expense. Everything stays on this phone.</Text>
 
@@ -106,7 +107,7 @@ export default function Welcome() {
         </Card>
       </Step>
 
-      <Button label="Get started" onPress={finish} className="mb-12" />
-    </ScrollView>
+      <Button label="Get started" onPress={finish} className="mb-4" />
+    </PageScroll>
   );
 }

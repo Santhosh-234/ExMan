@@ -11,6 +11,7 @@ import { track } from '@/telemetry';
 import { BackButton, Button, Card, IconButton, ListRow, PageHeader, SectionLabel, Sheet } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
+import { Page } from '@/ui/insets';
 
 type Editing = { id: number | null; name: string; color: string; custom: boolean; archived: boolean; n: number };
 
@@ -69,7 +70,7 @@ export default function Categories() {
   );
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Categories" subtitle="Archiving hides a category from pickers but keeps it on old transactions." right={<IconButton icon={Plus} label="Add category" onPress={() => open()} />} />
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -95,6 +96,6 @@ export default function Categories() {
           {ed.id != null && ed.custom && <Button variant="danger" label={ed.n ? `Delete (${ed.n} transaction${ed.n === 1 ? '' : 's'} become uncategorised)` : 'Delete'} onPress={remove} />}
         </Sheet>
       )}
-    </View>
+    </Page>
   );
 }

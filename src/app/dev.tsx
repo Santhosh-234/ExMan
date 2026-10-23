@@ -7,6 +7,7 @@ import { Text } from '@/ui/Text';
 import { getTxns, monthlyTotals, spendByCategory } from '@/db/queries';
 import { Button } from '@/ui/kit';
 import { hashMessage } from '@/utils/hash';
+import { PageScroll } from '@/ui/insets';
 
 const MERCHANTS = ['swiggy@icici', 'ZOMATO', 'Uber India', 'BigBasket', 'Amazon Pay', 'Netflix', 'Apollo Pharmacy', 'Airtel', 'Chai Point', 'Rahul'];
 
@@ -56,10 +57,11 @@ export default function Dev() {
   );
 
   return (
-    <ScrollView className="flex-1 bg-base px-4 pt-14">
+    <PageScroll>
       <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back"><Text className="mb-2 text-accent">‹ Back</Text></Pressable>
       <Text className="mb-1 text-2xl font-semibold text-fg" accessibilityRole="header">Developer</Text>
       <Text className="mb-4 text-xs text-muted">Budget: any screen's data in under 100 ms at 10,000 rows.</Text>
+      <Button className="mb-3" label="Message lab" onPress={() => router.push('/lab')} />
       <View className="flex-row flex-wrap">
         <Btn label="Seed 1,000" onPress={() => seed(1000)} />
         <Btn label="Seed 10,000" onPress={() => seed(10000)} />
@@ -67,6 +69,6 @@ export default function Dev() {
         <Btn label="Delete seeded" onPress={async () => { await db.runAsync("DELETE FROM transactions WHERE raw_text LIKE 'SEED %'"); add('seeded rows deleted'); }} />
       </View>
       {log.map((l, i) => <Text key={i} className="text-muted">{l}</Text>)}
-    </ScrollView>
+    </PageScroll>
   );
 }

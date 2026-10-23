@@ -15,6 +15,7 @@ import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 import { type Recurring, cadenceLabel } from '@/utils/recurring';
+import { Page } from '@/ui/insets';
 
 const DAY = 864e5;
 export const dueText = (r: Recurring, now = Date.now()) => {
@@ -51,7 +52,7 @@ export default function Subscriptions() {
   );
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Subscriptions" subtitle="Payments that repeat on a schedule, found from your confirmed spending. A pattern needs about 3 charges (2 for yearly ones)." />
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -88,6 +89,6 @@ export default function Subscriptions() {
           }} />
         </Sheet>
       )}
-    </View>
+    </Page>
   );
 }

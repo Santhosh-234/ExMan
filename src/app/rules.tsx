@@ -13,6 +13,7 @@ import { BackButton, Button, Card, EmptyState, IconButton, PageHeader, SectionLa
 import { CategoryChips } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
+import { Page } from '@/ui/insets';
 
 type RuleRow = Awaited<ReturnType<typeof getRules>>[number];
 
@@ -66,7 +67,7 @@ export default function Rules() {
     );
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Rules" subtitle="New transactions are categorised by these rules first. Merchant rules are created when you answer “Always put … under …?”." right={<IconButton icon={Plus} label="Add keyword rule" onPress={() => { setKw(''); setKwCat(null); setAdding(true); }} />} />
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -102,6 +103,6 @@ export default function Rules() {
           }} />
         </Sheet>
       )}
-    </View>
+    </Page>
   );
 }

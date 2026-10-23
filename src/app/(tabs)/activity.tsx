@@ -17,6 +17,7 @@ import { useTheme } from '@/ui/theme';
 import { TxnRow } from '@/ui/TxnRow';
 import { type TxnFilter, EMPTY_FILTER, activeFilterCount, filterFromParams } from '@/utils/filters';
 import { rupees } from '@/utils/format';
+import { Page } from '@/ui/insets';
 
 type Item = { kind: 'day'; key: string; label: string; spent: number } | { kind: 'txn'; key: string; t: Txn };
 
@@ -131,7 +132,7 @@ export default function Activity() {
   const summaryText = `${sum.n} transaction${sum.n === 1 ? '' : 's'}${sum.spent ? ` · ${rupees(sum.spent)} spent` : ''}${sum.received ? ` · ${rupees(sum.received)} received` : ''}`;
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page tab>
       {selecting ? (
         <View className="mb-3 flex-row items-center justify-between">
           <View className="flex-row items-center">
@@ -206,6 +207,6 @@ export default function Activity() {
       {!selecting && <Fab onPress={() => router.push('/add')} />}
       {showFilters && <FilterSheet value={filter} cats={cats} accounts={accts} onClose={() => setShowFilters(false)} onApply={(f) => { setFilter(f); setShowFilters(false); }} />}
       {pickCat && <CategorySheet cats={cats} value={null} onClose={() => setPickCat(false)} onPick={(id) => { setPickCat(false); void bulk({ category_id: id }, `Categorised ${selected.size} as ${catById.get(id)?.name}`); }} />}
-    </View>
+    </Page>
   );
 }

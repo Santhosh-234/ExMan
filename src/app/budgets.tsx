@@ -16,6 +16,7 @@ import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { budgetStatus, monthProgress } from '@/utils/budgets';
 import { monthKey, monthLabel, rupees } from '@/utils/format';
+import { Page } from '@/ui/insets';
 
 type Edit = { id: number | null; name: string; amount: string; rollover: boolean; isNew: boolean };
 
@@ -63,7 +64,7 @@ export default function Budgets() {
   const free = cats.filter((c) => !c.archived && !have.has(c.id));
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Budgets" subtitle="A budget applies to that month and every later one until you change it. The grey tick shows where an even pace would put you today." right={<IconButton icon={Plus} label="Add a budget" onPress={() => open()} />} />
       <MonthBar month={month} onChange={setMonth} max={nowKey} />
@@ -116,7 +117,7 @@ export default function Budgets() {
           {!ed.isNew && <Button variant="danger" label="Remove this budget" onPress={remove} />}
         </Sheet>
       )}
-    </View>
+    </Page>
   );
 }
 

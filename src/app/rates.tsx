@@ -12,6 +12,7 @@ import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { CURRENCIES } from '@/utils/currency';
 import { ONLINE_CODES } from '@/utils/fx';
+import { Page } from '@/ui/insets';
 
 /**
  * Rupees per 1 unit of each currency for card spends made abroad. A field left empty means "automatic": that day's published rate when it
@@ -48,7 +49,7 @@ export default function Rates() {
   };
 
   return (
-    <View className="flex-1 bg-base px-4 pt-14">
+    <Page>
       <BackButton />
       <PageHeader title="Exchange rates" subtitle="Card spends in other currencies are saved in rupees and marked ≈ because your bank's own rate differs a little." />
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -95,6 +96,6 @@ export default function Rates() {
       <View className="border-t border-line bg-base pb-4 pt-3">
         <Button label="Save rates" disabled={invalid} onPress={save} />
       </View>
-    </View>
+    </Page>
   );
 }
