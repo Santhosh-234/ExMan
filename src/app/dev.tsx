@@ -9,6 +9,17 @@ import { Button } from '@/ui/kit';
 import { hashMessage } from '@/utils/hash';
 import { PageScroll } from '@/ui/insets';
 
+/** Seeded rows, plus the merchants they created that nothing else uses (so test names do not linger in Merchants or teach the category model). */
+async function removeSeeded(db: ReturnType<typeof useSQLiteContext>) {
+  await db.runAsync("DELETE FROM transactions WHERE raw_text LIKE 'SEED %'");
+  await db.runAsync(
+    `DELETE FROM merchants WHERE id NOT IN (SELECT merchant_id FROM transactions WHERE merchant_id IS NOT NULL)
+       AND id NOT IN (SELECT merchant_id FROM rules WHERE merchant_id IS NOT NULL)
+       AND id NOT IN (SELECT merchant_id FROM transfer_merchants)
+       AND id NOT IN (SELECT merged_into FROM merchants WHERE merged_into IS NOT NULL)`,
+  );
+}
+
 const MERCHANTS = ['swiggy@icici', 'ZOMATO', 'Uber India', 'BigBasket', 'Amazon Pay', 'Netflix', 'Apollo Pharmacy', 'Airtel', 'Chai Point', 'Rahul'];
 
 /** Developer tools: seed synthetic rows and time the hot queries against the perf budget (docs/v2-plan.md). */
@@ -66,7 +77,7 @@ export default function Dev() {
         <Btn label="Seed 1,000" onPress={() => seed(1000)} />
         <Btn label="Seed 10,000" onPress={() => seed(10000)} />
         <Btn label="Benchmark" onPress={bench} />
-        <Btn label="Delete seeded" onPress={async () => { await db.runAsync("DELETE FROM transactions WHERE raw_text LIKE 'SEED %'"); add('seeded rows deleted'); }} />
+        <Btn label="Delete seeded" onPress={async () => { await removeSeeded(db); add('seeded rows deleted'); }} />
       </View>
       {log.map((l, i) => <Text key={i} className="text-muted">{l}</Text>)}
     </PageScroll>
