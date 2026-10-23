@@ -70,6 +70,7 @@ export default function Merchants() {
 
       {sel && mode === 'menu' && (
         <Sheet title={sel.name} onClose={close}>
+          <Button className="mb-2" label="View transactions" onPress={() => { const n = sel.name; close(); router.push(`/activity?q=${encodeURIComponent(n)}`); }} />
           <Button className="mb-2" variant="secondary" label="Always categorise as…" onPress={() => setMode('category')} />
           <Button className="mb-2" variant="secondary" label={isXfer ? 'Stop treating as a transfer' : 'Always treat as a transfer'} onPress={async () => {
             const m = sel; close();
@@ -79,7 +80,6 @@ export default function Merchants() {
           }} />
           <Button className="mb-2" variant="secondary" label="Rename" onPress={() => { setName(sel.name); setMode('rename'); }} />
           <Button className="mb-2" variant="secondary" label="Merge into another merchant…" onPress={() => setMode('merge')} />
-          <Button variant="ghost" label="View transactions" onPress={() => { const n = sel.name; close(); router.push(`/activity?q=${encodeURIComponent(n)}`); }} />
         </Sheet>
       )}
       {sel && mode === 'category' && (
