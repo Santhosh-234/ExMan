@@ -48,3 +48,19 @@ test('real data survives removing the demo', async () => {
   assert.equal(n(raw, "SELECT COUNT(*) AS n FROM accounts WHERE last4 = '1234'"), 1);
   assert.equal(n(raw, "SELECT COUNT(*) AS n FROM merchants"), 1);
 });
+
+test('removing the demo also removes what you added to it while testing', async () => {
+  const { db, raw } = await makeDb();
+  const { ledgerGaps, ignoreGap } = await import('../db/ledger');
+  const { addManualTxn } = await import('../db/queries');
+  const { setAnchor } = await import('../db/anchors');
+  await loadDemo(db, NOW);
+  const acct = (raw.prepare("SELECT id FROM accounts WHERE last4 = '9999'").get() as { id: number }).id;
+  const [gap] = await ledgerGaps(db, 120, NOW);
+  await addManualTxn(db, { amount_paise: 300000, direction: 'debit', merchant: 'Missing', category_id: null, account_id: acct, ts: gap.toTs - 1000, tags: '', notes: null }); // "Add it"
+  await ignoreGap(db, gap.toId);
+  await setAnchor(db, acct, 100000, NOW);
+  await removeDemo(db);
+  for (const t of ['transactions', 'bills', 'holdings', 'merchants', 'ledger_ignored']) assert.equal(n(raw, `SELECT COUNT(*) AS n FROM ${t}`), 0, t);
+  assert.equal(n(raw, "SELECT COUNT(*) AS n FROM accounts WHERE kind != 'cash'"), 0);
+});

@@ -41,14 +41,23 @@ export async function loadDemo(db: SQLiteDatabase, now = Date.now()) {
 
 /** Removes the sample data completely, including the accounts, bills, holdings and merchants it created. */
 export async function removeDemo(db: SQLiteDatabase) {
+  // the demo accounts are fake, so anything on them goes too: entries added by hand (the Books check "Add it"), edits, ignored differences
+  const demoAccounts = (await db.getAllAsync<{ id: number }>("SELECT id FROM accounts WHERE last4 IN ('9999', '9998') AND bank = 'HDFC' AND kind != 'cash'")).map((a) => a.id);
   await db.runAsync('DELETE FROM transactions WHERE raw_text LIKE ?', `${TAG}%`);
+  if (demoAccounts.length) {
+    const ids = demoAccounts.join(',');
+    await db.runAsync(`DELETE FROM transactions WHERE account_id IN (${ids})`);
+    await db.runAsync(`UPDATE accounts SET merged_into = NULL WHERE merged_into IN (${ids})`);
+    await db.runAsync(`DELETE FROM accounts WHERE id IN (${ids})`);
+  }
   await db.runAsync("DELETE FROM bills WHERE last4 = '9998'");
-  await db.runAsync("DELETE FROM accounts WHERE last4 IN ('9999', '9998') AND kind != 'cash' AND id NOT IN (SELECT account_id FROM transactions WHERE account_id IS NOT NULL)");
+  await db.runAsync('DELETE FROM ledger_ignored WHERE txn_id NOT IN (SELECT id FROM transactions)');
   await db.runAsync("DELETE FROM holdings WHERE key NOT LIKE 'manual:%' AND id NOT IN (SELECT holding_id FROM transactions WHERE holding_id IS NOT NULL)");
   await db.runAsync(
     `DELETE FROM merchants WHERE id NOT IN (SELECT merchant_id FROM transactions WHERE merchant_id IS NOT NULL)
        AND id NOT IN (SELECT merchant_id FROM rules WHERE merchant_id IS NOT NULL)
        AND id NOT IN (SELECT merchant_id FROM transfer_merchants)
+       AND id NOT IN (SELECT merchant_id FROM kind_rules)
        AND id NOT IN (SELECT merged_into FROM merchants WHERE merged_into IS NOT NULL)`,
   );
   await db.runAsync("DELETE FROM settings WHERE key = 'feed_dismissed'");
