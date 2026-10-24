@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { type MerchantCache, ensureMerchant } from '@/db/merchantCore';
 import { loadRuleIndex } from '@/db/merchants';
 import { loadPatternIndex } from '@/db/patterns';
+import { recordBill } from '@/db/bills';
 import { syncHoldings } from '@/db/holdings';
 import { loadKindRules } from '@/db/kinds';
 import { loadModel } from '@/db/suggest';
@@ -89,7 +90,7 @@ async function recordBalance(db: SQLiteDatabase, accountId: number, b: NonNullab
   );
 }
 
-export type Outcome = 'added' | 'already-recorded' | 'duplicate' | 'unrecognised';
+export type Outcome = 'added' | 'already-recorded' | 'duplicate' | 'unrecognised' | 'bill';
 
 /** Parse one raw message and store it. Returns true if a new transaction row was added. */
 export async function store(db: SQLiteDatabase, ctx: Ctx, m: RawMessage): Promise<boolean> {
@@ -108,6 +109,7 @@ export async function storeOutcome(db: SQLiteDatabase, ctx: Ctx, m: RawMessage):
     const taught = ctx.patterns.match(m.sender, m.text);
     if (taught) { t = toParsed(m.text, m.sender, m.ts, taught); countParse(t.bank, 'taught'); }
   } else countParse(t.bank, 'parsed');
+  if (!t && (await recordBill(db, m))) return 'bill'; // a statement or reminder: kept for upcoming payments, not a transaction
   if (!t) {
     // privacy: only keep messages that mention an amount (rupees or a foreign currency, either order); OTPs/chats are dropped
     if (mentionsAmount(m.text) && !isOtpMessage(m.text)) {

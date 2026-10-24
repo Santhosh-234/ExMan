@@ -24,6 +24,10 @@ import { budgetStatus } from '@/utils/budgets';
 import { getRecurring } from '@/db/recurring';
 import { type Recurring } from '@/utils/recurring';
 import { PageScroll } from '@/ui/insets';
+import { dismissFeedItem, loadFeed } from '@/db/feed';
+import { netWorth } from '@/db/networth';
+import { FeedList } from '@/ui/Feed';
+import type { FeedItem } from '@/utils/feed';
 
 export default function Home() {
   const { hide } = useSecurity(); // re-render when "hide amounts" changes
@@ -37,8 +41,9 @@ export default function Home() {
   const [autoTransfers, setAutoTransfers] = useState(0);
   const [unparsed, setUnparsed] = useState(0);
   const [apk, setApk] = useState<ApkUpdate | null>(null);
-  const [upcoming, setUpcoming] = useState<Recurring[]>([]);
-  const [alerts, setAlerts] = useState<{ line: BudgetLine; pct: number; over: boolean; left: number }[]>([]);
+  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [allFeed, setAllFeed] = useState(false);
+  const [worth, setWorth] = useState<{ total: number; delta: number | null } | null>(null);
   const [spend, setSpend] = useState<CategorySpend[]>([]);
   const [income, setIncome] = useState(0);
   const [prevSpent, setPrevSpent] = useState(0);
@@ -55,19 +60,20 @@ export default function Home() {
       countPending(db), spendByCategory(db, from, to), totalFor(db, 'credit', from, to), totalFor(db, 'debit', pf, pt), getBudget(db, month),
       queryTxns(db, { from, to, transfers: 'hide' }, 0), getCategories(db), countAutoTransfers(db), countUnparsed(db),
     ]);
-    // category budgets at 80% or more (current month only): shown as alerts, worst first
-    const lines = month === monthKey(new Date()) ? await budgetOverview(db, month) : [];
-    setAlerts(lines.filter((l) => l.category_id !== null).map((line) => ({ line, st: budgetStatus({ limit: line.limit, carry: line.carry, spent: line.spent, month, now: new Date() }) }))
-      .filter((x) => x.st.state !== 'ok').map((x) => ({ line: x.line, pct: x.st.pct, over: x.st.state === 'over', left: x.st.remaining })).sort((a, b) => b.pct - a.pct).slice(0, 2));
-    // subscriptions due in the next week (current month view only)
-    const rec = month === monthKey(new Date()) ? await getRecurring(db) : [];
-    setUpcoming(rec.filter((r) => r.status === 'active' && r.nextTs - Date.now() <= 7 * 864e5).slice(0, 2));
+    // what deserves attention right now (bills, shortfalls, odd charges, budgets...), current month view only
+    if (month === monthKey(new Date())) {
+      setFeed(await loadFeed(db));
+      const nw = await netWorth(db);
+      const last = nw.series[nw.series.length - 2];
+      setWorth(nw.banks.length || nw.investments ? { total: nw.total, delta: last ? nw.total - last.total : null } : null);
+    } else { setFeed([]); setWorth(null); }
     setApk(await cachedApkUpdate(db));
     setPending(p); setAutoTransfers(at); setUnparsed(up); setSpend(s); setIncome(i); setPrevSpent(ps); setBudgetState(b); setRecent(r.slice(0, 5)); setCats(c); setLoaded(true);
   }, [db, month]);
   useFocusEffect(useCallback(() => void load(), [load]));
   useEffect(() => onIngested(() => void load()), [load]);
 
+  const dismiss = useCallback(async (id: string) => { await dismissFeedItem(db, id); setFeed((f) => f.filter((x) => x.id !== id)); }, [db]);
   const catById = useMemo(() => new Map(cats.map((c) => [c.id, c])), [cats]);
   const spent = spend.reduce((a, s) => a + s.total, 0);
   const pct = budget ? Math.min(1, spent / budget) : 0;
@@ -117,26 +123,12 @@ export default function Home() {
           </Pressy>
         )}
 
-        {upcoming.map((r) => (
-          <Pressy key={r.merchant_id} onPress={() => router.push('/subscriptions')} accessibilityRole="button" className="mb-4" innerClassName="flex-row items-center rounded-[26px] border border-line bg-card p-4">
-            <View className="flex-1">
-              <Text className="text-base font-semibold text-fg">{r.merchant} · {rupees(r.amount)}</Text>
-              <Text className="text-sm text-muted">{dueText(r)}{r.priceChange ? ` · price up from ${rupees(r.priceChange.from)}` : ''}</Text>
-            </View>
-            <ChevronRight color={colors.muted} />
-          </Pressy>
-        ))}
-
-        {alerts.map((a) => (
-          <Pressy key={String(a.line.category_id)} onPress={() => router.push('/budgets')} accessibilityRole="button" className="mb-4" innerClassName="flex-row items-center rounded-[26px] border border-line bg-card p-4">
-            <View className="mr-3 h-3 w-3 rounded-full" style={{ backgroundColor: a.over ? colors.danger : colors.warn }} />
-            <View className="flex-1">
-              <Text className="text-base font-semibold text-fg">{a.line.name}: {a.over ? 'over budget' : `${Math.round(a.pct * 100)}% used`}</Text>
-              <Text className="text-sm text-muted">{a.over ? `${rupees(-a.left)} over its ${rupees(a.line.limit + a.line.carry)} budget` : `${rupees(a.left)} left this month`}</Text>
-            </View>
-            <ChevronRight color={colors.muted} />
-          </Pressy>
-        ))}
+        <FeedList items={feed} limit={allFeed ? undefined : 3} onDismiss={dismiss} />
+        {feed.length > 3 && (
+          <Pressable onPress={() => setAllFeed((v) => !v)} hitSlop={8} accessibilityRole="button" className="mb-4 min-h-9 justify-center px-1">
+            <Text className="font-semibold text-accent">{allFeed ? 'Show less' : `${feed.length - 3} more for you`}</Text>
+          </Pressable>
+        )}
 
         {unparsed > 0 && (
           <Pressy onPress={() => router.push('/unrecognised')} accessibilityRole="button" className="mb-4" innerClassName="flex-row items-center rounded-[26px] border border-line bg-card p-4">
@@ -206,6 +198,20 @@ export default function Home() {
               <View className="flex-1"><Text className="text-xs text-muted">Net</Text><Text className={`text-lg font-semibold ${income - spent < 0 ? 'text-danger' : 'text-fg'}`}>{income - spent < 0 ? '-' : ''}{rupees(Math.abs(income - spent))}</Text></View>
             </View>
           </Card></FadeIn>
+        )}
+
+        {worth && (
+          <FadeIn index={2}>
+            <Pressy onPress={() => router.push('/wealth')} accessibilityRole="button" accessibilityLabel={`Net worth ${rupees(worth.total)}. Open wealth`} className="mb-4" innerClassName="flex-row items-center rounded-[26px] border border-line bg-card p-4">
+              <View className="mr-3 h-11 w-11 items-center justify-center rounded-full bg-card2"><TrendingUp size={20} color={colors.accent} /></View>
+              <View className="flex-1">
+                <Text className="text-xs font-semibold uppercase tracking-widest text-muted">Net worth</Text>
+                <Text className="text-xl font-bold text-fg" style={{ fontVariant: ['tabular-nums'] }}>{rupees(worth.total)}</Text>
+              </View>
+              {worth.delta != null ? <Text className={`text-sm font-semibold ${worth.delta >= 0 ? 'text-income' : 'text-danger'}`}>{worth.delta >= 0 ? '↑' : '↓'} {rupees(Math.abs(worth.delta))}</Text> : null}
+              <ChevronRight color={colors.muted} />
+            </Pressy>
+          </FadeIn>
         )}
 
         {top.length > 0 && (
