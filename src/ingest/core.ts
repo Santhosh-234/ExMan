@@ -11,6 +11,7 @@ import { detectTransfers } from '@/db/transfers';
 import { toParsed } from '@/utils/teach';
 import { countParse } from '@/telemetry/counters';
 import { type Kind, classifyKind } from '@/utils/kinds';
+import { type FamiliarStat, familiarStats, isFamiliar } from '@/utils/familiar';
 import { isStrong, isUsable, type Model } from '@/utils/suggest';
 import { isOtpMessage, looksLikeTransaction, mentionsAmount } from '@/utils/transactional';
 import { CURRENCIES, toPaise } from '@/utils/currency';
@@ -34,6 +35,7 @@ type Ctx = {
   patterns: Awaited<ReturnType<typeof loadPatternIndex>>;
   fx: Map<string, number>; // rupees per 1 unit of each foreign currency
   fxUser: Set<string>; // currencies whose rate the user set themselves
+  familiar: Map<number, FamiliarStat> | null; // set only when "skip review for familiar payments" is on
   kindRules: Map<number, Kind>; // merchants the user says are always investments, loans, ...
   model: Model; // categories learned from the user's confirmed history
   fxOnline: boolean; // look up that day's published rate (Exchange rates screen switch, on by default)
@@ -64,7 +66,15 @@ export async function makeCtx(db: SQLiteDatabase, since: number): Promise<Ctx> {
   const accts = new Map(rows.map((a) => [`${a.kind}|${a.bank}|${a.last4}`, final(a.id)]));
   const info = await loadRateInfo(db);
   const online = (await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'fx_online'"))?.value !== '0';
-  return { seen, cats, accts, merchants: new Map(), rules: await loadRuleIndex(db), patterns: await loadPatternIndex(db), model: await loadModel(db), kindRules: await loadKindRules(db), fx: info.rates, fxUser: info.user, fxOnline: online };
+  return { seen, cats, accts, merchants: new Map(), rules: await loadRuleIndex(db), patterns: await loadPatternIndex(db), model: await loadModel(db), kindRules: await loadKindRules(db), familiar: await loadFamiliar(db), fx: info.rates, fxUser: info.user, fxOnline: online };
+}
+
+/** History used to recognise familiar payments; null (and no query) while the setting is off. */
+async function loadFamiliar(db: SQLiteDatabase) {
+  if ((await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'auto_confirm'"))?.value !== '1') return null;
+  return familiarStats(await db.getAllAsync<{ merchant_id: number; category_id: number | null; amount_paise: number }>(
+    "SELECT merchant_id, category_id, amount_paise FROM transactions WHERE status = 'confirmed' AND direction = 'debit' AND kind = 'normal' AND is_transfer = 0 AND merchant_id IS NOT NULL AND currency IS NULL AND ts >= ?",
+    Date.now() - 365 * 864e5));
 }
 
 /** Bank + last-4 (+ card vs account) identifies an account; created on first sight. */
@@ -147,12 +157,14 @@ export async function storeOutcome(db: SQLiteDatabase, ctx: Ctx, m: RawMessage):
   const weakCat = isUsable(learned) ? learned.category : null;
   const accountId = await accountFor(db, ctx, t.bank, t.account, t.mode);
   const kind: Kind = (merchant && ctx.kindRules.get(merchant.id)) || classifyKind({ text: m.text, merchant: merchant?.name ?? t.merchant, direction: t.direction, mode: t.mode })?.kind || 'normal';
+  const finalCat = ruleCat ?? learnedCat ?? ((guess && ctx.cats.get(guess)) || null) ?? weakCat;
+  const familiar = !!ctx.familiar && !!merchant && isFamiliar(ctx.familiar.get(merchant.id), { category: finalCat, amountPaise: t.amountPaise, direction: t.direction, kind, foreign: !!t.currency, transfer: false });
   const res = await db.runAsync(
     `INSERT OR IGNORE INTO transactions
-       (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, payment_mode, ts, raw_text, msg_hash, merchant_id, currency, foreign_minor, fx_rate, fx_source, kind, balance_paise)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    t.amountPaise, t.direction, merchant?.name ?? t.merchant, ruleCat ?? learnedCat ?? ((guess && ctx.cats.get(guess)) || null) ?? weakCat, accountId,
-    t.source, t.bank, t.account, t.mode, t.ts, m.text, hash, merchant?.id ?? null, t.currency ?? null, t.foreignMinor ?? null, fxRate, fxSource, kind, t.balance?.paise ?? null,
+       (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, payment_mode, ts, raw_text, msg_hash, merchant_id, currency, foreign_minor, fx_rate, fx_source, kind, balance_paise, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    t.amountPaise, t.direction, merchant?.name ?? t.merchant, finalCat, accountId,
+    t.source, t.bank, t.account, t.mode, t.ts, m.text, hash, merchant?.id ?? null, t.currency ?? null, t.foreignMinor ?? null, fxRate, fxSource, kind, t.balance?.paise ?? null, familiar ? 'confirmed' : 'pending',
   );
   if (!res.changes) return 'already-recorded';
   if (accountId && t.balance) await recordBalance(db, accountId, t.balance, t.ts);

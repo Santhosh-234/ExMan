@@ -4,11 +4,12 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronRight, Eye, EyeOff, Inbox, TrendingDown, TrendingUp } from 'lucide-react-native';
 import { updateSecurity } from '@/security/store';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { Linking, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
 
 import { MonthBar } from '@/components/MonthBar';
 import { dueText } from '../subscriptions';
+import { kindTotals } from '@/db/queries';
 import { type BudgetLine, type Category, type CategorySpend, type Txn, budgetOverview, countPending, getBudget, getCategories, queryTxns, setBudget, spendByCategory, totalFor } from '@/db/queries';
 import { countUnparsed } from '@/db/patterns';
 import { cachedApkUpdate, dismissApkUpdate } from '@/updates/apk';
@@ -24,6 +25,7 @@ import { budgetStatus } from '@/utils/budgets';
 import { getRecurring } from '@/db/recurring';
 import { type Recurring } from '@/utils/recurring';
 import { PageScroll } from '@/ui/insets';
+import { ingest } from '@/ingest/run';
 import { dismissFeedItem, loadFeed } from '@/db/feed';
 import { netWorth } from '@/db/networth';
 import { FeedList } from '@/ui/Feed';
@@ -43,6 +45,8 @@ export default function Home() {
   const [apk, setApk] = useState<ApkUpdate | null>(null);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [allFeed, setAllFeed] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [moved, setMoved] = useState({ invested: 0, loans: 0 });
   const [worth, setWorth] = useState<{ total: number; delta: number | null } | null>(null);
   const [spend, setSpend] = useState<CategorySpend[]>([]);
   const [income, setIncome] = useState(0);
@@ -60,6 +64,7 @@ export default function Home() {
       countPending(db), spendByCategory(db, from, to), totalFor(db, 'credit', from, to), totalFor(db, 'debit', pf, pt), getBudget(db, month),
       queryTxns(db, { from, to, transfers: 'hide' }, 0), getCategories(db), countAutoTransfers(db), countUnparsed(db),
     ]);
+    setMoved(await kindTotals(db, from, to));
     // what deserves attention right now (bills, shortfalls, odd charges, budgets...), current month view only
     if (month === monthKey(new Date())) {
       setFeed(await loadFeed(db));
@@ -90,7 +95,7 @@ export default function Home() {
 
   return (
     <View className="flex-1 bg-base">
-      <PageScroll tab>
+      <PageScroll tab refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.accent} colors={[colors.accent]} progressBackgroundColor={colors.surface} onRefresh={async () => { setRefreshing(true); try { await ingest(db); } catch {} await load(); setRefreshing(false); }} />}>
         <View className="mb-5 flex-row items-center justify-between">
           <View>
             <Text className="text-sm text-muted">{today.getHours() < 12 ? 'Good morning' : today.getHours() < 17 ? 'Good afternoon' : 'Good evening'}</Text>
@@ -195,6 +200,9 @@ export default function Home() {
 
             <View className="mt-4 flex-row border-t border-line pt-3">
               <View className="flex-1"><Text className="text-xs text-muted">Income</Text><Text className="text-lg font-semibold text-income">{rupees(income)}</Text></View>
+              {moved.invested > 0 || moved.loans > 0 ? (
+                <View className="flex-1"><Text className="text-xs text-muted">{moved.invested > 0 ? 'Invested' : 'EMIs'}</Text><Text className="text-lg font-semibold text-fg">{rupees(moved.invested > 0 ? moved.invested : moved.loans)}</Text></View>
+              ) : null}
               <View className="flex-1"><Text className="text-xs text-muted">Net</Text><Text className={`text-lg font-semibold ${income - spent < 0 ? 'text-danger' : 'text-fg'}`}>{income - spent < 0 ? '-' : ''}{rupees(Math.abs(income - spent))}</Text></View>
             </View>
           </Card></FadeIn>

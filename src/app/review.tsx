@@ -34,10 +34,11 @@ type CardProps = {
   onCategory: (id: number) => void;
   onMore: () => void;
   onNotTransfer: () => void;
+  onNotKind: () => void;
 };
 
 /** Draggable card: right = confirm, left = dismiss. Buttons below do the same, so gestures are optional. */
-function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, onCategory, onMore, onNotTransfer }: CardProps) {
+function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, onCategory, onMore, onNotTransfer, onNotKind }: CardProps) {
   const { colors } = useTheme();
   const lift = useElevation(2);
   const { width } = useWindowDimensions();
@@ -100,6 +101,13 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
           <View className="mt-4 rounded-2xl bg-card2 p-3">
             <Text className="text-sm text-fg">Looks like a transfer{txn.transfer_reason ? ` (${txn.transfer_reason})` : ''}. It won't count as spending or income.</Text>
             <Pressable onPress={onNotTransfer} accessibilityRole="button" className="mt-1 min-h-9 justify-center"><Text className="text-accent">Not a transfer</Text></Pressable>
+          </View>
+        ) : null}
+
+        {txn.kind === 'investment' || txn.kind === 'loan' ? (
+          <View className="mt-4 rounded-2xl bg-card2 p-3">
+            <Text className="text-sm text-fg">{txn.kind === 'investment' ? 'Looks like an investment' : 'Looks like a loan payment'}. It won't count as spending or income.</Text>
+            <Pressable onPress={onNotKind} accessibilityRole="button" className="mt-1 min-h-9 justify-center"><Text className="text-accent">{txn.kind === 'investment' ? 'Not an investment' : 'Not a loan'}</Text></Pressable>
           </View>
         ) : null}
 
@@ -231,6 +239,12 @@ export default function Review() {
             onEdit={() => setEditing(true)}
             onCategory={(id) => patchHead({ category_id: id })}
             onMore={() => setPicking(true)}
+            onNotKind={async () => {
+              const t0 = head;
+              await updateTxn(db, t0.id, { kind: 'normal' });
+              setQueue((q) => q && [{ ...q[0], kind: 'normal' }, ...q.slice(1)]);
+              snack({ message: 'Now a regular transaction.', onAction: async () => { await updateTxn(db, t0.id, { kind: t0.kind }); setQueue((q) => q && [{ ...q[0], kind: t0.kind }, ...q.slice(1)]); } });
+            }}
             onNotTransfer={async () => {
               const t0 = head;
               await rejectTransfer(db, t0.id);

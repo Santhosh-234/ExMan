@@ -44,8 +44,9 @@ export async function loadForecast(db: SQLiteDatabase, now = Date.now(), days = 
     `SELECT t.holding_id AS id, h.name AS name, t.amount_paise, t.ts FROM transactions t JOIN holdings h ON h.id = t.holding_id
      WHERE t.kind = 'investment' AND t.direction = 'debit' AND t.status != 'dismissed' AND t.ts >= ?`, now, since);
   const loans = await detect(db,
-    `SELECT merchant_id AS id, COALESCE(merchant, 'Loan') AS name, amount_paise, ts FROM transactions
-     WHERE kind = 'loan' AND direction = 'debit' AND status != 'dismissed' AND merchant_id IS NOT NULL AND ts >= ?`, now, since);
+    // EMI alerts often name no payee: group by amount (Rs 500 buckets) when there is none
+    `SELECT COALESCE(merchant_id, -(1 + CAST(amount_paise / 50000 AS INTEGER))) AS id, COALESCE(merchant, 'Loan EMI') AS name, amount_paise, ts FROM transactions
+     WHERE kind = 'loan' AND direction = 'debit' AND status != 'dismissed' AND ts >= ?`, now, since);
   const bills = await openBills(db, now);
 
   const scheduled: Scheduled[] = [];
