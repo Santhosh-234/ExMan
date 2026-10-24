@@ -11,7 +11,7 @@ import { type CategorySpend, monthlyTotals, spendByCategory, topMerchants, total
 import { onIngested } from '@/ingest/events';
 import { Lightbulb, Repeat } from 'lucide-react-native';
 import { AnimatedBar, FadeIn, Pressy } from '@/ui/anim';
-import { Button, Card, Chip, SectionLabel } from '@/ui/kit';
+import { Button, Card, Chip, SectionLabel, Skeleton } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { monthKey, monthLabel, monthRange, rupees, shiftMonth } from '@/utils/format';
 import { buildCallouts } from '@/utils/insights';
@@ -26,6 +26,7 @@ export default function Insights() {
   const nowKey = monthKey(new Date());
   const [month, setMonth] = useState(nowKey);
   const [range, setRange] = useState<6 | 12>(6);
+  const [loaded, setLoaded] = useState(false);
   const [spend, setSpend] = useState<CategorySpend[]>([]);
   const [callouts, setCallouts] = useState<string[]>([]);
   const router = useRouter();
@@ -41,24 +42,27 @@ export default function Insights() {
   const [merchants, setMerchants] = useState<{ merchant: string; total: number; n: number }[]>([]);
 
   const load = useCallback(async () => {
+    // everything is gathered first and applied in one go, so the charts draw once instead of re-animating as each piece arrives
     const lab = (m: string) => monthLabel(m).split(' ')[0];
     const rows = await monthlyTotals(db, monthRange(months[0])[0], monthRange(nowKey)[1]);
     const sum = (m: string, dir: string) => rows.find((r) => r.month === m && r.direction === dir)?.total ?? 0;
-    setSeries(months.map((m) => ({ label: lab(m), value: sum(m, 'debit') })));
-    setIncome(months.map((m) => ({ label: lab(m), value: sum(m, 'credit') })));
-    setSaved(months.map((m) => ({ label: lab(m), value: Math.max(0, sum(m, 'credit') - sum(m, 'debit')) })));
-    setMerchants(await topMerchants(db, monthRange(months[0])[0], monthRange(nowKey)[1], 8));
+    const merch = await topMerchants(db, monthRange(months[0])[0], monthRange(nowKey)[1], 8);
 
     // the selected month, plus the three months before it for "vs your average"
     const cur = await spendByCategory(db, ...monthRange(month));
-    setSpend(cur);
     const history = await Promise.all([1, 2, 3].map((i) => spendByCategory(db, ...monthRange(shiftMonth(month, -i)))));
     const [spent, prevSpent, inc] = await Promise.all([
       totalFor(db, 'debit', ...monthRange(month)), totalFor(db, 'debit', ...monthRange(shiftMonth(month, -1))), totalFor(db, 'credit', ...monthRange(month)),
     ]);
     const rec = (await getRecurring(db)).filter((r) => r.status !== 'ended');
+    setSeries(months.map((m) => ({ label: lab(m), value: sum(m, 'debit') })));
+    setIncome(months.map((m) => ({ label: lab(m), value: sum(m, 'credit') })));
+    setSaved(months.map((m) => ({ label: lab(m), value: Math.max(0, sum(m, 'credit') - sum(m, 'debit')) })));
+    setMerchants(merch);
+    setSpend(cur);
     setSubs({ n: rec.length, monthly: monthlyTotal(rec) });
     setCallouts(buildCallouts({ spend: cur, history, spent, prevSpent, income: inc }));
+    setLoaded(true);
   }, [db, month, range, nowKey, months]);
   useFocusEffect(useCallback(() => void load(), [load]));
   useEffect(() => onIngested(() => void load()), [load]);
@@ -70,6 +74,14 @@ export default function Insights() {
     <PageScroll tab>
       <Text className="mb-4 text-3xl font-bold text-fg" accessibilityRole="header">Insights</Text>
       <MonthBar month={month} onChange={setMonth} max={nowKey} />
+
+      {!loaded ? (
+        <>
+          <Card className="mb-4"><Skeleton style={{ width: 140, height: 14 }} /><Skeleton style={{ height: 190, marginTop: 14, borderRadius: 95 }} /></Card>
+          <Card className="mb-4"><Skeleton style={{ width: 120, height: 14 }} /><Skeleton style={{ height: 120, marginTop: 14 }} /></Card>
+        </>
+      ) : (
+      <>
 
       {subs.n > 0 && (
         <Pressy onPress={() => router.push('/subscriptions')} accessibilityRole="button" className="mb-4" innerClassName="flex-row items-center rounded-[26px] border border-line bg-card p-4">
@@ -165,6 +177,8 @@ export default function Insights() {
         ))}
       </Card>
       <View className="h-8" />
+      </>
+      )}
     </PageScroll>
   );
 }

@@ -1,13 +1,17 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { effectiveOf } from '@/db/anchors';
 import { holdingStats } from '@/db/holdings';
+import { runningBalances } from '@/utils/estimate';
 import { type NetPoint, type BalancePoint, monthEnds, netWorthSeries } from '@/utils/networth';
 
 export type NetItem = { id: number; name: string; side: 'asset' | 'liability'; amount_paise: number; updated_at: number };
-export type BankBalance = { id: number; name: string; paise: number; ts: number | null; stale: boolean };
+export type BankBalance = { id: number; name: string; paise: number; ts: number | null; stale: boolean; /** worked out from a balance you entered plus the transactions since */ estimated: boolean };
 export type NetWorth = {
   total: number;
   banks: BankBalance[];
+  /** bank accounts with transactions but no balance anywhere: the user can enter one */
+  unknownBanks: { id: number; name: string }[];
   bankTotal: number;
   investments: number;
   investmentCost: number;
@@ -27,12 +31,19 @@ export const saveNetItem = (db: SQLiteDatabase, item: { id?: number; name: strin
 export const deleteNetItem = (db: SQLiteDatabase, id: number) => db.runAsync('DELETE FROM net_items WHERE id = ?', id);
 
 export async function netWorth(db: SQLiteDatabase, now = Date.now(), months = 12): Promise<NetWorth> {
-  const accts = await db.getAllAsync<{ id: number; name: string; balance_paise: number | null; balance_ts: number | null; balance_kind: string | null }>(
-    "SELECT id, name, balance_paise, balance_ts, balance_kind FROM accounts WHERE kind = 'bank' AND merged_into IS NULL AND archived = 0",
+  const accts = await db.getAllAsync<{ id: number; name: string; balance_paise: number | null; balance_ts: number | null; balance_kind: string | null; anchor_paise: number | null; anchor_ts: number | null }>(
+    "SELECT id, name, balance_paise, balance_ts, balance_kind, anchor_paise, anchor_ts FROM accounts WHERE kind = 'bank' AND merged_into IS NULL AND archived = 0",
   );
+  const allFlows = await db.getAllAsync<{ id: number; account_id: number; ts: number; direction: 'debit' | 'credit'; amount_paise: number; balance_paise: number | null }>(
+    "SELECT id, account_id, ts, direction, amount_paise, balance_paise FROM transactions WHERE account_id IS NOT NULL AND status != 'dismissed' ORDER BY ts",
+  );
+  const flowsBy = new Map<number, typeof allFlows>();
+  for (const f of allFlows) (flowsBy.get(f.account_id) ?? flowsBy.set(f.account_id, []).get(f.account_id)!).push(f);
+  const eff = new Map(accts.map((a) => [a.id, effectiveOf(a, flowsBy.get(a.id) ?? [])]));
   const banks: BankBalance[] = accts
-    .filter((a) => a.balance_paise != null && a.balance_kind !== 'limit')
-    .map((a) => ({ id: a.id, name: a.name, paise: a.balance_paise!, ts: a.balance_ts, stale: !a.balance_ts || now - a.balance_ts > 45 * 864e5 }));
+    .filter((a) => eff.get(a.id))
+    .map((a) => { const e = eff.get(a.id)!; return { id: a.id, name: a.name, paise: e.paise, ts: e.baseTs, stale: !e.rolled && now - e.baseTs > 45 * 864e5, estimated: e.source === 'entered' }; });
+  const unknownBanks = accts.filter((a) => !eff.get(a.id) && (flowsBy.get(a.id)?.length ?? 0) > 0).map((a) => ({ id: a.id, name: a.name }));
   const bankTotal = banks.reduce((s, b) => s + b.paise, 0);
 
   const holdings = await holdingStats(db, now);
@@ -45,11 +56,15 @@ export async function netWorth(db: SQLiteDatabase, now = Date.now(), months = 12
   const liabilities = items.filter((i) => i.side === 'liability').reduce((s, i) => s + i.amount_paise, 0);
 
   const bankIds = new Set(banks.map((b) => b.id));
-  const bal = await db.getAllAsync<{ account_id: number; ts: number; balance_paise: number }>(
-    'SELECT account_id, ts, balance_paise FROM transactions WHERE balance_paise IS NOT NULL AND account_id IS NOT NULL ORDER BY ts',
-  );
   const per = new Map<number, BalancePoint[]>();
-  for (const r of bal) if (bankIds.has(r.account_id)) (per.get(r.account_id) ?? per.set(r.account_id, []).get(r.account_id)!).push({ ts: r.ts, paise: r.balance_paise });
+  for (const a of accts) {
+    if (!bankIds.has(a.id)) continue;
+    const flows = flowsBy.get(a.id) ?? [];
+    const sms = flows.filter((f) => f.balance_paise != null).map((f) => ({ ts: f.ts, paise: f.balance_paise! }));
+    const lastSms = sms.length ? sms[sms.length - 1].ts : 0;
+    // a balance the user entered after the last message figure takes over; before that the messages' own balances are the history
+    per.set(a.id, a.anchor_paise != null && a.anchor_ts != null && a.anchor_ts >= lastSms ? runningBalances({ paise: a.anchor_paise, ts: a.anchor_ts }, flows) : sms);
+  }
   const flows = await db.getAllAsync<{ ts: number; direction: string; amount_paise: number }>("SELECT ts, direction, amount_paise FROM transactions WHERE kind = 'investment' AND status != 'dismissed' ORDER BY ts");
   const series = netWorthSeries({
     months: monthEnds(now, months),
@@ -60,5 +75,5 @@ export async function netWorth(db: SQLiteDatabase, now = Date.now(), months = 12
   });
   // the last point is today's snapshot, whatever the message history says
   if (series.length) series[series.length - 1] = { ...series[series.length - 1], bank: bankTotal, investments, total: bankTotal + investments + assets - liabilities };
-  return { total: bankTotal + investments + assets - liabilities, banks, bankTotal, investments, investmentCost: cost, investmentsValued, assets, liabilities, items, series };
+  return { total: bankTotal + investments + assets - liabilities, banks, unknownBanks, bankTotal, investments, investmentCost: cost, investmentsValued, assets, liabilities, items, series };
 }

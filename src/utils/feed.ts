@@ -19,6 +19,8 @@ export type FeedSignals = {
   sipsOverdue: string[];
   unvalued: string[];
   runwayMonths: number | null;
+  /** bank accounts whose messages show no balance, so nothing about them can be checked yet */
+  needBalance: { id: number; name: string }[];
 };
 
 const DAY = 864e5;
@@ -65,6 +67,7 @@ export function buildFeed(s: FeedSignals, dismissed: ReadonlySet<string> = new S
   if (s.feesMonthPaise >= 10000) add({ id: `fees-${new Date(s.now).toISOString().slice(0, 7)}`, kind: 'info', score: 40, icon: 'fees', route: '/activity?kind=fee', title: `${inr(s.feesMonthPaise)} in bank charges this month` });
   for (const n of s.sipsOverdue.slice(0, 2)) add({ id: `sip-${n}-${new Date(s.now).toISOString().slice(0, 7)}`, kind: 'watch', score: 58, icon: 'sip', route: '/investments', title: `${n} hasn't run this month`, body: 'Your SIP is usually debited by now' });
   if (s.unvalued.length) add({ id: 'unvalued', kind: 'info', score: 20, icon: 'value', route: '/investments', title: `What are your investments worth now?`, body: `Add values for ${s.unvalued.slice(0, 2).join(', ')}${s.unvalued.length > 2 ? ' and more' : ''} to see returns` });
+  for (const a of s.needBalance.slice(0, 1)) add({ id: `needbal-${a.id}`, kind: 'info', score: 35, icon: 'ledger', route: `/account/${a.id}`, title: `Add your ${a.name} balance`, body: 'Its messages do not show one. Enter it once and ExMan can track and check it' });
   if (s.runwayMonths != null && s.runwayMonths > 0) add({ id: 'runway', kind: 'info', score: 15, icon: 'runway', route: '/wealth', title: `Your bank balance covers ${s.runwayMonths.toFixed(1)} months of spending` });
 
   return out.sort((a, b) => b.score - a.score);

@@ -74,7 +74,7 @@ export default function Ledger() {
                   {h.balance != null ? <Text className="text-base text-fg" style={{ fontVariant: ['tabular-nums'] }}>{rupees(h.balance)}</Text> : null}
                 </View>
                 <Text className={`mt-0.5 text-xs ${h.gaps ? 'text-danger' : h.checkable > 0.3 ? 'text-income' : 'text-muted'}`}>
-                  {h.gaps ? `${h.gaps} to look at` : h.checkable > 0.3 ? 'Adds up' : 'Messages carry no balance, so it cannot be checked'}
+                  {h.gaps ? `${h.gaps} to look at` : h.checkable > 0.3 ? 'Adds up' : h.anchored ? 'Checked each time you enter your balance' : 'Messages carry no balance. Enter yours to track it'}
                 </Text>
               </Card>
             ))}

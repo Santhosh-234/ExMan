@@ -7,6 +7,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
 
 import { type AccountStats, type Category, type Txn, getAccount, getAccountFirefly, setAccountFirefly, getAccountStats, getCategories, mergeAccount, queryTxns, renameAccount, setAccountArchived } from '@/db/queries';
+import { type Effective, clearAnchor, effectiveBalance, setAnchor } from '@/db/anchors';
 import { notifyIngested, onIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
 import { FadeIn } from '@/ui/anim';
@@ -30,7 +31,10 @@ export default function AccountDetail() {
   const [others, setOthers] = useState<AccountStats[]>([]);
   const [recent, setRecent] = useState<Txn[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
-  const [sheet, setSheet] = useState<null | 'rename' | 'merge' | 'firefly'>(null);
+  const [sheet, setSheet] = useState<null | 'rename' | 'merge' | 'firefly' | 'balance'>(null);
+  const [eff, setEff] = useState<Effective | null>(null);
+  const [bal, setBal] = useState('');
+  const [diff, setDiff] = useState<{ expected: number; difference: number; entered: number } | null>(null);
   const [ff, setFf] = useState('');
   const [name, setName] = useState('');
   const [target, setTarget] = useState<number | null>(null);
@@ -41,6 +45,7 @@ export default function AccountDetail() {
     setA(base && s ? { ...base, spent: s.spent, received: s.received, n: s.n } : base);
     setOthers(stats.filter((x) => x.id !== aid && !x.archived));
     setRecent(r.slice(0, 5)); setCats(c);
+    setEff(await effectiveBalance(db, aid));
   }, [db, aid]);
   useEffect(() => void load(), [load]);
   useEffect(() => onIngested(() => void load()), [load]);
@@ -64,18 +69,25 @@ export default function AccountDetail() {
         <PageHeader title={a.name} subtitle={sub} />
 
         <FadeIn><Card className="mb-4">
-          {a.balance_paise != null ? (
+          {a.balance_kind === 'limit' && a.balance_paise != null ? (
             <View className="mb-3">
-              <Text className="text-xs font-semibold uppercase tracking-widest text-muted">{a.balance_kind === 'limit' ? 'Available limit' : 'Balance'} as of {asOf(a.balance_ts)}</Text>
+              <Text className="text-xs font-semibold uppercase tracking-widest text-muted">Available limit as of {asOf(a.balance_ts)}</Text>
               <Text className="mt-1 text-4xl font-bold text-fg">{rupees(a.balance_paise)}</Text>
             </View>
+          ) : eff ? (
+            <View className="mb-3">
+              <Text className="text-xs font-semibold uppercase tracking-widest text-muted">{eff.source === 'entered' ? 'Estimated balance' : eff.rolled ? 'Balance, updated with newer transactions' : `Balance as of ${asOf(eff.baseTs)}`}</Text>
+              <Text className="mt-1 text-4xl font-bold text-fg">{eff.source === 'entered' || eff.rolled ? '≈ ' : ''}{rupees(eff.paise)}</Text>
+              {eff.source === 'entered' ? <Text className="mt-1 text-xs text-muted">From the {rupees(a.anchor_paise ?? 0)} you entered on {asOf(eff.baseTs)}, plus what came and went since</Text> : null}
+            </View>
           ) : (
-            <Text className="mb-3 text-muted">No balance seen in messages for this account yet.</Text>
+            <Text className="mb-3 text-muted">Messages for this account show no balance. Enter yours once and ExMan keeps it up to date.</Text>
           )}
           <Stats items={[{ label: 'Spent this month', value: rupees(a.spent) }, { label: 'Received', value: rupees(a.received), tone: 'income' }]} />
         </Card></FadeIn>
 
         <View className="mb-4 flex-row flex-wrap">
+          {a.kind === 'bank' ? <Button className="mb-2 mr-2" label={eff ? 'Check balance' : 'Enter balance'} onPress={() => { setBal(''); setSheet('balance'); }} /> : null}
           <Button className="mb-2 mr-2" variant="secondary" label="Rename" onPress={() => { setName(a.name); setSheet('rename'); }} />
           <Button className="mb-2 mr-2" variant="secondary" label="Merge into…" disabled={others.length === 0} onPress={() => { setTarget(null); setSheet('merge'); }} />
           <Button className="mb-2 mr-2" variant="secondary" label={a.archived ? 'Restore' : 'Archive'} onPress={toggleArchive} />
@@ -87,6 +99,30 @@ export default function AccountDetail() {
         <View className="h-10" />
       </ScrollView>
 
+      {sheet === 'balance' && (
+        <Sheet title={eff ? 'Check your balance' : 'Enter your balance'} onClose={() => setSheet(null)} footer={
+          <Button label="Save" disabled={!(parseFloat(bal.replace(/,/g, '')) >= 0)} onPress={async () => {
+            const entered = Math.round(parseFloat(bal.replace(/,/g, '')) * 100);
+            const r = await setAnchor(db, aid, entered);
+            setSheet(null); notifyIngested(); load();
+            if (r.difference != null && Math.abs(r.difference) >= 100) setDiff({ expected: r.expected!, difference: r.difference, entered });
+            else snack({ message: r.difference == null ? 'Balance saved' : 'Matches what ExMan had' });
+          }} />}>
+          <Text className="mb-3 text-sm text-muted">Type what your bank app shows right now{eff ? `. ExMan thought ${rupees(eff.paise)}` : ''}.</Text>
+          <TextInput className="mb-3 min-h-12 rounded-2xl bg-card2 px-4 py-3 text-base text-fg" value={bal} onChangeText={setBal} autoFocus keyboardType="decimal-pad" placeholder="Balance in ₹" placeholderTextColor={colors.muted} accessibilityLabel="Balance in rupees" />
+          {a.anchor_paise != null ? <Button variant="ghost" label="Forget the balance I entered" onPress={async () => { await clearAnchor(db, aid); setSheet(null); notifyIngested(); load(); }} /> : null}
+        </Sheet>
+      )}
+      {diff && (
+        <Sheet title={diff.difference < 0 ? 'Money is missing' : 'Extra money'} onClose={() => setDiff(null)} footer={
+          <View className="flex-row">
+            <Button className="mr-3 flex-1" variant="secondary" label="Leave it" onPress={() => setDiff(null)} />
+            <Button className="flex-1" label="Add it" onPress={() => { const d = diff; setDiff(null); router.push(`/add?amount=${Math.abs(d.difference) / 100}&direction=${d.difference < 0 ? 'debit' : 'credit'}&account=${aid}`); }} />
+          </View>}>
+          <Text className="text-base text-fg">ExMan expected {rupees(diff.expected)} but you have {rupees(diff.entered)}.</Text>
+          <Text className="mb-2 mt-2 text-base text-muted">{rupees(Math.abs(diff.difference))} {diff.difference < 0 ? 'left the account' : 'arrived'} without a message ExMan could read. Add it as a transaction so your totals are right.</Text>
+        </Sheet>
+      )}
       {sheet === 'rename' && (
         <Sheet title="Rename account" onClose={() => setSheet(null)}>
           <TextInput className="mb-3 min-h-12 rounded-2xl bg-card2 px-4 py-3 text-base text-fg" value={name} onChangeText={setName} autoFocus placeholderTextColor={colors.muted} />

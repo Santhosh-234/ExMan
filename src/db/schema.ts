@@ -260,6 +260,10 @@ export const MIGRATIONS = [
     status TEXT NOT NULL DEFAULT 'open',
     created_ts INTEGER NOT NULL
   );
+  `,  // accounts whose messages never quote a balance (some banks): the user tells ExMan the balance once, and it rolls forward from there
+  `
+  ALTER TABLE accounts ADD COLUMN anchor_paise INTEGER;
+  ALTER TABLE accounts ADD COLUMN anchor_ts INTEGER;
   `,
 ];
 

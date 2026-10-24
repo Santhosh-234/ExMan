@@ -46,6 +46,8 @@ export type AccountStats = Account & {
   balance_paise: number | null;
   balance_kind: 'balance' | 'limit' | null;
   balance_ts: number | null;
+  anchor_paise: number | null;
+  anchor_ts: number | null;
   archived: number;
   spent: number;
   received: number;
@@ -278,7 +280,7 @@ export const getAccountNames = async (db: SQLiteDatabase) =>
 /** All visible accounts with this-period activity; archived ones included so the screen can show them dimmed. */
 export const getAccountStats = (db: SQLiteDatabase, from: number, to: number) =>
   db.getAllAsync<AccountStats>(
-    `SELECT a.id, a.name, a.kind, a.bank, a.last4, a.balance_paise, a.balance_kind, a.balance_ts, a.archived,
+    `SELECT a.id, a.name, a.kind, a.bank, a.last4, a.balance_paise, a.balance_kind, a.balance_ts, a.anchor_paise, a.anchor_ts, a.archived,
             COALESCE(SUM(CASE WHEN t.direction = 'debit' AND t.is_transfer = 0 THEN t.amount_paise END), 0) AS spent,
             COALESCE(SUM(CASE WHEN t.direction = 'credit' AND t.is_transfer = 0 THEN t.amount_paise END), 0) AS received,
             COUNT(t.id) AS n
@@ -292,7 +294,7 @@ export const getAccountStats = (db: SQLiteDatabase, from: number, to: number) =>
 
 export const getAccount = (db: SQLiteDatabase, id: number) =>
   db.getFirstAsync<AccountStats>(
-    'SELECT id, name, kind, bank, last4, balance_paise, balance_kind, balance_ts, archived, 0 AS spent, 0 AS received, 0 AS n FROM accounts WHERE id = ?', id,
+    'SELECT id, name, kind, bank, last4, balance_paise, balance_kind, balance_ts, anchor_paise, anchor_ts, archived, 0 AS spent, 0 AS received, 0 AS n FROM accounts WHERE id = ?', id,
   );
 
 export const setAccountFirefly = (db: SQLiteDatabase, id: number, name: string) => db.runAsync('UPDATE accounts SET firefly_name = ? WHERE id = ?', name.trim() || null, id);

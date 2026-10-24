@@ -3,12 +3,12 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { type Gap, checkableShare, findGaps } from '@/utils/ledger';
 
 export type AccountGap = Gap & { accountName: string };
-export type AccountHealth = { id: number; name: string; checkable: number; txns: number; gaps: number; balance: number | null };
+export type AccountHealth = { id: number; name: string; checkable: number; txns: number; gaps: number; balance: number | null; anchored: boolean };
 
 type Row = { id: number; account_id: number; ts: number; direction: 'debit' | 'credit'; amount_paise: number; balance_paise: number | null; currency: string | null };
 
 async function load(db: SQLiteDatabase, since: number) {
-  const accounts = await db.getAllAsync<{ id: number; name: string }>("SELECT id, name FROM accounts WHERE kind != 'cash' AND merged_into IS NULL AND archived = 0");
+  const accounts = await db.getAllAsync<{ id: number; name: string; anchored: number }>("SELECT id, name, anchor_paise IS NOT NULL AS anchored FROM accounts WHERE kind != 'cash' AND merged_into IS NULL AND archived = 0");
   const rows = await db.getAllAsync<Row>(
     `SELECT id, account_id, ts, direction, amount_paise, balance_paise, currency FROM transactions
      WHERE account_id IS NOT NULL AND status != 'dismissed' AND ts >= ? ORDER BY ts, id`,
@@ -40,7 +40,7 @@ export async function ledgerHealth(db: SQLiteDatabase, days = 120, now = Date.no
     if (!rows.length) continue;
     const gaps = findGaps(a.id, toLedger(rows)).filter((g) => !ignored.has(g.toId)).length;
     const withBal = rows.filter((r) => r.balance_paise != null);
-    out.push({ id: a.id, name: a.name, checkable: checkableShare(rows), txns: rows.length, gaps, balance: withBal.length ? withBal[withBal.length - 1].balance_paise : null });
+    out.push({ id: a.id, name: a.name, checkable: checkableShare(rows), txns: rows.length, gaps, balance: withBal.length ? withBal[withBal.length - 1].balance_paise : null, anchored: !!a.anchored });
   }
   return out;
 }
