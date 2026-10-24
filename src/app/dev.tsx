@@ -5,6 +5,8 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { getTxns, monthlyTotals, spendByCategory } from '@/db/queries';
+import { loadDemo, removeDemo } from '@/db/demo';
+import { notifyIngested } from '@/ingest/events';
 import { Button } from '@/ui/kit';
 import { hashMessage } from '@/utils/hash';
 import { PageScroll } from '@/ui/insets';
@@ -73,6 +75,10 @@ export default function Dev() {
       <Text className="mb-1 text-2xl font-semibold text-fg" accessibilityRole="header">Developer</Text>
       <Text className="mb-4 text-xs text-muted">Budget: any screen's data in under 100 ms at 10,000 rows.</Text>
       <Button className="mb-3" label="Message lab" onPress={() => router.push('/lab')} />
+      <View className="mb-3 flex-row">
+        <Button className="mr-3 flex-1" label="Load demo data" onPress={async () => { const n = await loadDemo(db); notifyIngested(); add(`demo data loaded: ${n} transactions (an HDFC a/c ending 9999 and a card ending 9998)`); }} />
+        <Button className="flex-1" variant="secondary" label="Remove demo data" onPress={async () => { await removeDemo(db); notifyIngested(); add('demo data removed'); }} />
+      </View>
       <View className="flex-row flex-wrap">
         <Btn label="Seed 1,000" onPress={() => seed(1000)} />
         <Btn label="Seed 10,000" onPress={() => seed(10000)} />
