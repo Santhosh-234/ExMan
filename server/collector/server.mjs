@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { createCollector } from './app.mjs';
+import { formatsSource } from './formats.mjs';
 import { openStore } from './store.mjs';
 
 const dataDir = process.env.DATA_DIR ?? '.';
 const port = Number(process.env.PORT ?? 8787);
 const store = openStore(`${dataDir}/collector.db`);
-const server = createCollector({ store, base: process.env.BASE_PATH ?? '/t' });
+const server = createCollector({ store, base: process.env.BASE_PATH ?? '/t', formats: formatsSource(`${dataDir}/formats.json`) });
 
 const purge = () => { try { const r = store.purge(Date.now()); if (r.events || r.agg) console.log(`purged ${r.events} events, ${r.agg} aggregate rows`); } catch (e) { console.error('purge failed', e); } };
 purge();

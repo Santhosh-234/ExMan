@@ -23,13 +23,16 @@ export async function loadPatternIndex(db: SQLiteDatabase) {
   const rows = await db.getAllAsync<PatternRow>('SELECT * FROM patterns WHERE enabled = 1 ORDER BY hits DESC, id DESC');
   const by = new Map<string, PatternRow[]>();
   for (const r of rows) by.set(r.sender_key, [...(by.get(r.sender_key) ?? []), r]);
+  // the downloaded library comes after the user's own patterns for the same sender (negative ids: they are not the user's rows)
+  const lib = await db.getAllAsync<{ id: number; sender_key: string; direction: 'debit' | 'credit'; amount_re: string; merchant_re: string | null; account_re: string | null; currency: string }>('SELECT id, sender_key, direction, amount_re, merchant_re, account_re, currency FROM library_formats ORDER BY id');
+  for (const f of lib) by.set(f.sender_key, [...(by.get(f.sender_key) ?? []), { ...f, id: -f.id, example: '', enabled: 1, hits: 0, created_at: 0 }]);
   const hits = new Map<number, number>();
   return {
     match(sender: string, text: string): Taught | null {
       for (const p of by.get(senderKey(sender)) ?? []) {
         let t: Taught | null = null;
         try { t = applyPattern(text, p); } catch { /* a bad stored regex must never break ingest */ }
-        if (t) { hits.set(p.id, (hits.get(p.id) ?? 0) + 1); return t; }
+        if (t) { if (p.id > 0) hits.set(p.id, (hits.get(p.id) ?? 0) + 1); return t; }
       }
       return null;
     },

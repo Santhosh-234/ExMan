@@ -9,7 +9,7 @@ export const dayOf = (t) => new Date(t).toISOString().slice(0, 10);
 
 /** Aggregation keys for one event: a count, sums of numeric fields, and a time histogram for `ms`. Free text (gap_report) is never aggregated. */
 export function aggregateKeys(name, props) {
-  if (name === 'gap_report') return [];
+  if (name === 'gap_report' || name === 'pattern_share') return [];
   const dims = [];
   const nums = [];
   for (const [k, v] of Object.entries(props)) {

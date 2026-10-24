@@ -16,6 +16,7 @@ export const EVENTS = {
   screen_load: { screen: { enum: SCREENS }, ms: 'int' },
   feature_used: { feature: { enum: FEATURES } },
   error: { kind: { enum: ['js_error', 'promise_rejection', 'db_error'] }, screen: { enum: SCREENS }, code: { re: /^[A-Za-z0-9_.:-]{0,60}$/ } },
+  pattern_share: { sender_key: { re: /^[a-z0-9]{3,12}$/ }, direction: { enum: ['debit', 'credit'] }, rx_value: { re: /^[A-Za-z0-9\s\\.,:;()\[\]{}|?+*^$\-/@_₹%&'<>=!#]{1,400}$/ }, rx_payee: { re: /^[A-Za-z0-9\s\\.,:;()\[\]{}|?+*^$\-/@_₹%&'<>=!#]{0,400}$/ }, rx_acct: { re: /^[A-Za-z0-9\s\\.,:;()\[\]{}|?+*^$\-/@_₹%&'<>=!#]{0,400}$/ }, currency: { re: /^[A-Z]{3}$/ } },
   gap_report: { sender_key: { re: /^[a-z0-9]{3,12}$/ }, template: { re: /^[A-Za-z0-9<>#\s.,:;()\-/@₹%&'*+=?!]{1,400}$/ } },
 } as const satisfies Record<string, Record<string, Spec>>;
 

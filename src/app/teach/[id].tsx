@@ -6,7 +6,9 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { type Unparsed, getUnparsed, savePattern } from '@/db/patterns';
+import { getState } from '@/db/telemetry';
 import { reprocessDetailed } from '@/ingest/run';
+import { shareableProps } from '@/utils/formats';
 import { track } from '@/telemetry';
 import { BackButton, Button, Card, Chip, PageHeader, SectionLabel } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
@@ -90,7 +92,14 @@ export default function Teach() {
       track('feature_used', { feature: 'teach_saved' });
       const parts = [`added ${r.added} transaction${r.added === 1 ? '' : 's'} to Review`];
       if (r.alreadyRecorded) parts.push(`${r.alreadyRecorded} already recorded`);
-      snack({ message: `Learned this format · ${parts.join(' · ')}` });
+      // offer to share the format (its shape only: no amounts, names or message text) when usage data is on and it holds nothing but banking words
+      const share = shareableProps(built.pattern, msg.sender);
+      const tel = await getState(db);
+      const canShare = !!share && tel.enabled && tel.noticeSeen && !!tel.endpoint;
+      snack({
+        message: `Learned this format · ${parts.join(' · ')}`,
+        ...(canShare ? { actionLabel: 'Share format', onAction: () => { track('pattern_share', share!); track('feature_used', { feature: 'teach_saved' }); snack({ message: 'Shared with the ExMan library. Thank you.' }); } } : {}),
+      });
       router.back();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save');

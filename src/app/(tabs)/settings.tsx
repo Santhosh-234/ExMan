@@ -7,6 +7,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { countUnparsed } from '@/db/patterns';
+import { useSnackbar } from '@/ui/Snackbar';
+import { formatsStatus, FORMATS_URL } from '@/db/formats';
+import { refreshFormats } from '@/ingest/formats';
 import { getSetting, setSetting } from '@/db/queries';
 import { importHistory } from '@/ingest/run';
 import { syncNow } from '@/sync';
@@ -192,6 +195,12 @@ export default function Settings() {
         <AutoConfirm />
       </Section>
 
+      {FORMATS_URL ? (
+        <Section title="Bank formats" hint="New bank message layouts added by the ExMan project, so more banks are read without an app update.">
+          <BankFormats />
+        </Section>
+      ) : null}
+
       <Section title="Accounts" hint="Banks, cards and cash found from your messages.">
         <Group>
           <NavRow first icon={Landmark} label="Manage accounts" onPress={() => router.push('/accounts')} />
@@ -319,5 +328,35 @@ function AutoConfirm() {
       </View>
       <Switch value={on} onValueChange={async (v) => { setOn(v); await setSetting(db, 'auto_confirm', v ? '1' : '0'); }} trackColor={{ true: colors.accent, false: colors.surface2 }} accessibilityLabel="Skip review for familiar payments" />
     </View>
+  );
+}
+
+
+/** Downloads the shared library of bank message formats (data only) once a day, and shows what it holds. */
+function BankFormats() {
+  const db = useSQLiteContext();
+  const snack = useSnackbar();
+  const { colors } = useTheme();
+  const [st, setSt] = useState<Awaited<ReturnType<typeof formatsStatus>> | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => void formatsStatus(db).then(setSt), [db]);
+  useEffect(load, [load]);
+  const check = async () => {
+    setBusy(true);
+    const r = await refreshFormats(db, { force: true });
+    setBusy(false); load();
+    snack({ message: r.status === 'updated' ? `Library updated: ${r.count} format${r.count === 1 ? '' : 's'}${r.added ? ` · ${r.added} message${r.added === 1 ? '' : 's'} now read` : ''}` : r.status === 'error' ? 'Could not reach the server. Try again when online.' : r.status === 'invalid' ? 'The library file was not valid, so the old one stays.' : 'Already up to date' });
+  };
+  return (
+    <Card>
+      <View className="flex-row items-center">
+        <View className="mr-3 flex-1">
+          <Text className="text-base font-semibold text-fg">Download new formats</Text>
+          <Text className="mt-1 text-sm text-muted">{st ? `${st.count} format${st.count === 1 ? '' : 's'} · version ${st.version}${st.checkedAt ? ` · checked ${new Date(st.checkedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}` : ' '}</Text>
+        </View>
+        <Switch value={st?.auto ?? true} onValueChange={async (v) => { await setSetting(db, 'formats_auto', v ? '1' : '0'); load(); }} trackColor={{ true: colors.accent, false: colors.surface2 }} accessibilityLabel="Download new bank formats automatically" />
+      </View>
+      <Button className="mt-3" variant="secondary" label={busy ? 'Checking…' : 'Check now'} disabled={busy} onPress={check} />
+    </Card>
   );
 }
