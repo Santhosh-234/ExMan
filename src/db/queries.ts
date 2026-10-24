@@ -170,6 +170,14 @@ export const totalFor = async (db: SQLiteDatabase, direction: 'debit' | 'credit'
   )?.s ?? 0;
 
 /** Merchants the user typed into manual entries most recently (for one-tap suggestions on the Add screen). */
+/** Money put into investments (net of money taken back out) and loan repayments in a period: the movements kept out of spending. */
+export async function kindTotals(db: SQLiteDatabase, from: number, to: number) {
+  const rows = await db.getAllAsync<{ kind: string; direction: string; s: number }>(
+    "SELECT kind, direction, SUM(amount_paise) AS s FROM transactions WHERE status = 'confirmed' AND is_transfer = 0 AND kind IN ('investment','loan') AND ts >= ? AND ts < ? GROUP BY 1, 2", from, to);
+  const net = (k: string) => rows.filter((r) => r.kind === k).reduce((a, r) => a + (r.direction === 'debit' ? r.s : -r.s), 0);
+  return { invested: net('investment'), loans: net('loan') };
+}
+
 export const recentManualMerchants = (db: SQLiteDatabase, limit = 6) =>
   db.getAllAsync<{ merchant: string }>(
     `SELECT merchant FROM transactions WHERE source = 'manual' AND merchant IS NOT NULL AND merchant <> '' AND status = 'confirmed'

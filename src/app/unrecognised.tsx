@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { MessageSquareWarning } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { Text } from '@/ui/Text';
 
@@ -27,14 +27,24 @@ export default function Unrecognised() {
   const [showAll, setShowAll] = useState(false);
   const [hidden, setHidden] = useState(0);
 
-  const load = useCallback(async () => { setMsgs(await listUnparsed(db, 100, showAll)); setPatterns(await listPatterns(db)); setHidden((await countUnparsedSplit(db)).hidden); }, [db, showAll]);
+  const load = useCallback(async () => { setMsgs(await listUnparsed(db, 300, showAll)); setPatterns(await listPatterns(db)); setHidden((await countUnparsedSplit(db)).hidden); }, [db, showAll]);
   useEffect(() => void load(), [load]);
   useEffect(() => onIngested(() => void load()), [load]);
 
-  const dismiss = async (m: Unparsed) => {
-    await deleteUnparsed(db, m.id);
+  // messages that share a format are one card: teaching it once reads all of them
+  const groups = useMemo(() => {
+    const by = new Map<string, Unparsed[]>();
+    for (const m of msgs ?? []) { const k = maskMessage(m.text); by.set(k, [...(by.get(k) ?? []), m]); }
+    return [...by.values()].map((members) => ({ rep: members[0], members }));
+  }, [msgs]);
+
+  const dismiss = async (members: Unparsed[]) => {
+    for (const m of members) await deleteUnparsed(db, m.id);
     load();
-    snack({ message: 'Message removed', onAction: async () => { await db.runAsync('INSERT OR IGNORE INTO unparsed (id, sender, text, ts) VALUES (?, ?, ?, ?)', m.id, m.sender, m.text, m.ts); load(); } });
+    snack({
+      message: members.length > 1 ? `${members.length} similar messages removed` : 'Message removed',
+      onAction: async () => { for (const m of members) await db.runAsync('INSERT OR IGNORE INTO unparsed (id, sender, text, ts) VALUES (?, ?, ?, ?)', m.id, m.sender, m.text, m.ts); load(); },
+    });
   };
 
   return (
@@ -51,13 +61,13 @@ export default function Unrecognised() {
             <Text className="font-semibold text-accent">{showAll ? 'Hide offers, reminders and other non-transactions' : `Show ${hidden} hidden message${hidden === 1 ? '' : 's'} (offers, reminders)`}</Text>
           </Pressable>
         )}
-        {(msgs ?? []).map((m, i) => (
+        {groups.map(({ rep: m, members }, i) => (
           <FadeIn key={m.id} index={Math.min(i, 5)}><Card className="mb-3">
-            <Text className="text-xs font-semibold uppercase tracking-wider text-muted">{m.sender} · {new Date(m.ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
+            <Text className="text-xs font-semibold uppercase tracking-wider text-muted">{m.sender} · {new Date(m.ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}{members.length > 1 ? ` · +${members.length - 1} like this` : ''}</Text>
             <Text className="mt-2 text-base text-fg" numberOfLines={6}>{m.text}</Text>
             <View className="mt-3 flex-row">
               <Button className="mr-3 flex-1" label="Teach" onPress={() => router.push(`/teach/${m.id}`)} />
-              <Button className="flex-1" variant="secondary" label="Not a transaction" onPress={() => dismiss(m)} />
+              <Button className="flex-1" variant="secondary" label="Not a transaction" onPress={() => dismiss(members)} />
             </View>
             <Pressable onPress={() => setReporting(m)} accessibilityRole="button" className="mt-2 min-h-9 justify-center"><Text className="text-sm font-semibold text-accent">Report this format to improve ExMan</Text></Pressable>
           </Card></FadeIn>

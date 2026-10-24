@@ -54,6 +54,13 @@ export function FilterSheet({ value, cats, accounts, onApply, onClose }: { value
           <Chip label="Received" color={colors.income} selected={f.direction === 'credit'} onPress={() => set({ direction: 'credit' })} />
         </View>
 
+        <Text className={label}>Kind</Text>
+        <View className="flex-row flex-wrap">
+          {([['investment', 'Investments'], ['loan', 'Loans & EMIs'], ['fee', 'Bank fees'], ['cash', 'Cash withdrawals']] as const).map(([k, name]) => (
+            <Chip key={k} label={name} color={colors.accent} selected={!!f.kinds?.includes(k)} onPress={() => set({ kinds: f.kinds?.includes(k) ? f.kinds.filter((x) => x !== k) : [...(f.kinds ?? []), k] })} />
+          ))}
+        </View>
+
         <Text className={label}>Date</Text>
         <View className="flex-row flex-wrap">
           {PRESETS.map((p, i) => (

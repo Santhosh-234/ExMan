@@ -188,6 +188,10 @@ export default function Settings() {
         </View>
       </Section>
 
+      <Section title="Review" hint="How much of the checking ExMan leaves to you.">
+        <AutoConfirm />
+      </Section>
+
       <Section title="Accounts" hint="Banks, cards and cash found from your messages.">
         <Group>
           <NavRow first icon={Landmark} label="Manage accounts" onPress={() => router.push('/accounts')} />
@@ -297,5 +301,23 @@ export default function Settings() {
       <Pressable onPress={() => router.push('/dev')} accessibilityRole="button" className="mt-8"><Text className="text-muted">Developer tools</Text></Pressable>
       <View className="h-8" />
     </PageScroll>
+  );
+}
+
+
+/** Opt-in: payments from payees you have confirmed many times, at the usual amount and category, are confirmed on arrival. */
+function AutoConfirm() {
+  const db = useSQLiteContext();
+  const { colors } = useTheme();
+  const [on, setOn] = useState(false);
+  useEffect(() => { void getSetting(db, 'auto_confirm').then((v) => setOn(v === '1')); }, [db]);
+  return (
+    <View className="mb-3 flex-row items-center rounded-[22px] border border-line bg-card p-4">
+      <View className="mr-3 flex-1">
+        <Text className="text-base text-fg">Skip review for familiar payments</Text>
+        <Text className="mt-0.5 text-xs text-muted">Payees you have confirmed five or more times, at the usual amount and category, are confirmed for you. Anything unusual still waits.</Text>
+      </View>
+      <Switch value={on} onValueChange={async (v) => { setOn(v); await setSetting(db, 'auto_confirm', v ? '1' : '0'); }} trackColor={{ true: colors.accent, false: colors.surface2 }} accessibilityLabel="Skip review for familiar payments" />
+    </View>
   );
 }
