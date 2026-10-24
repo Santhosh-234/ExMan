@@ -6,6 +6,7 @@ import { Pressable, View } from 'react-native';
 import { Text, TextInput } from '@/ui/Text';
 
 import { AreaChart } from '@/components/Charts';
+import { type ForecastResult, loadForecast } from '@/db/forecast';
 import { type HoldingStat, holdingStats, syncHoldings } from '@/db/holdings';
 import { ledgerGaps } from '@/db/ledger';
 import { type NetItem, type NetWorth, deleteNetItem, netWorth, saveNetItem } from '@/db/networth';
@@ -14,6 +15,7 @@ import { useSecurity } from '@/security/store';
 import { CountUp, FadeIn, Pressy } from '@/ui/anim';
 import { PageScroll } from '@/ui/insets';
 import { Button, Card, Chip, EmptyState, ListRow, SectionLabel, Sheet, Skeleton } from '@/ui/kit';
+import { ForecastCard } from '@/ui/ForecastCard';
 import { useTheme } from '@/ui/theme';
 import { rupees, rupeesShort } from '@/utils/format';
 import { HOLDING_LABEL } from '@/utils/holdings';
@@ -29,13 +31,14 @@ export default function Wealth() {
   const [nw, setNw] = useState<NetWorth | null>(null);
   const [holdings, setHoldings] = useState<HoldingStat[]>([]);
   const [gaps, setGaps] = useState(0);
+  const [fc, setFc] = useState<ForecastResult | null>(null);
   const [sel, setSel] = useState<number | null>(null);
   const [editing, setEditing] = useState<Partial<NetItem> | null>(null);
 
   const load = useCallback(async () => {
     await syncHoldings(db);
-    const [n, h, g] = await Promise.all([netWorth(db), holdingStats(db), ledgerGaps(db)]);
-    setNw(n); setHoldings(h); setGaps(g.length);
+    const [n, h, g, f] = await Promise.all([netWorth(db), holdingStats(db), ledgerGaps(db), loadForecast(db)]);
+    setNw(n); setHoldings(h); setGaps(g.length); setFc(f);
   }, [db]);
   useFocusEffect(useCallback(() => void load(), [load]));
   useEffect(() => onIngested(() => void load()), [load]);
@@ -113,6 +116,8 @@ export default function Wealth() {
               </Pressy>
             </FadeIn>
           )}
+
+          {fc ? <FadeIn index={3}><ForecastCard result={fc} /></FadeIn> : null}
 
           <SectionLabel right={holdings.length ? <Pressable onPress={() => router.push('/investments')} hitSlop={8} accessibilityRole="button"><Text className="text-sm font-semibold text-accent">All ›</Text></Pressable> : undefined}>Investments</SectionLabel>
           {holdings.length === 0 ? (
