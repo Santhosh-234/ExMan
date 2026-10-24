@@ -20,3 +20,14 @@ export const monthLabel = (key: string) => {
   const [y, m] = key.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleString('en-IN', { month: 'short', year: 'numeric' });
 };
+
+/** Compact rupees for tight spaces: ₹4.2L, ₹1.3Cr, ₹12K (Indian lakh/crore units). */
+export function rupeesShort(paise: number): string {
+  if (maskState.hidden) return '₹ ••••';
+  const r = Math.abs(paise) / 100, sign = paise < 0 ? '−' : '';
+  const f = (n: number) => String(Math.round(n * 10) / 10).replace(/\.0$/, '');
+  if (r >= 1e7) return `${sign}₹${f(r / 1e7)}Cr`;
+  if (r >= 1e5) return `${sign}₹${f(r / 1e5)}L`;
+  if (r >= 1e3) return `${sign}₹${f(r / 1e3)}K`;
+  return `${sign}₹${Math.round(r)}`;
+}

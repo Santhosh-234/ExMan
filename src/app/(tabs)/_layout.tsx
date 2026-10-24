@@ -1,6 +1,6 @@
 import type { ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
-import { BarChart3, Home, ListOrdered, Settings } from 'lucide-react-native';
+import { BarChart3, Home, ListOrdered, Settings, TrendingUp } from 'lucide-react-native';
 
 import { useInsets } from '@/ui/insets';
 import { useTheme } from '@/ui/theme';
@@ -27,6 +27,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={tab('Home', Home)} />
       <Tabs.Screen name="activity" options={tab('Activity', ListOrdered)} />
       <Tabs.Screen name="insights" options={tab('Insights', BarChart3)} />
+      <Tabs.Screen name="wealth" options={tab('Wealth', TrendingUp)} />
       <Tabs.Screen name="settings" options={tab('Settings', Settings)} />
     </Tabs>
   );

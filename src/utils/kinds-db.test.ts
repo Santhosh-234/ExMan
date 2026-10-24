@@ -85,3 +85,25 @@ test('backup round-trips the new tables and an old backup without them still res
   assert.equal((raw3.prepare('SELECT COUNT(*) AS n FROM kind_rules').get() as { n: number }).n, 1);
   assert.equal((raw3.prepare("SELECT COUNT(*) AS n FROM transactions WHERE kind = 'investment'").get() as { n: number }).n, 1);
 });
+
+test('the ledger finds money that left without a message, and adding it closes the gap', async () => {
+  const { ledgerGaps, ledgerHealth, ignoreGap } = await import('../db/ledger');
+  const { addManualTxn } = await import('../db/queries');
+  const { db, raw } = await makeDb();
+  // the EMI message of Rs 12,450 (between these two) never arrived
+  await run(db, [
+    msg(1, 'Rs.5000.00 debited from a/c XX1234 on 10-09-26 towards SIP for HDFC Mutual Fund folio 9988. Avl bal Rs.45000.00'),
+    msg(3, 'Rs.349.00 debited from a/c XX1234 on 10-09-26 to VPA swiggy@icici (UPI Ref No 400000000003). Avl bal Rs.32201.00'),
+  ], 0);
+  const now = T0 + 10 * 3_600_000;
+  const gaps = await ledgerGaps(db, 120, now);
+  assert.equal(gaps.length, 1);
+  assert.equal(gaps[0].amountPaise, -1245000); // balance fell 45,000 -> 32,201 but only 349 is on record
+  const health = await ledgerHealth(db, 120, now);
+  assert.equal(health[0].gaps, 1);
+  await addManualTxn(db, { amount_paise: 1245000, direction: 'debit', merchant: 'EMI', category_id: null, account_id: gaps[0].accountId, ts: gaps[0].toTs - 1000, tags: '', notes: null });
+  assert.equal((await ledgerGaps(db, 120, now)).length, 0);
+  await ignoreGap(db, gaps[0].toId);
+  assert.equal((await ledgerGaps(db, 120, now)).length, 0);
+  void raw;
+});

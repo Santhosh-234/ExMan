@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
@@ -23,13 +23,15 @@ export default function Add() {
   const router = useRouter();
   const snack = useSnackbar();
   const { colors } = useTheme();
-  const [direction, setDirection] = useState<'debit' | 'credit'>('debit');
-  const [amount, setAmount] = useState('');
-  const [merchant, setMerchant] = useState('');
+  // other screens can open this pre-filled (the books check offers to record a missing transaction)
+  const pre = useLocalSearchParams<{ amount?: string; direction?: string; ts?: string; account?: string; merchant?: string }>();
+  const [direction, setDirection] = useState<'debit' | 'credit'>(pre.direction === 'credit' ? 'credit' : 'debit');
+  const [amount, setAmount] = useState(pre.amount && Number(pre.amount) > 0 ? String(Number(pre.amount)) : '');
+  const [merchant, setMerchant] = useState(pre.merchant ?? '');
   const [tags, setTags] = useState('');
   const [cat, setCat] = useState<number | null>(null);
   const [acct, setAcct] = useState<number | null>(null);
-  const [day, setDay] = useState(startOfDay(Date.now()));
+  const [day, setDay] = useState(pre.ts && Number(pre.ts) > 0 ? startOfDay(Math.min(Number(pre.ts), Date.now())) : startOfDay(Date.now()));
   const [cats, setCats] = useState<Category[]>([]);
   const [accts, setAccts] = useState<Account[]>([]);
   const [recent, setRecent] = useState<string[]>([]);
@@ -40,7 +42,8 @@ export default function Add() {
     (async () => {
       const [c, a, r] = await Promise.all([getCategories(db), getAccounts(db), recentManualMerchants(db)]);
       setCats(c); setAccts(a); setRecent(r.map((x) => x.merchant));
-      setAcct(a.find((x) => x.kind === 'cash')?.id ?? a[0]?.id ?? null);
+      const wanted = Number(pre.account);
+      setAcct(wanted && a.some((x) => x.id === wanted) ? wanted : a.find((x) => x.kind === 'cash')?.id ?? a[0]?.id ?? null);
     })();
   }, [db]);
 
@@ -53,7 +56,7 @@ export default function Add() {
   const save = async () => {
     // keep the current time-of-day when logging for today so ordering within the day makes sense
     const now = new Date();
-    const ts = day + (now.getTime() - startOfDay(now.getTime()));
+    const ts = pre.ts && day === startOfDay(Number(pre.ts)) ? Math.min(Number(pre.ts), Date.now()) : day + (now.getTime() - startOfDay(now.getTime()));
     await addManualTxn(db, {
       amount_paise: paise, direction, merchant: merchant.trim() || null, category_id: cat, account_id: acct, ts: Math.min(ts, Date.now()),
       tags: tags.split(',').map((t) => t.trim()).filter(Boolean).join(','), notes: null,
