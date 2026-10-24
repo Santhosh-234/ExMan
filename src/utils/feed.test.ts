@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { type FeedSignals, buildFeed, findUnusual } from './feed';
 
 const NOW = Date.parse('2026-10-20T10:00:00Z');
-const calm: FeedSignals = { now: NOW, gaps: { count: 0, totalPaise: 0 }, shortfallTs: null, bills: [], budgets: [], subs: [], unusual: [], duplicates: [], feesMonthPaise: 0, pace: null, saving: null, sipsOverdue: [], unvalued: [], runwayMonths: null };
+const calm: FeedSignals = { now: NOW, gaps: { count: 0, totalPaise: 0 }, shortfallTs: null, bills: [], budgets: [], subs: [], unusual: [], duplicates: [], feesMonthPaise: 0, pace: null, saving: null, sipsOverdue: [], unvalued: [], runwayMonths: null, needBalance: [] };
 
 test('a calm month has an empty feed', () => assert.deepEqual(buildFeed(calm), []));
 

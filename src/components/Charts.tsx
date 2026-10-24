@@ -94,6 +94,7 @@ export function Bars({ data, height = 140, width: fixed, label = 'Chart', select
   const slot = width / Math.max(1, data.length);
   const bw = Math.min(28, slot * 0.58);
   const hi = selected ?? data.length - 1;
+  if (!measured && !fixed) return <View onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))} style={{ height: height + 24 }} />; // draw once the real width is known, not at a guess
   const svg = (
     <Svg width={width} height={height + 24}>
       {[0.5, 1].map((f) => <Line key={f} x1={0} x2={width} y1={height - height * f * 0.92} y2={height - height * f * 0.92} stroke={colors.line} strokeWidth={1} strokeDasharray="3 5" />)}
@@ -133,6 +134,7 @@ export function AreaChart({ data, height = 120, label = 'Trend', selected, onSel
   const width = measured || 300;
   const grow = useGrow(data.map((d) => d.value).join(','), 800);
   const n = data.length;
+  if (!measured) return <View onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))} style={{ height: height + 22 }} />;
   if (n === 0) return <View onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))} style={{ height: height + 22 }} />;
   const vals = data.map((d) => d.value);
   const lo = Math.min(...vals), hi = Math.max(...vals);

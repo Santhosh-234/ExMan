@@ -48,7 +48,7 @@ export default function Wealth() {
   const point = series[idx];
   const prev = idx > 0 ? series[idx - 1] : null;
   const delta = point && prev ? point.total - prev.total : null;
-  const hasAnything = !!nw && (nw.banks.length > 0 || holdings.length > 0 || nw.items.length > 0);
+  const hasAnything = !!nw && (nw.banks.length > 0 || nw.unknownBanks.length > 0 || holdings.length > 0 || nw.items.length > 0);
 
   const parts = nw ? [
     { label: 'Bank', value: nw.bankTotal, color: colors.accent },
@@ -133,9 +133,13 @@ export default function Wealth() {
 
           <SectionLabel>Bank accounts</SectionLabel>
           <View className="mb-4">
-            {nw.banks.length === 0 ? <Card><Text className="text-sm text-muted">Balances appear once your bank messages quote them.</Text></Card> : nw.banks.map((b) => (
-              <ListRow key={b.id} icon={Landmark} title={b.name} subtitle={b.stale ? 'Balance is old' : `Updated ${b.ts ? new Date(b.ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''}`} onPress={() => router.push(`/account/${b.id}`)}
-                right={<Text className="font-semibold text-fg" style={{ fontVariant: ['tabular-nums'] }}>{rupees(b.paise)}</Text>} />
+            {nw.banks.length === 0 && nw.unknownBanks.length === 0 ? <Card><Text className="text-sm text-muted">Balances appear once your bank messages quote them.</Text></Card> : null}
+            {nw.banks.map((b) => (
+              <ListRow key={b.id} icon={Landmark} title={b.name} subtitle={b.estimated ? `Estimated from the balance you entered${b.ts ? ` on ${new Date(b.ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}` : b.stale ? 'Balance is old' : `Updated ${b.ts ? new Date(b.ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''}`} onPress={() => router.push(`/account/${b.id}`)}
+                right={<Text className="font-semibold text-fg" style={{ fontVariant: ['tabular-nums'] }}>{b.estimated ? '≈ ' : ''}{rupees(b.paise)}</Text>} />
+            ))}
+            {nw.unknownBanks.map((b) => (
+              <ListRow key={b.id} icon={Landmark} title={b.name} subtitle="Its messages show no balance" onPress={() => router.push(`/account/${b.id}`)} right={<Text className="text-sm font-semibold text-accent">Add balance</Text>} />
             ))}
           </View>
         </>

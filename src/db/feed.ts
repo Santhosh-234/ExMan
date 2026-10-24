@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { openBills } from '@/db/bills';
 import { detectSips, loadForecast } from '@/db/forecast';
+import { netWorth } from '@/db/networth';
 import { holdingStats } from '@/db/holdings';
 import { ledgerGaps } from '@/db/ledger';
 import { budgetOverview, totalFor } from '@/db/queries';
@@ -72,6 +73,7 @@ export async function feedSignals(db: SQLiteDatabase, now = Date.now()): Promise
     now, gaps: { count: gaps.length, totalPaise: gaps.reduce((s, g) => s + Math.abs(g.amountPaise), 0) },
     shortfallTs: fc?.forecast.shortfallTs ?? null, bills, budgets, subs, unusual, duplicates, feesMonthPaise, pace, saving, sipsOverdue, unvalued,
     runwayMonths: runwayMonths && runwayMonths > 0 ? runwayMonths : null,
+    needBalance: (await netWorth(db, now, 2)).unknownBanks,
   };
 }
 
