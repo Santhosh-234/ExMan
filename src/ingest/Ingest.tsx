@@ -10,6 +10,7 @@ import { backfillTransfers } from '@/db/transfers';
 import { checkApk } from '@/updates/apk';
 import { emitParserStats, initTelemetry, maybeFlush, trackAppOpen } from '@/telemetry';
 import { notifyIngested } from './events';
+import { refreshFormats } from './formats';
 import { backfillAccounts, backfillMerchants, ingest, purgeOtpMessages, refreshForeignRates } from './run';
 
 /** Mount once under SQLiteProvider: drains on launch, on foreground, and on live events. */
@@ -20,7 +21,7 @@ export function Ingest() {
     trackAppOpen();
     void maybeFlush();
     void checkApk(db).then(() => notifyIngested()).catch(() => {});
-    const run = () => void ingest(db).then(() => refreshForeignRates(db)).catch((e) => console.warn('ingest failed', e));
+    const run = () => void ingest(db).then(() => refreshForeignRates(db)).then(() => refreshFormats(db)).catch((e) => console.warn('ingest failed', e));
     void backfillAccounts(db).then(() => purgeOtpMessages(db)).then(() => backfillMerchants(db)).then(() => backfillKinds(db)).then(() => syncHoldings(db)).then(() => backfillBills(db)).then(() => backfillTransfers(db)).then(() => notifyIngested()).catch((e) => console.warn('backfill failed', e)).finally(run);
     const sub = onRaw(run);
     const app = AppState.addEventListener('change', (s) => {

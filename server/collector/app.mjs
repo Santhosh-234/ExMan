@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 
+import { EMPTY } from './formats.mjs';
 import { sanitize } from './schema.mjs';
 import { openStore } from './store.mjs';
 
@@ -25,7 +26,7 @@ function limiter(limit, windowMs) {
  * The app posts batches to `${base}` and "forget me" requests to `${base}/delete`.
  * Nothing about the caller (IP, user agent) is stored; the IP is only used in memory for rate limiting.
  */
-export function createCollector({ store, base = '/t', now = Date.now, trustProxy = true, perIpPerMin = 120, perInstallPerDay = 3000 } = {}) {
+export function createCollector({ store, base = '/t', formats = () => ({ body: JSON.stringify(EMPTY), etag: '"0"' }), now = Date.now, trustProxy = true, perIpPerMin = 120, perInstallPerDay = 3000 } = {}) {
   const ipOk = limiter(perIpPerMin, 60_000);
   const dayOk = limiter(perInstallPerDay, 86_400_000);
 
@@ -52,6 +53,14 @@ export function createCollector({ store, base = '/t', now = Date.now, trustProxy
     try {
       const path = (req.url ?? '').split('?')[0].replace(/\/+$/, '') || '/';
       if (req.method === 'GET' && path === '/healthz') return send(res, 200, { ok: true });
+      if (req.method === 'GET' && path === `${base}/formats`) {
+        const ip = (trustProxy ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || 'unknown';
+        if (!ipOk(ip, now())) return send(res, 429, { error: 'slow down' });
+        const f = formats();
+        if (req.headers['if-none-match'] === f.etag) { res.writeHead(304, { ETag: f.etag }); return res.end(); }
+        res.writeHead(200, { 'Content-Type': 'application/json', ETag: f.etag, 'Cache-Control': 'public, max-age=3600' });
+        return res.end(f.body);
+      }
       if (req.method !== 'POST' || (path !== base && path !== `${base}/delete`)) return send(res, 404, { error: 'not found' });
 
       const ip = (trustProxy ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '') || req.socket.remoteAddress || 'unknown';

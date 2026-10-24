@@ -59,6 +59,28 @@ sudo DATA_DIR=/var/lib/exman-collector node --disable-warning=ExperimentalWarnin
 
 It prints app versions, screen load times (median and 95th percentile), crashes, messages read vs missed per bank, feature use, import timings, and the masked message formats people reported.
 
+### Reading more from the server
+
+All of these run on the VM, from `/opt/exman-collector` (prefix each with `sudo DATA_DIR=/var/lib/exman-collector node --disable-warning=ExperimentalWarning`):
+
+| Command | What it shows |
+|---|---|
+| `report.mjs templates 30` | Message formats people reported as unreadable, grouped, with how many installs hit each and a ready-to-paste parser test. Paste this output to Claude to get the bank supported. |
+| `report.mjs errors 30` | Crashes grouped by kind, code and screen, with the app build that hit each and when it last happened. |
+| `report.mjs slow 30` | Exact screen-load times (median, 95th percentile, share over 1 second) per screen and per app build, so a slowdown after an update stands out. |
+| `report.mjs shared 30` | Bank formats people chose to share from Teach ExMan. |
+
+### Bank format library
+
+The collector also serves `https://<hostname>/t/formats`: a small JSON file of vetted bank message layouts (data only, no code). Apps download it once a day, so a new bank can be read without an app update, and past unreadable messages are re-read when it changes.
+
+1. People who teach a format in the app can tap **Share format** (only offered when the format contains nothing but ordinary banking words). It arrives as a `pattern_share` event.
+2. See what was shared: `formats-cli.mjs candidates`.
+3. Publish one: `formats-cli.mjs promote <number> "a sample message from that bank"`. If a sample is given, the format must read it, otherwise it is not added. The library version goes up and apps pick it up within a day.
+4. `formats-cli.mjs list` shows what is published; `formats-cli.mjs remove <id>` takes one out.
+
+The file lives at `/var/lib/exman-collector/formats.json`. The server refuses to serve a file that fails validation (it serves an empty library instead), and the app validates everything it downloads again.
+
 Update the service after pulling a new version of this repo:
 
 ```bash

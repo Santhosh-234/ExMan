@@ -265,6 +265,20 @@ export const MIGRATIONS = [
   ALTER TABLE accounts ADD COLUMN anchor_paise INTEGER;
   ALTER TABLE accounts ADD COLUMN anchor_ts INTEGER;
   `,
+  // bank message formats downloaded from the project server (a vetted library); used after the built-in parser and the user's own taught patterns
+  `
+  CREATE TABLE library_formats (
+    id INTEGER PRIMARY KEY,
+    lib_id TEXT NOT NULL UNIQUE,
+    sender_key TEXT NOT NULL,
+    direction TEXT NOT NULL CHECK (direction IN ('debit','credit')),
+    amount_re TEXT NOT NULL,
+    merchant_re TEXT,
+    account_re TEXT,
+    currency TEXT NOT NULL DEFAULT 'INR'
+  );
+  CREATE INDEX idx_libfmt_sender ON library_formats (sender_key);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
