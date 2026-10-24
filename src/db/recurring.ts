@@ -7,7 +7,7 @@ export async function getRecurring(db: SQLiteDatabase, now = Date.now()): Promis
   const since = now - 548 * 864e5;
   const charges = await db.getAllAsync<{ merchant_id: number; merchant: string; amount_paise: number; ts: number }>(
     `SELECT t.merchant_id, t.merchant, t.amount_paise, t.ts FROM transactions t
-     WHERE t.status = 'confirmed' AND t.direction = 'debit' AND t.is_transfer = 0 AND t.merchant_id IS NOT NULL AND t.ts >= ?
+     WHERE t.status = 'confirmed' AND t.direction = 'debit' AND t.is_transfer = 0 AND t.kind NOT IN ('investment','loan') AND t.merchant_id IS NOT NULL AND t.ts >= ?
        AND t.merchant_id NOT IN (SELECT merchant_id FROM recurring_dismissed)`,
     since,
   );

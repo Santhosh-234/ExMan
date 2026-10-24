@@ -7,6 +7,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { type Account, type Category, type Txn, getAccounts, getCategories, getEditLog, getTxn, linkRefund, refundCandidates, unlinkRefund, updateTxn } from '@/db/queries';
+import { applyKindToMerchant, removeKindRule, setKindRule } from '@/db/kinds';
 import { isTransferMerchant, markTransferByUser, rejectTransfer, setTransferMerchant } from '@/db/transfers';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
@@ -18,9 +19,10 @@ import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
 import { formatForeign } from '@/utils/currency';
 import { describeRate } from '@/utils/fx';
+import { type Kind, KINDS, KIND_LABEL } from '@/utils/kinds';
 import { Page } from '@/ui/insets';
 
-const FIELD: Record<string, string> = { amount_paise: 'Amount', merchant: 'Merchant', category_id: 'Category', tags: 'Tags', notes: 'Notes', account_id: 'Account', is_transfer: 'Transfer', ts: 'Date', direction: 'Direction' };
+const FIELD: Record<string, string> = { amount_paise: 'Amount', merchant: 'Merchant', category_id: 'Category', tags: 'Tags', notes: 'Notes', account_id: 'Account', is_transfer: 'Transfer', kind: 'Type', ts: 'Date', direction: 'Direction' };
 
 export default function TxnDetail() {
   useSecurity(); // re-render when "hide amounts" changes
@@ -36,6 +38,7 @@ export default function TxnDetail() {
   const [log, setLog] = useState<Awaited<ReturnType<typeof getEditLog>>>([]);
   const [editing, setEditing] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [kindOpen, setKindOpen] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [linking, setLinking] = useState<Txn[] | null>(null);
 
@@ -54,6 +57,7 @@ export default function TxnDetail() {
     if (field === 'amount_paise') return rupees(Number(v));
     if (field === 'category_id') return cats.find((c) => c.id === Number(v))?.name ?? v;
     if (field === 'account_id') return accts.find((a) => a.id === Number(v))?.name ?? v;
+    if (field === 'kind') return KIND_LABEL[v as Kind] ?? v;
     if (field === 'is_transfer') return v === '1' ? 'yes' : 'no';
     if (field === 'ts') return new Date(Number(v)).toLocaleString('en-IN');
     return v;
@@ -67,6 +71,19 @@ export default function TxnDetail() {
     if (catChanged) {
       await offerRule({ merchantId: t.merchant_id, merchantName: t.merchant, categoryId: p.category_id!, categoryName: cats.find((c) => c.id === p.category_id)?.name ?? 'this category' });
     }
+  };
+  const pickKind = async (kind: Kind) => {
+    setKindOpen(false);
+    if (kind === t.kind) return;
+    await updateTxn(db, t.id, { kind });
+    track('feature_used', { feature: 'kind_set' });
+    notifyIngested(); load();
+    if (!t.merchant_id || !t.merchant) return;
+    // remember it for the merchant, so every payment there is filed the same way
+    const merchantId = t.merchant_id;
+    snack(kind === 'normal'
+      ? { message: `Now a regular transaction. Stop treating ${t.merchant} as ${KIND_LABEL[t.kind].toLowerCase()}?`, actionLabel: 'Stop', onAction: async () => { await removeKindRule(db, merchantId); const r = await applyKindToMerchant(db, merchantId, 'normal'); notifyIngested(); load(); snack({ message: `${r.n + 1} transaction${r.n ? 's' : ''} are regular again`, onAction: () => void r.undo().then(() => { notifyIngested(); load(); }) }); } }
+      : { message: `Marked as ${KIND_LABEL[kind].toLowerCase()}. Always treat ${t.merchant} this way?`, actionLabel: 'Always', onAction: async () => { await setKindRule(db, merchantId, kind); const r = await applyKindToMerchant(db, merchantId, kind); notifyIngested(); load(); snack({ message: r.n ? `Rule saved · ${r.n} more updated` : 'Rule saved', onAction: () => void r.undo().then(() => { notifyIngested(); load(); }) }); } });
   };
   const toggleTransfer = async () => {
     if (t.is_transfer) {
@@ -142,7 +159,7 @@ export default function TxnDetail() {
           <View className="mb-3 mt-1 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: cat?.color ?? colors.surface2 }}>
             <Text className="text-2xl font-bold" style={{ color: cat ? '#FFFFFF' : colors.muted }}>{(t.merchant ?? '?').trim()[0]?.toUpperCase() ?? '?'}</Text>
           </View>
-          <Text className={`text-xs font-semibold uppercase tracking-widest ${t.direction === 'debit' ? 'text-danger' : 'text-income'}`}>{t.direction === 'debit' ? 'Spent' : 'Received'}</Text>
+          <Text className={`text-xs font-semibold uppercase tracking-widest ${t.direction === 'debit' ? 'text-danger' : 'text-income'}`}>{t.kind === 'investment' ? (t.direction === 'debit' ? 'Invested' : 'Withdrawn from investment') : t.kind === 'loan' ? (t.direction === 'debit' ? 'Loan repayment' : 'Loan received') : t.direction === 'debit' ? 'Spent' : 'Received'}</Text>
           <Amount paise={t.amount_paise} direction={t.direction} approx={!!t.currency} className="text-5xl" />
           <Text className="mt-2 text-xl font-semibold text-fg" accessibilityRole="header">{t.merchant ?? 'Unknown merchant'}</Text>
           {t.is_transfer ? (
@@ -163,6 +180,9 @@ export default function TxnDetail() {
             t.tags ? ['Tags', t.tags.split(',').join(', ')] : null,
             t.notes ? ['Notes', t.notes] : null,
           ].filter(Boolean) as [string, string][]).map(([k, v], i) => <Row key={k} k={k} v={v} first={i === 0} />)}
+          <Pressable onPress={() => setKindOpen(true)} accessibilityRole="button" accessibilityLabel={`Type, ${KIND_LABEL[t.kind]}. Change`} className="min-h-[48px] flex-row items-center justify-between border-t border-line px-4">
+            <Text className="text-sm text-muted">Type</Text><Text className="font-semibold text-accent">{KIND_LABEL[t.kind]} ›</Text>
+          </Pressable>
           {t.refund_of ? (
             <Pressable onPress={() => router.push(`/txn/${t.refund_of}`)} accessibilityRole="button" className="min-h-[48px] flex-row items-center justify-between border-t border-line px-4">
               <Text className="text-sm text-muted">Refund of</Text><Text className="font-semibold text-accent">View purchase ›</Text>
@@ -222,6 +242,14 @@ export default function TxnDetail() {
               <Text className="text-fg">{rupees(p.amount_paise)}</Text>
             </Pressable>
           ))}
+        </Sheet>
+      )}
+      {kindOpen && (
+        <Sheet title="What is this?" onClose={() => setKindOpen(false)}>
+          {KINDS.map((k) => (
+            <Button key={k} className="mb-2" variant={k === t.kind ? 'primary' : 'secondary'} label={KIND_LABEL[k]} onPress={() => void pickKind(k)} />
+          ))}
+          <Text className="mb-2 mt-1 text-xs text-muted">Investments and loan repayments are not counted as spending or income.</Text>
         </Sheet>
       )}
       {picking && <CategorySheet cats={cats} value={t.category_id} onClose={() => setPicking(false)} onPick={(cid) => { setPicking(false); void patch({ category_id: cid }); }} />}

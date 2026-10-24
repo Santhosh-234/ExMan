@@ -3,10 +3,12 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { type MerchantCache, ensureMerchant } from '@/db/merchantCore';
 import { loadRuleIndex } from '@/db/merchants';
 import { loadPatternIndex } from '@/db/patterns';
+import { loadKindRules } from '@/db/kinds';
 import { loadModel } from '@/db/suggest';
 import { detectTransfers } from '@/db/transfers';
 import { toParsed } from '@/utils/teach';
 import { countParse } from '@/telemetry/counters';
+import { type Kind, classifyKind } from '@/utils/kinds';
 import { isStrong, isUsable, type Model } from '@/utils/suggest';
 import { isOtpMessage, looksLikeTransaction, mentionsAmount } from '@/utils/transactional';
 import { CURRENCIES, toPaise } from '@/utils/currency';
@@ -30,6 +32,7 @@ type Ctx = {
   patterns: Awaited<ReturnType<typeof loadPatternIndex>>;
   fx: Map<string, number>; // rupees per 1 unit of each foreign currency
   fxUser: Set<string>; // currencies whose rate the user set themselves
+  kindRules: Map<number, Kind>; // merchants the user says are always investments, loans, ...
   model: Model; // categories learned from the user's confirmed history
   fxOnline: boolean; // look up that day's published rate (Exchange rates screen switch, on by default)
 };
@@ -59,7 +62,7 @@ export async function makeCtx(db: SQLiteDatabase, since: number): Promise<Ctx> {
   const accts = new Map(rows.map((a) => [`${a.kind}|${a.bank}|${a.last4}`, final(a.id)]));
   const info = await loadRateInfo(db);
   const online = (await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'fx_online'"))?.value !== '0';
-  return { seen, cats, accts, merchants: new Map(), rules: await loadRuleIndex(db), patterns: await loadPatternIndex(db), model: await loadModel(db), fx: info.rates, fxUser: info.user, fxOnline: online };
+  return { seen, cats, accts, merchants: new Map(), rules: await loadRuleIndex(db), patterns: await loadPatternIndex(db), model: await loadModel(db), kindRules: await loadKindRules(db), fx: info.rates, fxUser: info.user, fxOnline: online };
 }
 
 /** Bank + last-4 (+ card vs account) identifies an account; created on first sight. */
@@ -140,12 +143,13 @@ export async function storeOutcome(db: SQLiteDatabase, ctx: Ctx, m: RawMessage):
   const learnedCat = isStrong(learned) ? learned.category : null;
   const weakCat = isUsable(learned) ? learned.category : null;
   const accountId = await accountFor(db, ctx, t.bank, t.account, t.mode);
+  const kind: Kind = (merchant && ctx.kindRules.get(merchant.id)) || classifyKind({ text: m.text, merchant: merchant?.name ?? t.merchant, direction: t.direction, mode: t.mode })?.kind || 'normal';
   const res = await db.runAsync(
     `INSERT OR IGNORE INTO transactions
-       (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, payment_mode, ts, raw_text, msg_hash, merchant_id, currency, foreign_minor, fx_rate, fx_source)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (amount_paise, direction, merchant, category_id, account_id, source, bank, account_last4, payment_mode, ts, raw_text, msg_hash, merchant_id, currency, foreign_minor, fx_rate, fx_source, kind, balance_paise)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     t.amountPaise, t.direction, merchant?.name ?? t.merchant, ruleCat ?? learnedCat ?? ((guess && ctx.cats.get(guess)) || null) ?? weakCat, accountId,
-    t.source, t.bank, t.account, t.mode, t.ts, m.text, hash, merchant?.id ?? null, t.currency ?? null, t.foreignMinor ?? null, fxRate, fxSource,
+    t.source, t.bank, t.account, t.mode, t.ts, m.text, hash, merchant?.id ?? null, t.currency ?? null, t.foreignMinor ?? null, fxRate, fxSource, kind, t.balance?.paise ?? null,
   );
   if (!res.changes) return 'already-recorded';
   if (accountId && t.balance) await recordBalance(db, accountId, t.balance, t.ts);

@@ -65,7 +65,7 @@ export const getMerchantStats = (db: SQLiteDatabase) =>
   db.getAllAsync<MerchantStats>(
     `SELECT m.id, m.key, m.name,
             COUNT(t.id) AS n,
-            COALESCE(SUM(CASE WHEN t.direction = 'debit' AND t.is_transfer = 0 THEN t.amount_paise END), 0) AS spent,
+            COALESCE(SUM(CASE WHEN t.direction = 'debit' AND t.is_transfer = 0 AND t.kind NOT IN ('investment','loan') THEN t.amount_paise END), 0) AS spent,
             (SELECT category_id FROM transactions x WHERE x.merchant_id = m.id AND x.category_id IS NOT NULL GROUP BY category_id ORDER BY COUNT(*) DESC LIMIT 1) AS category_id,
             (SELECT category_id FROM rules r WHERE r.kind = 'merchant' AND r.merchant_id = m.id AND r.enabled = 1) AS rule_category_id
      FROM merchants m JOIN transactions t ON t.merchant_id = m.id AND t.status != 'dismissed'

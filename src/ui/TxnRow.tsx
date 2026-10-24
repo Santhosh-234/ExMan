@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, Check, Repeat } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Check, Landmark, Repeat, TrendingUp } from 'lucide-react-native';
 import { memo } from 'react';
 import { View } from 'react-native';
 import { Text } from '@/ui/Text';
@@ -8,6 +8,7 @@ import { Pressy } from '@/ui/anim';
 import { Amount } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { formatForeign } from '@/utils/currency';
+import { EXCLUDED_KINDS, KIND_LABEL } from '@/utils/kinds';
 
 type Props = {
   t: Txn;
@@ -25,13 +26,16 @@ type Props = {
  */
 export const TxnRow = memo(function TxnRow({ t, cat, selecting, selected, onPress, onLongPress }: Props) {
   const { colors } = useTheme();
-  const income = t.direction === 'credit' && !t.is_transfer;
+  const apart = EXCLUDED_KINDS.includes(t.kind); // investments and loan repayments sit outside spending and income
+  const income = t.direction === 'credit' && !t.is_transfer && !apart;
   const where = t.bank && t.account_last4 ? `${t.bank} …${t.account_last4}` : t.bank ?? (t.source === 'manual' ? 'Manual' : '');
-  const what = t.is_transfer ? 'Transfer' : income ? (t.refund_of ? 'Refund' : 'Money in') : cat?.name ?? 'Uncategorised';
+  const what = t.is_transfer ? 'Transfer' : apart ? KIND_LABEL[t.kind] : income ? (t.refund_of ? 'Refund' : 'Money in') : cat?.name ?? 'Uncategorised';
   const sub = [what, where, t.currency && t.foreign_minor ? formatForeign(t.foreign_minor, t.currency) : ''].filter(Boolean).join(' · ');
 
   const circle = selected
     ? { bg: colors.accent, icon: <Check size={20} color={colors.onaccent} /> }
+    : apart
+      ? { bg: colors.surface2, icon: t.kind === 'investment' ? <TrendingUp size={18} color={colors.accent} /> : <Landmark size={18} color={colors.muted} /> }
     : t.is_transfer
       ? { bg: colors.surface2, icon: <Repeat size={18} color={colors.muted} /> }
       : income
@@ -56,7 +60,7 @@ export const TxnRow = memo(function TxnRow({ t, cat, selecting, selected, onPres
         </Text>
       </View>
       <View className="items-end">
-        <Amount paise={t.amount_paise} direction={t.direction} muted={!!t.is_transfer} approx={!!t.currency} className="text-base" />
+        <Amount paise={t.amount_paise} direction={t.direction} muted={!!t.is_transfer || apart} approx={!!t.currency} className="text-base" />
         {selecting ? null : <Text className="mt-0.5 text-xs text-muted">{new Date(t.ts).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}</Text>}
       </View>
     </Pressy>
