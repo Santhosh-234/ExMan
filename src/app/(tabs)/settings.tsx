@@ -189,7 +189,10 @@ export default function Settings() {
       </Section>
 
       <Section title="Accounts" hint="Banks, cards and cash found from your messages.">
-        <Group><NavRow first icon={Landmark} label="Manage accounts" onPress={() => router.push('/accounts')} /></Group>
+        <Group>
+          <NavRow first icon={Landmark} label="Manage accounts" onPress={() => router.push('/accounts')} />
+          <NavRow icon={ListChecks} label="Books check" onPress={() => router.push('/ledger')} />
+        </Group>
       </Section>
 
       <Section title="Categorisation" hint="How ExMan groups payees and picks categories.">

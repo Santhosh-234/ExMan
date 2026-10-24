@@ -11,6 +11,7 @@ export type TxnFilter = {
   tag?: string;
   transfers?: 'hide' | 'show' | 'only';
   kinds?: string[]; // investment, loan, fee, cash, normal
+  holdingId?: number;
 };
 
 export const EMPTY_FILTER: TxnFilter = { transfers: 'show' };
@@ -45,6 +46,7 @@ export function buildTxnQuery(f: TxnFilter, status: 'confirmed' | 'pending' = 'c
   if (f.minPaise != null) { where.push('t.amount_paise >= ?'); params.push(f.minPaise); }
   if (f.maxPaise != null) { where.push('t.amount_paise <= ?'); params.push(f.maxPaise); }
   if (f.tag) { where.push("(',' || t.tags || ',') LIKE ?"); params.push(`%,${f.tag},%`); }
+  if (f.holdingId != null) { where.push('t.holding_id = ?'); params.push(f.holdingId); }
   if (f.kinds?.length) { where.push(`t.kind IN (${f.kinds.map(() => '?').join(',')})`); params.push(...f.kinds); }
   if (f.transfers === 'hide') where.push('t.is_transfer = 0');
   if (f.transfers === 'only') where.push('t.is_transfer = 1');
@@ -55,13 +57,13 @@ export function buildTxnQuery(f: TxnFilter, status: 'confirmed' | 'pending' = 'c
 export function activeFilterCount(f: TxnFilter): number {
   return [
     f.direction, f.categoryIds?.length, f.accountIds?.length, f.from != null || f.to != null,
-    f.minPaise != null || f.maxPaise != null, f.tag, f.kinds?.length, f.transfers && f.transfers !== 'show',
+    f.minPaise != null || f.maxPaise != null, f.tag, f.kinds?.length, f.holdingId != null, f.transfers && f.transfers !== 'show',
   ].filter(Boolean).length;
 }
 
 
 /** Query-string parameters accepted by the Activity screen when another screen drills down into it. */
-export type ActivityParams = { account?: string; q?: string; transfers?: string; category?: string; month?: string; direction?: string; kind?: string };
+export type ActivityParams = { account?: string; q?: string; transfers?: string; category?: string; month?: string; direction?: string; kind?: string; holding?: string };
 
 /** Turns drill-down parameters into a filter (and search text). A month is "YYYY-MM"; category "none" means uncategorised. Bad values are ignored. */
 export function filterFromParams(p: ActivityParams): { filter: TxnFilter; search: string } {
@@ -70,6 +72,7 @@ export function filterFromParams(p: ActivityParams): { filter: TxnFilter; search
   if (p.transfers === 'only' || p.transfers === 'hide') filter.transfers = p.transfers;
   if (p.category === 'none') filter.categoryIds = [0];
   else if (p.category && /^\d+$/.test(p.category)) filter.categoryIds = [Number(p.category)];
+  if (p.holding && /^\d+$/.test(p.holding)) filter.holdingId = Number(p.holding);
   if (p.kind && /^(normal|investment|loan|fee|cash)$/.test(p.kind)) filter.kinds = [p.kind];
   if (p.direction === 'debit' || p.direction === 'credit') filter.direction = p.direction;
   const m = p.month?.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
