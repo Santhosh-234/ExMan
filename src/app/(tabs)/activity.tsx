@@ -36,7 +36,7 @@ export default function Activity() {
   const router = useRouter();
   const snack = useSnackbar();
   const offerRule = useRuleOffer();
-  const params = useLocalSearchParams<{ account?: string; q?: string; transfers?: string; category?: string; month?: string; direction?: string; n?: string }>();
+  const params = useLocalSearchParams<{ account?: string; q?: string; transfers?: string; category?: string; month?: string; direction?: string; kind?: string; n?: string }>();
   const { colors } = useTheme();
   const [filter, setFilter] = useState<TxnFilter>(EMPTY_FILTER);
   const [search, setSearch] = useState('');
@@ -100,7 +100,7 @@ export default function Activity() {
     for (const t of rows) {
       const label = dayLabel(t.ts);
       if (label !== last) { head = { kind: 'day', key: `d${label}`, label, spent: 0 }; out.push(head); last = label; }
-      if (head && t.direction === 'debit' && !t.is_transfer) head.spent += t.amount_paise; // day total: what was spent (transfers excluded)
+      if (head && t.direction === 'debit' && !t.is_transfer && t.kind !== 'investment' && t.kind !== 'loan') head.spent += t.amount_paise; // day total: what was spent (transfers excluded)
       out.push({ kind: 'txn', key: `t${t.id}`, t });
     }
     return out;

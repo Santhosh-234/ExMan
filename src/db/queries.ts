@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { type TxnFilter, buildTxnQuery } from '@/utils/filters';
 import { carryOver } from '@/utils/budgets';
 import { monthRange, shiftMonth } from '@/utils/format';
+import { type Kind } from '@/utils/kinds';
 import { ensureMerchant } from './merchantCore';
 
 export type Category = { id: number; name: string; icon: string; color: string; archived: number; is_custom: number };
@@ -34,6 +35,9 @@ export type Txn = {
   foreign_minor: number | null;
   fx_rate: number | null;
   fx_source: string | null;
+  kind: Kind;
+  balance_paise: number | null;
+  holding_id: number | null;
   updated_at: number | null;
 };
 
@@ -47,7 +51,7 @@ export type AccountStats = Account & {
   received: number;
   n: number;
 };
-export type TxnPatchFields = Partial<Pick<Txn, 'amount_paise' | 'merchant' | 'category_id' | 'tags' | 'status' | 'notes' | 'account_id' | 'is_transfer' | 'ts' | 'direction' | 'merchant_id' | 'refund_of'>>;
+export type TxnPatchFields = Partial<Pick<Txn, 'amount_paise' | 'merchant' | 'category_id' | 'tags' | 'status' | 'notes' | 'account_id' | 'is_transfer' | 'ts' | 'direction' | 'merchant_id' | 'refund_of' | 'kind' | 'holding_id'>>;
 
 export const getCategories = (db: SQLiteDatabase) =>
   db.getAllAsync<Category>('SELECT id, name, icon, color, archived, is_custom FROM categories ORDER BY archived, id');
@@ -117,8 +121,8 @@ export async function summarize(db: SQLiteDatabase, f: TxnFilter) {
   const { where, params } = buildTxnQuery(f);
   const r = await db.getFirstAsync<{ n: number; spent: number | null; received: number | null }>(
     `SELECT COUNT(*) AS n,
-            SUM(CASE WHEN t.is_transfer = 0 THEN ${SPEND} END) AS spent,
-            SUM(CASE WHEN t.direction = 'credit' AND t.is_transfer = 0 AND t.refund_of IS NULL THEN t.amount_paise END) AS received
+            SUM(CASE WHEN ${COUNTED} THEN ${SPEND} END) AS spent,
+            SUM(CASE WHEN t.direction = 'credit' AND ${COUNTED} AND t.refund_of IS NULL THEN t.amount_paise END) AS received
      FROM transactions t WHERE ${where}`,
     ...params,
   );
@@ -140,6 +144,8 @@ export type CategorySpend = { category_id: number | null; name: string; color: s
 
 /** Confirmed debits grouped by category within [from, to). */
 // Spending is debits minus credits linked to a purchase as a refund; income is credits that aren't refunds.
+/** Counted as spending or income: not a transfer, and not an investment or loan movement (those are shown on their own). */
+const COUNTED = "(t.is_transfer = 0 AND t.kind NOT IN ('investment','loan'))";
 const SPEND = "CASE WHEN t.direction = 'debit' THEN t.amount_paise WHEN t.refund_of IS NOT NULL THEN -t.amount_paise END";
 const IS_SPEND = "(t.direction = 'debit' OR (t.direction = 'credit' AND t.refund_of IS NOT NULL))";
 const IS_INCOME = "(t.direction = 'credit' AND t.refund_of IS NULL)";
@@ -149,7 +155,7 @@ export const spendByCategory = (db: SQLiteDatabase, from: number, to: number) =>
     `SELECT t.category_id, COALESCE(c.name, 'Uncategorised') AS name, COALESCE(c.color, '#6B7280') AS color,
             SUM(${SPEND}) AS total
      FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
-     WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND ${IS_SPEND} AND t.ts >= ? AND t.ts < ?
+     WHERE t.status = 'confirmed' AND ${COUNTED} AND ${IS_SPEND} AND t.ts >= ? AND t.ts < ?
      GROUP BY t.category_id HAVING total > 0 ORDER BY total DESC`,
     from, to,
   );
@@ -158,7 +164,7 @@ export const totalFor = async (db: SQLiteDatabase, direction: 'debit' | 'credit'
   (
     await db.getFirstAsync<{ s: number | null }>(
       `SELECT SUM(${direction === 'debit' ? SPEND : 't.amount_paise'}) AS s FROM transactions t
-       WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND ${direction === 'debit' ? IS_SPEND : IS_INCOME} AND t.ts >= ? AND t.ts < ?`,
+       WHERE t.status = 'confirmed' AND ${COUNTED} AND ${direction === 'debit' ? IS_SPEND : IS_INCOME} AND t.ts >= ? AND t.ts < ?`,
       from, to,
     )
   )?.s ?? 0;
@@ -173,7 +179,7 @@ export const recentManualMerchants = (db: SQLiteDatabase, limit = 6) =>
 export const topMerchants = (db: SQLiteDatabase, from: number, to: number, limit = 5) =>
   db.getAllAsync<{ merchant: string; total: number; n: number }>(
     `SELECT t.merchant, SUM(${SPEND}) AS total, COUNT(*) AS n FROM transactions t
-     WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND ${IS_SPEND} AND t.merchant IS NOT NULL AND t.ts >= ? AND t.ts < ?
+     WHERE t.status = 'confirmed' AND ${COUNTED} AND ${IS_SPEND} AND t.merchant IS NOT NULL AND t.ts >= ? AND t.ts < ?
      GROUP BY t.merchant HAVING total > 0 ORDER BY total DESC LIMIT ?`,
     from, to, limit,
   );
@@ -241,7 +247,7 @@ export const monthlyTotals = (db: SQLiteDatabase, from: number, to: number) =>
     `SELECT strftime('%Y-%m', t.ts / 1000, 'unixepoch', 'localtime') AS month,
             CASE WHEN ${IS_SPEND} THEN 'debit' ELSE 'credit' END AS direction,
             SUM(CASE WHEN ${IS_SPEND} THEN ${SPEND} ELSE t.amount_paise END) AS total
-     FROM transactions t WHERE t.status = 'confirmed' AND t.is_transfer = 0 AND t.ts >= ? AND t.ts < ? GROUP BY 1, 2`,
+     FROM transactions t WHERE t.status = 'confirmed' AND ${COUNTED} AND t.ts >= ? AND t.ts < ? GROUP BY 1, 2`,
     from, to,
   );
 

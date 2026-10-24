@@ -5,6 +5,9 @@ import { type RandomBytes, decryptBytes, encryptBytes, utf8Decode, utf8Encode } 
 
 // Parents before children so a restore can insert in this order. telemetry_events is deliberately not backed up.
 const TABLES = ['categories', 'accounts', 'merchants', 'transactions', 'budgets', 'settings', 'rules', 'patterns', 'unparsed', 'edit_log', 'transfer_merchants'] as const;
+// added later: older backups do not have them, so they are optional on restore (parents before children)
+const OPTIONAL = ['kind_rules', 'holdings', 'net_items', 'ledger_ignored', 'bills', 'recurring_dismissed'] as const;
+const ALL = [...TABLES, ...OPTIONAL];
 // settings that belong to this installation, not to the user's data: kept as-is on restore, never exported
 const DEVICE_SETTINGS = ['telemetry_install_id', 'telemetry_notice_seen', 'onboarded'];
 
@@ -13,7 +16,7 @@ export type Dump = { format: 1; schema: number; created: number; tables: Record<
 
 export async function dumpAll(db: SQLiteDatabase): Promise<Dump> {
   const tables: Dump['tables'] = {};
-  for (const t of TABLES) {
+  for (const t of ALL) {
     const where = t === 'settings' ? ` WHERE key NOT IN (${DEVICE_SETTINGS.map((k) => `'${k}'`).join(',')})` : '';
     const rows = await db.getAllAsync<Record<string, Cell>>(`SELECT * FROM ${t}${where}`);
     const columns = rows.length ? Object.keys(rows[0]) : (await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${t})`)).map((c) => c.name);
@@ -36,12 +39,13 @@ export async function restoreAll(db: SQLiteDatabase, d: Dump): Promise<{ transac
   try {
     await db.withExclusiveTransactionAsync(async (tx) => {
       const have = new Map<string, Set<string>>();
-      for (const t of TABLES) have.set(t, new Set((await tx.getAllAsync<{ name: string }>(`PRAGMA table_info(${t})`)).map((c) => c.name)));
-      for (const t of [...TABLES].reverse()) {
+      for (const t of ALL) have.set(t, new Set((await tx.getAllAsync<{ name: string }>(`PRAGMA table_info(${t})`)).map((c) => c.name)));
+      for (const t of [...ALL].reverse()) {
         if (t === 'settings') await tx.runAsync(`DELETE FROM settings WHERE key NOT IN (${DEVICE_SETTINGS.map((k) => `'${k}'`).join(',')})`);
         else await tx.runAsync(`DELETE FROM ${t}`);
       }
-      for (const t of TABLES) {
+      for (const t of ALL) {
+        if (!d.tables[t]) continue;
         const { columns, rows } = d.tables[t];
         const idx = columns.map((c, i) => [c, i] as const).filter(([c]) => have.get(t)!.has(c));
         if (!idx.length || !rows.length) continue;

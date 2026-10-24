@@ -224,6 +224,43 @@ export const MIGRATIONS = [
   UPDATE transactions SET fx_source = 'default' WHERE currency IS NOT NULL AND foreign_minor IS NOT NULL;
   UPDATE transactions SET fx_source = 'edited' WHERE fx_source = 'default' AND id IN (SELECT txn_id FROM edit_log WHERE field = 'amount_paise');
   `,
+  // smart money: what a transaction IS (kind), the balance quoted after it (for the self-checking ledger), investments/holdings,
+  // hand-entered assets and liabilities (net worth), and "bill due" notices
+  `
+  ALTER TABLE transactions ADD COLUMN kind TEXT NOT NULL DEFAULT 'normal';
+  ALTER TABLE transactions ADD COLUMN balance_paise INTEGER;
+  ALTER TABLE transactions ADD COLUMN holding_id INTEGER;
+  CREATE INDEX idx_txn_account_ts ON transactions (account_id, ts);
+  CREATE TABLE kind_rules (merchant_id INTEGER PRIMARY KEY REFERENCES merchants(id) ON DELETE CASCADE, kind TEXT NOT NULL);
+  CREATE TABLE holdings (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    key TEXT NOT NULL UNIQUE,
+    type TEXT NOT NULL DEFAULT 'other',
+    current_paise INTEGER,
+    valued_at INTEGER,
+    archived INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE TABLE net_items (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    side TEXT NOT NULL CHECK (side IN ('asset','liability')),
+    amount_paise INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE TABLE ledger_ignored (txn_id INTEGER PRIMARY KEY);
+  CREATE TABLE bills (
+    id INTEGER PRIMARY KEY,
+    account_id INTEGER,
+    bank TEXT,
+    last4 TEXT,
+    amount_paise INTEGER NOT NULL,
+    due_ts INTEGER NOT NULL,
+    msg_hash TEXT UNIQUE,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_ts INTEGER NOT NULL
+  );
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
