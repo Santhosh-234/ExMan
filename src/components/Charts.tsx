@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, View } from 'react-native';
-import Svg, { Circle, G, Line, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
 import { useReducedMotion } from '@/ui/motion';
 import { Text } from '@/ui/Text';
@@ -115,6 +115,71 @@ export function Bars({ data, height = 140, width: fixed, label = 'Chart', select
       {onSelect && picked ? <Text className="mb-1 text-sm text-muted" accessibilityLiveRegion="polite">{picked.label}: <Text className="font-semibold text-fg">{format(picked.value)}</Text></Text> : null}
       {onSelect ? (
         <Pressable onPress={(e) => onSelect(Math.max(0, Math.min(data.length - 1, Math.floor(e.nativeEvent.locationX / slot))))} accessibilityRole="adjustable" accessibilityLabel={`${label}. Tap a bar to select a month.`}>{svg}</Pressable>
+      ) : svg}
+    </View>
+  );
+}
+
+/**
+ * A filled line over time (net worth, projected balance). Draws in from the left; touching it moves a marker and calls `onSelect`.
+ * Values may be negative; the vertical range always fits the data.
+ */
+export function AreaChart({ data, height = 120, label = 'Trend', selected, onSelect, format = rupees, color, dashedFrom }: {
+  data: { label: string; value: number }[]; height?: number; label?: string; selected?: number | null; onSelect?: (index: number) => void; format?: (v: number) => string; color?: string; dashedFrom?: number;
+}) {
+  const { colors } = useTheme();
+  const stroke = color ?? colors.accent;
+  const [measured, setMeasured] = useState(0);
+  const width = measured || 300;
+  const grow = useGrow(data.map((d) => d.value).join(','), 800);
+  const n = data.length;
+  if (n === 0) return <View onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))} style={{ height: height + 22 }} />;
+  const vals = data.map((d) => d.value);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = Math.max((hi - lo) * 0.18, Math.abs(hi) * 0.02, 1);
+  const min = lo - pad, max = hi + pad;
+  const x = (i: number) => (n === 1 ? width / 2 : (i / (n - 1)) * (width - 16) + 8);
+  const y = (v: number) => height - ((v - min) / (max - min)) * height;
+  const shown = Math.max(1, Math.round(n * grow)); // points revealed so far
+  const pts = data.slice(0, shown).map((d, i) => [x(i), y(d.value)] as const);
+  const line = pts.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join(' ');
+  const area = pts.length > 1 ? `${line} L${pts[pts.length - 1][0].toFixed(1)},${height} L${pts[0][0].toFixed(1)},${height} Z` : '';
+  const sel = selected ?? n - 1;
+  const gid = `g${Math.abs(vals.reduce((a, v) => (a * 31 + Math.round(v)) | 0, 7))}`;
+  const svg = (
+    <Svg width={width} height={height + 22}>
+      <Defs>
+        <LinearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={stroke} stopOpacity={0.28} />
+          <Stop offset="1" stopColor={stroke} stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+      {[0.33, 0.66].map((f) => <Line key={f} x1={0} x2={width} y1={height * f} y2={height * f} stroke={colors.line} strokeWidth={1} strokeDasharray="3 5" />)}
+      {area ? <Path d={area} fill={`url(#${gid})`} /> : null}
+      {dashedFrom != null && dashedFrom < pts.length - 1 ? (
+        <>
+          <Path d={pts.slice(0, dashedFrom + 1).map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join(' ')} stroke={stroke} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+          <Path d={pts.slice(dashedFrom).map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join(' ')} stroke={stroke} strokeWidth={2.5} fill="none" strokeDasharray="2 6" strokeLinejoin="round" strokeLinecap="round" />
+        </>
+      ) : <Path d={line} stroke={stroke} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />}
+      {sel < pts.length ? (
+        <G>
+          <Line x1={pts[sel][0]} x2={pts[sel][0]} y1={pts[sel][1]} y2={height} stroke={stroke} strokeWidth={1} opacity={0.35} />
+          <Circle cx={pts[sel][0]} cy={pts[sel][1]} r={5.5} fill={colors.surface} stroke={stroke} strokeWidth={2.5} />
+        </G>
+      ) : null}
+      {data.map((d, i) => (i % Math.ceil(n / 6) === 0 || i === n - 1) ? (
+        <SvgText key={`${d.label}${i}`} x={x(i)} y={height + 16} fill={i === sel ? colors.fg : colors.muted} fontSize={11} fontFamily={i === sel ? 'Manrope_700Bold' : 'Manrope_500Medium'} textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}>{d.label}</SvgText>
+      ) : null)}
+    </Svg>
+  );
+  const picked = data[sel];
+  return (
+    <View accessible={!onSelect} accessibilityLabel={`${label}: ${data.map((d) => `${d.label} ${format(d.value)}`).join(', ')}`} onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))}>
+      {onSelect ? (
+        <Pressable
+          onPress={(e) => onSelect(Math.max(0, Math.min(n - 1, Math.round(((e.nativeEvent.locationX - 8) / Math.max(1, width - 16)) * (n - 1)))))}
+          accessibilityRole="adjustable" accessibilityLabel={`${label}. ${picked ? `${picked.label}: ${format(picked.value)}` : ''}`}>{svg}</Pressable>
       ) : svg}
     </View>
   );

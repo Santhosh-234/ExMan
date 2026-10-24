@@ -36,7 +36,7 @@ export default function Activity() {
   const router = useRouter();
   const snack = useSnackbar();
   const offerRule = useRuleOffer();
-  const params = useLocalSearchParams<{ account?: string; q?: string; transfers?: string; category?: string; month?: string; direction?: string; kind?: string; n?: string }>();
+  const params = useLocalSearchParams<{ account?: string; q?: string; transfers?: string; category?: string; month?: string; direction?: string; kind?: string; holding?: string; n?: string }>();
   const { colors } = useTheme();
   const [filter, setFilter] = useState<TxnFilter>(EMPTY_FILTER);
   const [search, setSearch] = useState('');

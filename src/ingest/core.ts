@@ -3,6 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { type MerchantCache, ensureMerchant } from '@/db/merchantCore';
 import { loadRuleIndex } from '@/db/merchants';
 import { loadPatternIndex } from '@/db/patterns';
+import { syncHoldings } from '@/db/holdings';
 import { loadKindRules } from '@/db/kinds';
 import { loadModel } from '@/db/suggest';
 import { detectTransfers } from '@/db/transfers';
@@ -186,6 +187,7 @@ export async function run(db: SQLiteDatabase, msgs: RawMessage[], since: number,
     }
   });
   await ctx.patterns.flush(db);
+  if (added) await syncHoldings(db);
   onProgress?.(msgs.length, msgs.length);
   if (added) notifyIngested();
   return added;
