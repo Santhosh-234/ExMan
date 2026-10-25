@@ -11,7 +11,7 @@ import { type Category, getCategories } from '@/db/queries';
 import { isTransferMerchant, setTransferMerchant } from '@/db/transfers';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
-import { Button, Card, EmptyState, Sheet, BackButton, ListRow, PageHeader } from '@/ui/kit';
+import { Button, Card, EmptyState, Sheet, BackButton, ListRow, PageHeader, onColor } from '@/ui/kit';
 import { CategoryChips } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
@@ -61,7 +61,7 @@ export default function Merchants() {
           return (
             <ListRow
               onPress={() => { setSel(m); setMode('menu'); void isTransferMerchant(db, m.id).then(setIsXfer); }}
-              leading={<View className="h-11 w-11 items-center justify-center rounded-full" style={{ backgroundColor: c?.color ?? colors.surface2 }}><Text className="text-base font-bold" style={{ color: c ? '#FFFFFF' : colors.muted }}>{m.name[0]?.toUpperCase()}</Text></View>}
+              leading={<View className="h-11 w-11 items-center justify-center rounded-full" style={{ backgroundColor: c?.color ?? colors.surface2 }}><Text className="text-base font-bold" style={{ color: c ? onColor(c.color) : colors.muted }}>{m.name[0]?.toUpperCase()}</Text></View>}
               title={m.name}
               subtitle={`${m.n} transaction${m.n === 1 ? '' : 's'} · ${c?.name ?? 'Uncategorised'}${m.rule_category_id ? ' · rule' : ''}`}
               right={<Text className="mr-1 text-sm text-muted" style={{ fontVariant: ['tabular-nums'] }}>{rupees(m.spent)}</Text>} />

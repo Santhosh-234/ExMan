@@ -8,7 +8,7 @@ import { Text } from '@/ui/Text';
 
 import { type Category, type Txn, getAccountNames, getCategories, getTxns, topCategoryIds, updateTxn } from '@/db/queries';
 import { AnimatedBar, PopIn } from '@/ui/anim';
-import { Amount, BackButton, Button, Chip, EmptyState, Skeleton, success, tap, useElevation } from '@/ui/kit';
+import { Amount, BackButton, Button, Chip, EmptyState, Skeleton, onColor, success, tap, useElevation } from '@/ui/kit';
 import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useRuleOffer } from '@/ui/useRuleOffer';
@@ -84,7 +84,7 @@ function ReviewCard({ txn, cats, quick, account, onConfirm, onDismiss, onEdit, o
 
         <View className="mt-4 items-center">
           <View className="mb-3 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: cat?.color ?? colors.surface2 }}>
-            <Text className="text-2xl font-bold" style={{ color: cat ? '#FFFFFF' : colors.muted }}>{(txn.merchant ?? '?').trim()[0]?.toUpperCase() ?? '?'}</Text>
+            <Text className="text-2xl font-bold" style={{ color: cat ? onColor(cat.color) : colors.muted }}>{(txn.merchant ?? '?').trim()[0]?.toUpperCase() ?? '?'}</Text>
           </View>
           <Text className={`text-xs font-semibold uppercase tracking-widest ${txn.direction === 'debit' ? 'text-danger' : 'text-income'}`}>{txn.direction === 'debit' ? 'Spent' : 'Received'}</Text>
           <Amount paise={txn.amount_paise} direction={txn.direction} approx={!!txn.currency} className="mt-1 text-5xl" />

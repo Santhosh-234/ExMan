@@ -10,7 +10,7 @@ import { getState } from '@/db/telemetry';
 import { reprocessDetailed } from '@/ingest/run';
 import { shareableProps } from '@/utils/formats';
 import { track } from '@/telemetry';
-import { BackButton, Button, Card, Chip, PageHeader, SectionLabel } from '@/ui/kit';
+import { onColor, BackButton, Button, Card, Chip, PageHeader, SectionLabel } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
@@ -144,7 +144,7 @@ export default function Teach() {
               return (
                 <Pressable key={i} onPress={() => tap(i)} accessibilityRole="button" accessibilityLabel={`${t.text}${c ? ', selected' : ''}`} hitSlop={2}
                   className="mb-1 mr-0.5 min-h-8 justify-center rounded-lg px-1" style={c ? { backgroundColor: c } : undefined}>
-                  <Text className="text-base" style={{ color: c ? '#FFFFFF' : colors.fg }}>{t.text}</Text>
+                  <Text className="text-base" style={{ color: c ? onColor(c) : colors.fg }}>{t.text}</Text>
                 </Pressable>
               );
             })}

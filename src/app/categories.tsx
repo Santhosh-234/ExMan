@@ -8,7 +8,7 @@ import { Text, TextInput } from '@/ui/Text';
 import { CATEGORY_COLORS, type Category, addCategory, deleteCategory, getCategories, getCategoryUsage, setCategoryArchived, updateCategory } from '@/db/queries';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
-import { BackButton, Button, Card, IconButton, ListRow, PageHeader, SectionLabel, Sheet } from '@/ui/kit';
+import { BackButton, Button, Card, IconButton, ListRow, PageHeader, SectionLabel, Sheet, onColor } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { Page } from '@/ui/insets';
@@ -86,7 +86,7 @@ export default function Categories() {
           <View className="mb-3 flex-row flex-wrap">
             {CATEGORY_COLORS.map((c) => (
               <Pressable key={c} onPress={() => setEd({ ...ed, color: c })} accessibilityRole="button" accessibilityLabel={`Colour ${c}${ed.color === c ? ', selected' : ''}`} className="mb-2 mr-2 h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: c }}>
-                {ed.color === c ? <Text className="font-bold text-white">✓</Text> : null}
+                {ed.color === c ? <Text className="font-bold" style={{ color: onColor(c) }}>✓</Text> : null}
               </Pressable>
             ))}
           </View>

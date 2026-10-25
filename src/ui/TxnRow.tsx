@@ -5,7 +5,7 @@ import { Text } from '@/ui/Text';
 
 import type { Category, Txn } from '@/db/queries';
 import { Pressy } from '@/ui/anim';
-import { Amount } from '@/ui/kit';
+import { Amount, onColor } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { formatForeign } from '@/utils/currency';
 import { EXCLUDED_KINDS, KIND_LABEL } from '@/utils/kinds';
@@ -40,7 +40,7 @@ export const TxnRow = memo(function TxnRow({ t, cat, selecting, selected, onPres
       ? { bg: colors.surface2, icon: <Repeat size={18} color={colors.muted} /> }
       : income
         ? { bg: `${colors.income}2E`, icon: <ArrowDownLeft size={20} color={colors.income} /> }
-        : { bg: cat?.color ?? colors.surface2, icon: <ArrowUpRight size={20} color={cat ? '#FFFFFF' : colors.muted} /> };
+        : { bg: cat?.color ?? colors.surface2, icon: <ArrowUpRight size={20} color={cat ? onColor(cat.color) : colors.muted} /> };
 
   return (
     <Pressy

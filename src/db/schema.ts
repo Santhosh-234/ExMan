@@ -279,6 +279,14 @@ export const MIGRATIONS = [
   );
   CREATE INDEX idx_libfmt_sender ON library_formats (sender_key);
   `,
+  // subscriptions the user declared (or accepted as a suggestion): they count from a single charge and use the chosen cadence
+  `
+  CREATE TABLE subs_marked (
+    merchant_id INTEGER PRIMARY KEY REFERENCES merchants(id) ON DELETE CASCADE,
+    cadence TEXT NOT NULL CHECK (cadence IN ('weekly','monthly','quarterly','yearly')),
+    created_at INTEGER NOT NULL
+  );
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

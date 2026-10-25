@@ -7,11 +7,13 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { type Account, type Category, type Txn, getAccounts, getCategories, getEditLog, getTxn, linkRefund, refundCandidates, unlinkRefund, updateTxn } from '@/db/queries';
+import { isMarkedSubscription, markSubscription, unmarkSubscription } from '@/db/recurring';
+import { CadenceSheet } from '@/ui/CadenceSheet';
 import { applyKindToMerchant, removeKindRule, setKindRule } from '@/db/kinds';
 import { isTransferMerchant, markTransferByUser, rejectTransfer, setTransferMerchant } from '@/db/transfers';
 import { notifyIngested } from '@/ingest/events';
 import { track } from '@/telemetry';
-import { Amount, BackButton, Button, Card, Group, Sheet } from '@/ui/kit';
+import { Amount, onColor, BackButton, Button, Card, Group, Sheet } from '@/ui/kit';
 import { CategorySheet, EditSheet, type TxnPatch } from '@/ui/sheets';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useRuleOffer } from '@/ui/useRuleOffer';
@@ -39,6 +41,8 @@ export default function TxnDetail() {
   const [editing, setEditing] = useState(false);
   const [picking, setPicking] = useState(false);
   const [kindOpen, setKindOpen] = useState(false);
+  const [subOpen, setSubOpen] = useState(false);
+  const [isSub, setIsSub] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [linking, setLinking] = useState<Txn[] | null>(null);
 
@@ -46,6 +50,7 @@ export default function TxnDetail() {
     const n = Number(id);
     const [row, c, a, l] = await Promise.all([getTxn(db, n), getCategories(db), getAccounts(db), getEditLog(db, n)]);
     setT(row); setCats(c); setAccts(a); setLog(l);
+    setIsSub(row?.merchant_id ? await isMarkedSubscription(db, row.merchant_id) : false);
   }, [db, id]);
   useEffect(() => void load(), [load]);
 
@@ -157,7 +162,7 @@ export default function TxnDetail() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="mb-5 items-center">
           <View className="mb-3 mt-1 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: cat?.color ?? colors.surface2 }}>
-            <Text className="text-2xl font-bold" style={{ color: cat ? '#FFFFFF' : colors.muted }}>{(t.merchant ?? '?').trim()[0]?.toUpperCase() ?? '?'}</Text>
+            <Text className="text-2xl font-bold" style={{ color: cat ? onColor(cat.color) : colors.muted }}>{(t.merchant ?? '?').trim()[0]?.toUpperCase() ?? '?'}</Text>
           </View>
           <Text className={`text-xs font-semibold uppercase tracking-widest ${t.direction === 'debit' ? 'text-danger' : 'text-income'}`}>{t.kind === 'investment' ? (t.direction === 'debit' ? 'Invested' : 'Withdrawn from investment') : t.kind === 'loan' ? (t.direction === 'debit' ? 'Loan repayment' : 'Loan received') : t.direction === 'debit' ? 'Spent' : 'Received'}</Text>
           <Amount paise={t.amount_paise} direction={t.direction} approx={!!t.currency} className="text-5xl" />
@@ -200,6 +205,14 @@ export default function TxnDetail() {
           <Button className="mr-3 flex-1" variant="secondary" label="Category" onPress={() => setPicking(true)} />
           <Button className="flex-1" variant="secondary" label={t.is_transfer ? 'Not transfer' : 'Transfer'} onPress={toggleTransfer} />
         </View>
+
+        {t.direction === 'debit' && !t.is_transfer && t.merchant_id && (t.kind === 'normal' || t.kind === 'fee') ? (
+          <View className="mb-4">
+            {isSub
+              ? <Button variant="secondary" label="Remove from subscriptions" onPress={async () => { await unmarkSubscription(db, t.merchant_id!); setIsSub(false); notifyIngested(); snack({ message: `${t.merchant} removed from subscriptions` }); }} />
+              : <Button variant="secondary" label="This is a subscription" onPress={() => setSubOpen(true)} />}
+          </View>
+        ) : null}
 
         {t.direction === 'credit' && !t.is_transfer && (
           <View className="mb-4">
@@ -244,6 +257,11 @@ export default function TxnDetail() {
           ))}
         </Sheet>
       )}
+      {subOpen && t.merchant_id ? (
+        <CadenceSheet title={`How often does ${t.merchant ?? 'this'} charge you?`} hint="ExMan will track the next charge and include it in your forecast."
+          onClose={() => setSubOpen(false)}
+          onPick={async (c) => { setSubOpen(false); await markSubscription(db, t.merchant_id!, c); setIsSub(true); notifyIngested(); track('feature_used', { feature: 'subscription_marked' }); snack({ message: `${t.merchant} added to subscriptions`, onAction: async () => { await unmarkSubscription(db, t.merchant_id!); setIsSub(false); notifyIngested(); } }); }} />
+      ) : null}
       {kindOpen && (
         <Sheet title="What is this?" onClose={() => setKindOpen(false)}>
           {KINDS.map((k) => (
