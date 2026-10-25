@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { type Charge, detectRecurring } from './recurring';
+import { type Charge, detectRecurring, suggestSubscriptions } from './recurring';
 
 const DAY = 864e5;
 const NOW = new Date(2026, 9, 20, 12).getTime();
@@ -36,7 +36,7 @@ test('weekly and yearly patterns; yearly needs only two charges', () => {
 
 test('irregular, too-few and daily habits are not subscriptions', () => {
   assert.equal(detectRecurring(mk(5, 'Zomato', [300, 450, 280, 520, 390], [90, 70, 41, 20, 3]), NOW).length, 0); // gaps all over the place
-  assert.equal(detectRecurring(mk(6, 'Gym', [1500, 1500], [30, 1]), NOW).length, 0); // two monthly charges is not yet a pattern
+  assert.equal(detectRecurring(mk(6, 'Salon', [1500, 1500], [30, 1]), NOW).length, 0); // two monthly charges is not yet a pattern
   assert.equal(detectRecurring(mk(7, 'Chai Point', [60, 60, 60, 60, 60, 60], [6, 5, 4, 3, 2, 1]), NOW).length, 0); // daily
   assert.equal(detectRecurring(mk(8, 'Mixed', [100, 5000, 120, 90], [91, 61, 30, 1]), NOW).length, 0); // amounts nowhere near each other
 });
@@ -89,4 +89,55 @@ test('database: transfers and dismissed merchants are excluded; dismissal can be
   assert.deepEqual(r.map((x) => x.merchant), ['Netflix']);
   await restoreRecurring(db, 3);
   assert.equal((await getRecurring(db, NOW)).length, 2);
+});
+
+
+test('well-known services need one cycle fewer and tolerate card posting drift', () => {
+  const two = detectRecurring(mk(1, 'Netflix', [649, 649], [31, 1]), NOW);
+  assert.equal(two.length, 1); // two monthly charges are enough for a known service
+  assert.equal(two[0].cadence, 'monthly');
+  const drift = detectRecurring(mk(2, 'Spotify', [119, 119, 119, 119], [96, 66, 33, 1]), NOW); // gaps 30, 33, 32 (posting dates move)
+  assert.equal(drift.length, 1);
+  assert.equal(detectRecurring(mk(3, 'Salon', [649, 649], [31, 1]), NOW).length, 0); // an unknown payee still needs three
+});
+
+test('a shared payee (an app store) is split by price: the repeating charge is the subscription', () => {
+  const apple = [
+    ...mk(1, 'Apple', [75, 75, 75, 75], [92, 62, 31, 1]), // iCloud
+    ...mk(1, 'Apple', [499, 2300, 120, 899], [80, 45, 20, 5]), // one-off app purchases
+  ];
+  const r = detectRecurring(apple, NOW);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].amount, 7500);
+  assert.equal(r[0].series, 7500);
+});
+
+test('foreign-currency charges compare in the original currency, so exchange-rate drift does not hide them', () => {
+  const cs: Charge[] = [92, 61, 31, 1].map((d, i) => ({ merchant_id: 1, merchant: 'ChatGPT', amount_paise: 165000 + i * 5000, unit: 2000, ts: at(d) })); // $20, rupee value drifting 3%+ a month
+  const r = detectRecurring(cs, NOW);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].varies, false);
+  assert.equal(r[0].priceChange, null);
+});
+
+test('a subscription you declare is found from a single charge, with your cadence', () => {
+  const r = detectRecurring(mk(1, 'Gym membership club', [1500], [10]), NOW, { declared: new Map([[1, 'quarterly' as const]]) });
+  assert.equal(r.length, 1);
+  assert.equal(r[0].manual, true);
+  assert.equal(r[0].cadence, 'quarterly');
+  assert.ok(Math.abs((r[0].nextTs - at(-81)) / DAY) <= 1);
+  assert.equal(r[0].monthlyCost, 50000); // Rs 1,500 every 3 months = Rs 500 a month
+  // declaring something that the data already shows keeps the data's richer figures
+  const d = detectRecurring(mk(2, 'Hotstar', [299, 299, 299], [61, 31, 1]), NOW, { declared: new Map([[2, 'monthly' as const]]) });
+  assert.equal(d[0].count, 3);
+  assert.equal(d[0].manual, true);
+});
+
+test('two charges that look like a subscription are suggested, noise is not', () => {
+  const ok = suggestSubscriptions(mk(1, 'Cult', [999, 999], [31, 1]), NOW);
+  assert.deepEqual(ok.map((m) => [m.merchant, m.cadence]), [['Cult', 'monthly']]);
+  assert.equal(suggestSubscriptions(mk(2, 'Shop', [999, 1500], [31, 1]), NOW).length, 0); // different prices
+  assert.equal(suggestSubscriptions(mk(3, 'Shop', [999, 999], [12, 1]), NOW).length, 0); // not a cycle
+  assert.equal(suggestSubscriptions(mk(4, 'Old', [999, 999], [400, 369]), NOW).length, 0); // long stopped
+  assert.equal(suggestSubscriptions(mk(5, 'Skip', [999, 999], [31, 1]), NOW, new Set([5])).length, 0);
 });

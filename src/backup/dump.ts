@@ -6,7 +6,7 @@ import { type RandomBytes, decryptBytes, encryptBytes, utf8Decode, utf8Encode } 
 // Parents before children so a restore can insert in this order. telemetry_events is deliberately not backed up.
 const TABLES = ['categories', 'accounts', 'merchants', 'transactions', 'budgets', 'settings', 'rules', 'patterns', 'unparsed', 'edit_log', 'transfer_merchants'] as const;
 // added later: older backups do not have them, so they are optional on restore (parents before children)
-const OPTIONAL = ['kind_rules', 'holdings', 'net_items', 'ledger_ignored', 'bills', 'recurring_dismissed'] as const;
+const OPTIONAL = ['kind_rules', 'holdings', 'net_items', 'ledger_ignored', 'bills', 'recurring_dismissed', 'subs_marked'] as const;
 const ALL = [...TABLES, ...OPTIONAL];
 // settings that belong to this installation, not to the user's data: kept as-is on restore, never exported
 const DEVICE_SETTINGS = ['telemetry_install_id', 'telemetry_notice_seen', 'onboarded'];

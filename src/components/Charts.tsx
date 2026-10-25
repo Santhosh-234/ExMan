@@ -1,11 +1,42 @@
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, PanResponder, Pressable, View } from 'react-native';
 import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
 import { useReducedMotion } from '@/ui/motion';
 import { Text } from '@/ui/Text';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
+
+/**
+ * Touch and drag to pick a point on a chart. A touch picks where it lands, dragging sideways keeps picking as the finger moves (with a light
+ * tick at each new point), and a vertical swipe is left to the page so it still scrolls. Screen readers get increment/decrement instead.
+ */
+function useScrub(indexAt: (x: number) => number, count: number, current: number, onSelect?: (i: number) => void) {
+  const live = useRef({ indexAt, onSelect, count, last: -1, startX: 0, drag: false });
+  live.current.indexAt = indexAt; live.current.onSelect = onSelect; live.current.count = count;
+  const pick = (x: number) => {
+    const r = live.current;
+    const i = Math.max(0, Math.min(r.count - 1, r.indexAt(x)));
+    if (i === r.last || !r.onSelect) return;
+    r.last = i; r.onSelect(i);
+    void Haptics.selectionAsync().catch(() => {});
+  };
+  const handlers = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => !!live.current.onSelect,
+    onMoveShouldSetPanResponder: () => !!live.current.onSelect,
+    onPanResponderTerminationRequest: () => !live.current.drag, // the page may take over until the finger has clearly started dragging sideways
+    onPanResponderGrant: (e) => { const r = live.current; r.drag = false; r.last = -1; r.startX = e.nativeEvent.locationX; pick(r.startX); },
+    onPanResponderMove: (_e, g) => { const r = live.current; if (Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy)) r.drag = true; pick(r.startX + g.dx); },
+    onPanResponderRelease: () => { live.current.drag = false; },
+    onPanResponderTerminate: () => { live.current.drag = false; },
+  }).panHandlers, []);
+  const a11y = onSelect ? {
+    accessibilityActions: [{ name: 'increment' as const }, { name: 'decrement' as const }],
+    onAccessibilityAction: (e: { nativeEvent: { actionName: string } }) => onSelect(Math.max(0, Math.min(count - 1, current + (e.nativeEvent.actionName === 'increment' ? 1 : -1)))),
+  } : {};
+  return { handlers, a11y };
+}
 
 export type Slice = { label: string; value: number; color: string };
 
@@ -94,6 +125,7 @@ export function Bars({ data, height = 140, width: fixed, label = 'Chart', select
   const slot = width / Math.max(1, data.length);
   const bw = Math.min(28, slot * 0.58);
   const hi = selected ?? data.length - 1;
+  const scrub = useScrub((x) => Math.floor(x / slot), data.length, hi, onSelect);
   if (!measured && !fixed) return <View onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))} style={{ height: height + 24 }} />; // draw once the real width is known, not at a guess
   const svg = (
     <Svg width={width} height={height + 24}>
@@ -115,7 +147,7 @@ export function Bars({ data, height = 140, width: fixed, label = 'Chart', select
     <View accessible={!onSelect} accessibilityLabel={`${label}: ${data.map((d) => `${d.label} ${format(d.value)}`).join(', ')}`} onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))}>
       {onSelect && picked ? <Text className="mb-1 text-sm text-muted" accessibilityLiveRegion="polite">{picked.label}: <Text className="font-semibold text-fg">{format(picked.value)}</Text></Text> : null}
       {onSelect ? (
-        <Pressable onPress={(e) => onSelect(Math.max(0, Math.min(data.length - 1, Math.floor(e.nativeEvent.locationX / slot))))} accessibilityRole="adjustable" accessibilityLabel={`${label}. Tap a bar to select a month.`}>{svg}</Pressable>
+        <View {...scrub.handlers} {...scrub.a11y} accessible accessibilityRole="adjustable" accessibilityLabel={`${label}. ${picked ? `${picked.label}: ${format(picked.value)}` : ''}`}><View pointerEvents="none">{svg}</View></View>
       ) : svg}
     </View>
   );
@@ -134,6 +166,8 @@ export function AreaChart({ data, height = 120, label = 'Trend', selected, onSel
   const width = measured || 300;
   const grow = useGrow(data.map((d) => d.value).join(','), 800);
   const n = data.length;
+  const selIdx = selected ?? n - 1;
+  const scrub = useScrub((x) => Math.round(((x - 8) / Math.max(1, width - 16)) * (n - 1)), n, selIdx, onSelect);
   if (!measured) return <View onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))} style={{ height: height + 22 }} />;
   if (n === 0) return <View onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))} style={{ height: height + 22 }} />;
   const vals = data.map((d) => d.value);
@@ -179,9 +213,7 @@ export function AreaChart({ data, height = 120, label = 'Trend', selected, onSel
   return (
     <View accessible={!onSelect} accessibilityLabel={`${label}: ${data.map((d) => `${d.label} ${format(d.value)}`).join(', ')}`} onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))}>
       {onSelect ? (
-        <Pressable
-          onPress={(e) => onSelect(Math.max(0, Math.min(n - 1, Math.round(((e.nativeEvent.locationX - 8) / Math.max(1, width - 16)) * (n - 1)))))}
-          accessibilityRole="adjustable" accessibilityLabel={`${label}. ${picked ? `${picked.label}: ${format(picked.value)}` : ''}`}>{svg}</Pressable>
+        <View {...scrub.handlers} {...scrub.a11y} accessible accessibilityRole="adjustable" accessibilityLabel={`${label}. ${picked ? `${picked.label}: ${format(picked.value)}` : ''}`}><View pointerEvents="none">{svg}</View></View>
       ) : svg}
     </View>
   );

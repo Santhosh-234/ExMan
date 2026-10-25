@@ -5,7 +5,7 @@ import { SCREEN_NAMES } from '../utils/screens';
 type Spec = 'int' | 'bool' | { enum: readonly string[] } | { re: RegExp };
 
 export const SCREENS = SCREEN_NAMES;
-const FEATURES = ['manual_add', 'teach_saved', 'rule_created', 'transfer_unmarked', 'transfer_marked', 'account_merged', 'merchant_merged', 'category_created', 'history_import', 'sync_run', 'theme_changed', 'bulk_edit', 'search_used', 'filters_used', 'budget_set', 'subscription_dismissed'] as const;
+const FEATURES = ['manual_add', 'teach_saved', 'rule_created', 'transfer_unmarked', 'transfer_marked', 'account_merged', 'merchant_merged', 'category_created', 'history_import', 'sync_run', 'theme_changed', 'bulk_edit', 'search_used', 'filters_used', 'budget_set', 'subscription_dismissed', 'subscription_marked'] as const;
 const BANK_KEYS = ['HDFC', 'ICICI', 'SBI', 'AXIS', 'KOTAK', 'INDIAN', 'PNB', 'BOB', 'CANARA', 'UNION', 'BOI', 'IDFC', 'YES', 'INDUSIND', 'FEDERAL', 'SIB', 'RBL', 'BANDHAN', 'UCO', 'CENTRAL', 'IOB', 'AU', 'IDBI', 'PAYTMBANK', 'AMEX', 'HSBC', 'SC', 'CITI', 'DBS', 'KARNATAKA', 'JKB', 'TMB', 'DCB', 'CSB', 'EQUITAS', 'UJJIVAN', 'BOM', 'PSB', 'FINTECH', 'none'] as const;
 
 export const EVENTS = {

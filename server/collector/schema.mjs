@@ -2,7 +2,7 @@
 // The collector re-validates everything it receives, so a modified or old client can never store anything the app itself could not send.
 // A test in the app repo (src/utils/collector.test.ts) fails if this file and the app's schema drift apart.
 const SCREENS = ['home', 'activity', 'insights', 'settings', 'review', 'detail', 'add', 'accounts', 'merchants', 'rules', 'categories', 'unrecognised', 'teach', 'privacy', 'budgets', 'subscriptions', 'backup', 'rates', 'welcome', 'unknown'];
-const FEATURES = ['manual_add', 'teach_saved', 'rule_created', 'transfer_unmarked', 'transfer_marked', 'account_merged', 'merchant_merged', 'category_created', 'history_import', 'sync_run', 'theme_changed', 'bulk_edit', 'search_used', 'filters_used', 'budget_set', 'subscription_dismissed'];
+const FEATURES = ['manual_add', 'teach_saved', 'rule_created', 'transfer_unmarked', 'transfer_marked', 'account_merged', 'merchant_merged', 'category_created', 'history_import', 'sync_run', 'theme_changed', 'bulk_edit', 'search_used', 'filters_used', 'budget_set', 'subscription_dismissed', 'subscription_marked'];
 const BANK_KEYS = ['HDFC', 'ICICI', 'SBI', 'AXIS', 'KOTAK', 'INDIAN', 'PNB', 'BOB', 'CANARA', 'UNION', 'BOI', 'IDFC', 'YES', 'INDUSIND', 'FEDERAL', 'SIB', 'RBL', 'BANDHAN', 'UCO', 'CENTRAL', 'IOB', 'AU', 'IDBI', 'PAYTMBANK', 'AMEX', 'HSBC', 'SC', 'CITI', 'DBS', 'KARNATAKA', 'JKB', 'TMB', 'DCB', 'CSB', 'EQUITAS', 'UJJIVAN', 'BOM', 'PSB', 'FINTECH', 'none'];
 
 export const EVENTS = {
