@@ -40,6 +40,14 @@
       ],
       "expo-sqlite",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#0F766E",
+          "defaultChannel": "reminders"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

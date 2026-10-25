@@ -10,6 +10,8 @@ import { countUnparsed } from '@/db/patterns';
 import { useSnackbar } from '@/ui/Snackbar';
 import { formatsStatus, FORMATS_URL } from '@/db/formats';
 import { refreshFormats } from '@/ingest/formats';
+import { ensurePermission, getReminderPrefs, sendTestReminder, setReminderPrefs, syncReminders } from '@/notify';
+import { DEFAULT_PREFS, type ReminderPrefs } from '@/notify/plan';
 import { getSetting, setSetting } from '@/db/queries';
 import { importHistory } from '@/ingest/run';
 import { syncNow } from '@/sync';
@@ -195,6 +197,10 @@ export default function Settings() {
         <AutoConfirm />
       </Section>
 
+      <Section title="Reminders" hint="Bills, renewals and low-balance warnings, set on this phone ahead of time. Nothing is sent anywhere.">
+        <Reminders />
+      </Section>
+
       {FORMATS_URL ? (
         <Section title="Bank formats" hint="New bank message layouts added by the ExMan project, so more banks are read without an app update.">
           <BankFormats />
@@ -358,5 +364,40 @@ function BankFormats() {
       </View>
       <Button className="mt-3" variant="secondary" label={busy ? 'Checking…' : 'Check now'} disabled={busy} onPress={check} />
     </Card>
+  );
+}
+
+
+/** Local reminders: bills, renewals, low balance. Android asks for permission the first time they are switched on. */
+function Reminders() {
+  const db = useSQLiteContext();
+  const snack = useSnackbar();
+  const { colors } = useTheme();
+  const [on, setOn] = useState(false);
+  const [prefs, setPrefs] = useState<ReminderPrefs>(DEFAULT_PREFS);
+  useEffect(() => { void getReminderPrefs(db).then((r) => { setOn(r.enabled); setPrefs(r.prefs); }); }, [db]);
+  const toggle = async (v: boolean) => {
+    if (v && !(await ensurePermission())) { snack({ message: 'Allow notifications for ExMan in Android settings to get reminders.' }); return; }
+    setOn(v);
+    await setReminderPrefs(db, { enabled: v });
+    const n = await syncReminders(db).catch(() => 0);
+    if (v) snack({ message: n ? `${n} reminder${n === 1 ? '' : 's'} set` : 'Reminders on. Nothing is due soon.' });
+  };
+  const kinds: [keyof ReminderPrefs, string][] = [['bills', 'Card and other bills'], ['subscriptions', 'Subscription renewals'], ['shortfall', 'Balance running low']];
+  return (
+    <>
+      <View className="mb-3 flex-row items-center rounded-[22px] border border-line bg-card p-4">
+        <View className="mr-3 flex-1"><Text className="text-base text-fg">Remind me</Text></View>
+        <Switch value={on} onValueChange={toggle} trackColor={{ true: colors.accent, false: colors.surface2 }} accessibilityLabel="Remind me about bills and renewals" />
+      </View>
+      {on ? (
+        <>
+          <View className="mb-3 flex-row flex-wrap">
+            {kinds.map(([k, label]) => <Chip key={k} label={label} color={colors.accent} selected={prefs[k]} onPress={async () => { const next = { ...prefs, [k]: !prefs[k] }; setPrefs(next); await setReminderPrefs(db, { prefs: next }); void syncReminders(db).catch(() => 0); }} />)}
+          </View>
+          <Button variant="secondary" label="Show me one" onPress={() => void sendTestReminder().catch(() => snack({ message: 'Could not show a reminder. Check notification permission.' }))} />
+        </>
+      ) : null}
+    </>
   );
 }

@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { migrate } from '@/db/schema';
 import { Ingest } from '@/ingest/Ingest';
+import { lastReminderTap, onReminderTapped } from '@/notify';
 import { LockGate } from '@/security/LockGate';
 import { installErrorReporting, track } from '@/telemetry';
 import { FONT_FILES } from '@/ui/fonts';
@@ -31,6 +32,13 @@ function Shell() {
   useEffect(() => {
     void db.getFirstAsync("SELECT 1 FROM settings WHERE key = 'onboarded'").then((r) => { if (!r) router.replace('/welcome'); });
   }, [db, router]);
+  // tapping a reminder opens the screen it is about (also when the tap is what launched the app)
+  useEffect(() => {
+    const first = lastReminderTap();
+    if (first) setTimeout(() => router.push(first as never), 400);
+    const sub = onReminderTapped((route) => router.push(route as never));
+    return () => sub.remove();
+  }, [router]);
   // only the screen's name is reported with an error, never route params
   useEffect(() => installErrorReporting(() => screenOf(path.current)), []);
   // how long each screen takes to show after navigation (only the screen's name and the milliseconds are recorded)

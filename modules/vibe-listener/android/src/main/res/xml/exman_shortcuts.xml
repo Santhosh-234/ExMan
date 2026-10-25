@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="exman_add"
+        android:enabled="true"
+        android:icon="@drawable/exman_ic_add"
+        android:shortcutShortLabel="@string/exman_shortcut_add"
+        android:shortcutLongLabel="@string/exman_shortcut_add_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="exman://add"
+            android:targetClass="com.exman.app.MainActivity"
+            android:targetPackage="com.exman.app" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="exman_review"
+        android:enabled="true"
+        android:icon="@drawable/exman_ic_review"
+        android:shortcutShortLabel="@string/exman_shortcut_review"
+        android:shortcutLongLabel="@string/exman_shortcut_review_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="exman://review"
+            android:targetClass="com.exman.app.MainActivity"
+            android:targetPackage="com.exman.app" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="exman_wealth"
+        android:enabled="true"
+        android:icon="@drawable/exman_ic_wealth"
+        android:shortcutShortLabel="@string/exman_shortcut_wealth"
+        android:shortcutLongLabel="@string/exman_shortcut_wealth_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="exman://wealth"
+            android:targetClass="com.exman.app.MainActivity"
+            android:targetPackage="com.exman.app" />
+    </shortcut>
+</shortcuts>
