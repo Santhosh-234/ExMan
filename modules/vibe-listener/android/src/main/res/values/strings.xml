@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exman_widget_desc">What is safe to spend today and the next bill, with a quick add button</string>
+    <string name="exman_shortcut_add">Add expense</string>
+    <string name="exman_shortcut_add_long">Add an expense or cash payment</string>
+    <string name="exman_shortcut_review">Review</string>
+    <string name="exman_shortcut_review_long">Review new transactions</string>
+    <string name="exman_shortcut_wealth">Wealth</string>
+    <string name="exman_shortcut_wealth_long">Net worth and the next 30 days</string>
+</resources>

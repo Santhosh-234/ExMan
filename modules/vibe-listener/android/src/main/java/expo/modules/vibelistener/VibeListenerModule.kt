@@ -52,6 +52,11 @@ class VibeListenerModule : Module() {
       out
     }
 
+    // Texts shown by the home-screen widget (the app decides what is safe to show).
+    Function("setWidget") { title: String, amount: String, sub: String ->
+      WidgetProvider.save(context, title, amount, sub)
+    }
+
     Function("notificationAccessGranted") {
       NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     }

@@ -12,3 +12,6 @@ export const openNotificationAccessSettings = (): void => native.openNotificatio
 export const onRaw = (cb: () => void) => native.addListener('onRaw', cb);
 /** Existing inbox messages from alphanumeric senders since `sinceMs` (needs READ_SMS). */
 export const readInbox = (sinceMs: number): RawMessage[] => native.readInbox(sinceMs).map((s: string) => JSON.parse(s));
+
+/** Updates the home-screen widget's three lines. Does nothing on a build that predates the widget. */
+export const setWidget = (title: string, amount: string, sub: string): void => { if (typeof native.setWidget === 'function') native.setWidget(title, amount, sub); };
