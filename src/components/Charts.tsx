@@ -22,20 +22,25 @@ function useScrub(indexAt: (x: number) => number, count: number, current: number
     r.last = i; r.onSelect(i);
     void Haptics.selectionAsync().catch(() => {});
   };
+  // Dragging only starts once the finger has clearly moved sideways. A touch that starts a vertical swipe belongs to the page, so a chart in
+  // the middle of a scrolling screen never gets in its way; a plain tap is handled separately (see `tap`).
+  const horizontal = (g: { dx: number; dy: number }) => !!live.current.onSelect && Math.abs(g.dx) > 6 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5;
   const handlers = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => !!live.current.onSelect,
-    onMoveShouldSetPanResponder: () => !!live.current.onSelect,
-    onPanResponderTerminationRequest: () => !live.current.drag, // the page may take over until the finger has clearly started dragging sideways
-    onPanResponderGrant: (e) => { const r = live.current; r.drag = false; r.last = -1; r.startX = e.nativeEvent.locationX; pick(r.startX); },
-    onPanResponderMove: (_e, g) => { const r = live.current; if (Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy)) r.drag = true; pick(r.startX + g.dx); },
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_e, g) => horizontal(g),
+    onMoveShouldSetPanResponderCapture: (_e, g) => horizontal(g),
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: (e, g) => { const r = live.current; r.drag = true; r.last = -1; r.startX = e.nativeEvent.locationX - g.dx; pick(r.startX + g.dx); },
+    onPanResponderMove: (_e, g) => { pick(live.current.startX + g.dx); },
     onPanResponderRelease: () => { live.current.drag = false; },
     onPanResponderTerminate: () => { live.current.drag = false; },
   }).panHandlers, []);
+  const tap = (x: number) => { live.current.last = -1; pick(x); };
   const a11y = onSelect ? {
     accessibilityActions: [{ name: 'increment' as const }, { name: 'decrement' as const }],
     onAccessibilityAction: (e: { nativeEvent: { actionName: string } }) => onSelect(Math.max(0, Math.min(count - 1, current + (e.nativeEvent.actionName === 'increment' ? 1 : -1)))),
   } : {};
-  return { handlers, a11y };
+  return { handlers, a11y, tap };
 }
 
 export type Slice = { label: string; value: number; color: string };
@@ -147,7 +152,7 @@ export function Bars({ data, height = 140, width: fixed, label = 'Chart', select
     <View accessible={!onSelect} accessibilityLabel={`${label}: ${data.map((d) => `${d.label} ${format(d.value)}`).join(', ')}`} onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))}>
       {onSelect && picked ? <Text className="mb-1 text-sm text-muted" accessibilityLiveRegion="polite">{picked.label}: <Text className="font-semibold text-fg">{format(picked.value)}</Text></Text> : null}
       {onSelect ? (
-        <View {...scrub.handlers} {...scrub.a11y} accessible accessibilityRole="adjustable" accessibilityLabel={`${label}. ${picked ? `${picked.label}: ${format(picked.value)}` : ''}`}><View pointerEvents="none">{svg}</View></View>
+        <View {...scrub.handlers} {...scrub.a11y} accessible accessibilityRole="adjustable" accessibilityLabel={`${label}. ${picked ? `${picked.label}: ${format(picked.value)}` : ''}`}><Pressable onPress={(e) => scrub.tap(e.nativeEvent.locationX)}><View pointerEvents="none">{svg}</View></Pressable></View>
       ) : svg}
     </View>
   );
@@ -213,7 +218,7 @@ export function AreaChart({ data, height = 120, label = 'Trend', selected, onSel
   return (
     <View accessible={!onSelect} accessibilityLabel={`${label}: ${data.map((d) => `${d.label} ${format(d.value)}`).join(', ')}`} onLayout={(e) => setMeasured(Math.floor(e.nativeEvent.layout.width))}>
       {onSelect ? (
-        <View {...scrub.handlers} {...scrub.a11y} accessible accessibilityRole="adjustable" accessibilityLabel={`${label}. ${picked ? `${picked.label}: ${format(picked.value)}` : ''}`}><View pointerEvents="none">{svg}</View></View>
+        <View {...scrub.handlers} {...scrub.a11y} accessible accessibilityRole="adjustable" accessibilityLabel={`${label}. ${picked ? `${picked.label}: ${format(picked.value)}` : ''}`}><Pressable onPress={(e) => scrub.tap(e.nativeEvent.locationX)}><View pointerEvents="none">{svg}</View></Pressable></View>
       ) : svg}
     </View>
   );
