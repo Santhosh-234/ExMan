@@ -2,7 +2,7 @@ import * as Updates from 'expo-updates';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { getSetting, setSetting } from '@/db/queries';
-import { type ApkUpdate, type Release, RELEASES_URL, newerApk } from '@/utils/apkUpdate';
+import { type ApkUpdate, type Release, RELEASES_URL, cacheStillValid, newerApk } from '@/utils/apkUpdate';
 
 const DAY = 864e5;
 export const apkCheckEnabled = async (db: SQLiteDatabase) => (await getSetting(db, 'apk_check')) !== '0'; // on by default
@@ -11,8 +11,8 @@ export const apkCheckEnabled = async (db: SQLiteDatabase) => (await getSetting(d
 export async function cachedApkUpdate(db: SQLiteDatabase): Promise<ApkUpdate | null> {
   try {
     const raw = await getSetting(db, 'apk_available');
-    const u = raw ? (JSON.parse(raw) as ApkUpdate) : null;
-    if (!u || (await getSetting(db, 'apk_dismissed')) === u.tag) return null;
+    const u = raw ? (JSON.parse(raw) as ApkUpdate & { forRuntime?: string }) : null;
+    if (!u || !cacheStillValid(u, Updates.runtimeVersion) || (await getSetting(db, 'apk_dismissed')) === u.tag) return null; // found for an older build: this one was installed since
     return u;
   } catch { return null; }
 }
@@ -26,7 +26,8 @@ export async function checkApk(db: SQLiteDatabase, force = false): Promise<{ upd
   if (!force) {
     if (!(await apkCheckEnabled(db))) return { update: await cachedApkUpdate(db) };
     const last = Number(await getSetting(db, 'apk_last_check')) || 0;
-    if (Date.now() - last < DAY) return { update: await cachedApkUpdate(db) };
+    const sameBuild = (await getSetting(db, 'apk_last_runtime')) === Updates.runtimeVersion; // a new install checks again straight away
+    if (sameBuild && Date.now() - last < DAY) return { update: await cachedApkUpdate(db) };
   }
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 10_000);
@@ -35,7 +36,8 @@ export async function checkApk(db: SQLiteDatabase, force = false): Promise<{ upd
     if (!res.ok) return { update: await cachedApkUpdate(db), error: res.status === 404 ? 'No public releases found.' : `GitHub answered ${res.status}.` };
     const update = newerApk((await res.json()) as Release[], Updates.runtimeVersion);
     await setSetting(db, 'apk_last_check', String(Date.now()));
-    await setSetting(db, 'apk_available', update ? JSON.stringify(update) : '');
+    await setSetting(db, 'apk_last_runtime', Updates.runtimeVersion ?? '');
+    await setSetting(db, 'apk_available', update ? JSON.stringify({ ...update, forRuntime: Updates.runtimeVersion }) : '');
     return { update: update && (await getSetting(db, 'apk_dismissed')) === update.tag && !force ? null : update };
   } catch (e) {
     return { update: await cachedApkUpdate(db), error: e instanceof Error && e.name === 'AbortError' ? 'The check timed out.' : 'Could not reach GitHub.' };

@@ -22,5 +22,11 @@ export function newerApk(releases: Release[], runtime: string | null | undefined
   return { tag: latest.tag_name, name: latest.name?.trim() || latest.tag_name, url: apk.browser_download_url, sizeMb: apk.size ? Math.round((apk.size / 1048576) * 10) / 10 : null, published: latest.published_at ?? null };
 }
 
+/**
+ * A remembered "new APK available" answer only applies to the build it was found for. After installing that APK (data is kept) the answer
+ * must disappear at once, not at the next daily check.
+ */
+export const cacheStillValid = (cached: { forRuntime?: string } | null, runtime: string | null | undefined) => !!cached && !!runtime && cached.forRuntime === runtime;
+
 /** Only https links to this repository's release assets are ever opened. */
 export const isTrustedApkUrl = (url: string) => /^https:\/\/github\.com\/Santhosh-234\/ExMan\/releases\/download\/[^/]+\/[^/]+\.apk$/.test(url);

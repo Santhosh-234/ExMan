@@ -47,3 +47,14 @@ test('only this repository\'s release APK links are trusted', () => {
   assert.ok(!isTrustedApkUrl('https://github.com/other/ExMan/releases/download/build-14/ExMan.apk'));
   assert.ok(!isTrustedApkUrl('http://github.com/Santhosh-234/ExMan/releases/download/build-14/ExMan.apk'));
 });
+
+
+import { cacheStillValid } from './apkUpdate';
+
+test('a remembered update only counts for the build it was found on', () => {
+  assert.equal(cacheStillValid({ forRuntime: 'a'.repeat(40) }, 'a'.repeat(40)), true);
+  assert.equal(cacheStillValid({ forRuntime: 'a'.repeat(40) }, 'b'.repeat(40)), false); // installed since: hide it at once
+  assert.equal(cacheStillValid({}, 'a'.repeat(40)), false); // old cache entries without the field
+  assert.equal(cacheStillValid(null, 'a'.repeat(40)), false);
+  assert.equal(cacheStillValid({ forRuntime: 'a'.repeat(40) }, null), false);
+});
