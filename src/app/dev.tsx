@@ -1,11 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/ui/Text';
 
 import { getTxns, monthlyTotals, spendByCategory } from '@/db/queries';
 import { loadDemo, removeDemo } from '@/db/demo';
+import { getSetting } from '@/db/queries';
+import { updateWidget } from '@/widget';
 import { notifyIngested } from '@/ingest/events';
 import { Button } from '@/ui/kit';
 import { hashMessage } from '@/utils/hash';
@@ -29,6 +31,9 @@ export default function Dev() {
   const db = useSQLiteContext();
   const router = useRouter();
   const [log, setLog] = useState<string[]>([]);
+  const [widget, setWidget] = useState<string | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+  useEffect(() => { void getSetting(db, 'widget_status').then(setWidget); void getSetting(db, 'last_link').then(setLink); }, [db]);
   const add = (s: string) => setLog((l) => [s, ...l]);
 
   const time = async <T,>(label: string, fn: () => Promise<T>) => {
@@ -75,6 +80,13 @@ export default function Dev() {
       <Text className="mb-1 text-2xl font-semibold text-fg" accessibilityRole="header">Developer</Text>
       <Text className="mb-4 text-xs text-muted">Budget: any screen's data in under 100 ms at 10,000 rows.</Text>
       <Button className="mb-3" label="Message lab" onPress={() => router.push('/lab')} />
+      <View className="mb-3 rounded-2xl bg-card p-3">
+        <Text className="text-xs font-semibold uppercase tracking-wider text-muted">Widget</Text>
+        <Text className="mt-1 text-sm text-fg" selectable>{widget ?? 'Not updated yet'}</Text>
+        <Text className="mt-2 text-xs font-semibold uppercase tracking-wider text-muted">Last link opened</Text>
+        <Text className="mt-1 text-sm text-fg" selectable>{link ?? 'none'}</Text>
+        <Button className="mt-3" variant="secondary" label="Update widget now" onPress={async () => { setWidget(await updateWidget(db, Date.now(), true)); setLink(await getSetting(db, 'last_link')); }} />
+      </View>
       <View className="mb-3 flex-row">
         <Button className="mr-3 flex-1" label="Load demo data" onPress={async () => { const n = await loadDemo(db); notifyIngested(); add(`demo data loaded: ${n} transactions (an HDFC a/c ending 9999 and a card ending 9998)`); }} />
         <Button className="flex-1" variant="secondary" label="Remove demo data" onPress={async () => { await removeDemo(db); notifyIngested(); add('demo data removed'); }} />

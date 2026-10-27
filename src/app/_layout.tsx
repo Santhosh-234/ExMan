@@ -1,5 +1,6 @@
 import '../global.css';
 import { useFonts } from 'expo-font';
+import * as Linking from 'expo-linking';
 import { Stack, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -8,6 +9,7 @@ import { KeyboardAvoidingView } from 'react-native';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 
+import { setSetting } from '@/db/queries';
 import { migrate } from '@/db/schema';
 import { Ingest } from '@/ingest/Ingest';
 import { lastReminderTap, onReminderTapped } from '@/notify';
@@ -39,6 +41,19 @@ function Shell() {
     const sub = onReminderTapped((route) => router.push(route as never));
     return () => sub.remove();
   }, [router]);
+  // Links from outside (the app-icon shortcuts, the widget). The router resolves them itself; tabs are also navigated explicitly so a
+  // shortcut always lands on its tab, and the last link is kept for Developer tools.
+  useEffect(() => {
+    const go = (url: string | null) => {
+      if (!url) return;
+      void setSetting(db, 'last_link', `${new Date().toLocaleString('en-IN')} · ${url}`).catch(() => {});
+      const m = url.match(/^exman:\/\/(wealth|insights|activity)\/?$/i);
+      if (m) setTimeout(() => router.navigate(`/${m[1].toLowerCase()}` as never), 350);
+    };
+    void Linking.getInitialURL().then(go).catch(() => {});
+    const sub = Linking.addEventListener('url', (e) => go(e.url));
+    return () => sub.remove();
+  }, [db, router]);
   // only the screen's name is reported with an error, never route params
   useEffect(() => installErrorReporting(() => screenOf(path.current)), []);
   // how long each screen takes to show after navigation (only the screen's name and the milliseconds are recorded)
