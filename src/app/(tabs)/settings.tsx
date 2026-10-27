@@ -10,7 +10,7 @@ import { countUnparsed } from '@/db/patterns';
 import { useSnackbar } from '@/ui/Snackbar';
 import { formatsStatus, FORMATS_URL } from '@/db/formats';
 import { refreshFormats } from '@/ingest/formats';
-import { ensurePermission, getReminderPrefs, sendTestReminder, setReminderPrefs, syncReminders } from '@/notify';
+import { ensurePermission, getReminderPrefs, listScheduled, sendTestReminder, setReminderPrefs, syncReminders } from '@/notify';
 import { DEFAULT_PREFS, type ReminderPrefs } from '@/notify/plan';
 import { getSetting, setSetting } from '@/db/queries';
 import { importHistory } from '@/ingest/run';
@@ -22,7 +22,7 @@ import { apkCheckEnabled, checkApk } from '@/updates/apk';
 import { type ApkUpdate, isTrustedApkUrl } from '@/utils/apkUpdate';
 import { bucketMessages, bucketMs } from '@/telemetry/schema';
 import { Bell, DatabaseBackup, Landmark, ListChecks, MessageSquare, MessageSquareWarning, PiggyBank, Repeat, ShieldCheck, Store, Tags, Coins, Wallet, Smartphone } from 'lucide-react-native';
-import { Button, Card, Chip, Group, NavRow } from '@/ui/kit';
+import { Button, Card, Chip, Group, NavRow, Sheet } from '@/ui/kit';
 import { type Mode, useTheme } from '@/ui/theme';
 
 import { notificationAccessGranted, openNotificationAccessSettings } from '../../../modules/vibe-listener';
@@ -375,6 +375,7 @@ function Reminders() {
   const { colors } = useTheme();
   const [on, setOn] = useState(false);
   const [prefs, setPrefs] = useState<ReminderPrefs>(DEFAULT_PREFS);
+  const [sched, setSched] = useState<Awaited<ReturnType<typeof listScheduled>> | null>(null);
   useEffect(() => { void getReminderPrefs(db).then((r) => { setOn(r.enabled); setPrefs(r.prefs); }); }, [db]);
   const toggle = async (v: boolean) => {
     if (v && !(await ensurePermission())) { snack({ message: 'Allow notifications for ExMan in Android settings to get reminders.' }); return; }
@@ -395,7 +396,22 @@ function Reminders() {
           <View className="mb-3 flex-row flex-wrap">
             {kinds.map(([k, label]) => <Chip key={k} label={label} color={colors.accent} selected={prefs[k]} onPress={async () => { const next = { ...prefs, [k]: !prefs[k] }; setPrefs(next); await setReminderPrefs(db, { prefs: next }); void syncReminders(db).catch(() => 0); }} />)}
           </View>
-          <Button variant="secondary" label="Show me one" onPress={() => void sendTestReminder().catch(() => snack({ message: 'Could not show a reminder. Check notification permission.' }))} />
+          <View className="flex-row">
+            <Button className="mr-3 flex-1" variant="secondary" label="Show me one" onPress={() => void sendTestReminder().catch(() => snack({ message: 'Could not show a reminder. Check notification permission.' }))} />
+            <Button className="flex-1" variant="secondary" label="What is set" onPress={async () => setSched(await listScheduled().catch(() => []))} />
+          </View>
+          {sched ? (
+            <Sheet title={sched.length ? `${sched.length} reminder${sched.length === 1 ? '' : 's'} set` : 'Nothing is set'} onClose={() => setSched(null)}>
+              {sched.length === 0 ? <Text className="text-sm text-muted">Nothing is due soon, or the kinds above are switched off.</Text> : null}
+              {sched.map((r, i) => (
+                <View key={i} className="mb-3 rounded-2xl bg-card2 p-3">
+                  <Text className="text-xs text-muted">{r.at ? new Date(r.at).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : ''}</Text>
+                  <Text className="mt-0.5 text-base font-semibold text-fg">{r.title}</Text>
+                  <Text className="mt-0.5 text-sm text-muted">{r.body}</Text>
+                </View>
+              ))}
+            </Sheet>
+          ) : null}
         </>
       ) : null}
     </>

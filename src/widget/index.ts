@@ -2,24 +2,27 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { Platform } from 'react-native';
 
 import { setWidget } from '../../modules/vibe-listener';
-import { loadForecast } from '@/db/forecast';
-import { getSetting } from '@/db/queries';
-import { totalFor } from '@/db/queries';
-import { widgetLines } from './lines';
-import { monthKey, monthRange } from '@/utils/format';
+import { setSetting } from '@/db/queries';
+import { computeWidget } from './compute';
 
 let last = 0;
 
-/** Writes the three lines the home-screen widget shows. Throttled; never throws (a widget must not break the app). */
-export async function updateWidget(db: SQLiteDatabase, now = Date.now(), force = false): Promise<void> {
-  if (Platform.OS !== 'android' || (!force && now - last < 60_000)) return;
+/**
+ * Writes the three lines the home-screen widget shows and records what happened (setting `widget_status`, shown in Developer tools),
+ * so a widget that stays empty can be diagnosed instead of failing silently. Throttled unless `force`; never throws.
+ */
+export async function updateWidget(db: SQLiteDatabase, now = Date.now(), force = false, set: typeof setWidget = setWidget): Promise<string> {
+  if (Platform.OS !== 'android') return 'not android';
+  if (!force && now - last < 60_000) return 'skipped (updated a moment ago)';
   last = now;
+  let status: string;
   try {
-    const [lock, hide] = await Promise.all([getSetting(db, 'app_lock'), getSetting(db, 'hide_amounts')]);
-    const [from, to] = monthRange(monthKey(new Date(now)));
-    const [forecast, spent] = await Promise.all([loadForecast(db, now), totalFor(db, 'debit', from, to)]);
-    const next = forecast?.forecast.upcoming.find((u) => u.paise < 0 && (u.kind === 'bill' || u.kind === 'recurring')) ?? null;
-    const l = widgetLines({ private: lock === '1' || hide === '1', safeDaily: forecast?.forecast.safeDaily ?? null, spentThisMonth: spent, next: next ? { label: next.label, paise: -next.paise, ts: next.ts } : null });
-    setWidget(l.title, l.amount, l.sub);
-  } catch { /* leave the widget as it was */ }
+    const t = await computeWidget(db, now);
+    set(t.title, t.amount, t.sub);
+    status = `sent: ${t.title} | ${t.amount}${t.sub ? ` | ${t.sub}` : ''}`;
+  } catch (e) {
+    status = `error: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`.slice(0, 200);
+  }
+  await setSetting(db, 'widget_status', `${new Date().toLocaleString('en-IN')} · ${status}`).catch(() => {});
+  return status;
 }

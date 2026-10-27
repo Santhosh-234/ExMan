@@ -64,6 +64,16 @@ export async function syncReminders(db: SQLiteDatabase, now = Date.now()): Promi
   return planned.length;
 }
 
+/** What is scheduled on this phone right now, exactly as it will appear (so privacy can be checked by looking, not by waiting for 9 am). */
+export async function listScheduled(): Promise<{ title: string; body: string; at: number | null }[]> {
+  const all = await Notifications.getAllScheduledNotificationsAsync();
+  return all.map((n) => {
+    const t = n.trigger as { value?: number; date?: number } | null;
+    const at = typeof t?.value === 'number' ? t.value : typeof t?.date === 'number' ? t.date : null;
+    return { title: n.content.title ?? '', body: n.content.body ?? '', at };
+  }).sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+}
+
 /** Shows one right away so the user can see what a reminder looks like. */
 export async function sendTestReminder() {
   await Notifications.scheduleNotificationAsync({
@@ -79,4 +89,15 @@ export const routeOf = (r: Notifications.NotificationResponse | null): string | 
 };
 export const onReminderTapped = (cb: (route: string) => void) =>
   Notifications.addNotificationResponseReceivedListener((r) => { const route = routeOf(r); if (route) cb(route); });
-export const lastReminderTap = () => routeOf(Notifications.getLastNotificationResponse());
+/**
+ * The reminder whose tap launched the app, if there is one. The last response can outlive the launch it belonged to, so only a tap from
+ * the last few seconds counts, and it is cleared once read: an old tap must never steer a later launch (a shortcut, the widget) to its screen.
+ */
+export const lastReminderTap = (now = Date.now()) => {
+  const r = Notifications.getLastNotificationResponse();
+  if (!r) return null;
+  const raw = r.notification.date;
+  const at = raw < 1e12 ? raw * 1000 : raw; // some platforms report seconds
+  try { Notifications.clearLastNotificationResponse(); } catch { /* older module */ }
+  return now - at < 15_000 ? routeOf(r) : null;
+};
