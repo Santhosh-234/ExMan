@@ -156,3 +156,34 @@ test('reconcile: two equal payments are matched one-to-one; recent transactions 
   assert.deepEqual(out.edge.map((t) => t.id), [2]);
   assert.equal(dayOfTs(day(0)), '2026-10-01');
 });
+
+test('CSV: an unquoted comma in the narration shifts the columns; the row is repaired', () => {
+  const csv = [
+    'SRL NO,Tran Date,CHQNO,PARTICULARS,DR,CR,BAL,SOL',
+    '1,01-10-2026,,UPI/P2M/111111111111/Swiggy Ltd/Pay fo/AXIS BANK,305.00, ,10000.00,1513',
+    '2,02-10-2026,,UPI/P2A/222222222222/Mr Friend, Jr/UPI/INDIAN BANK,200.00, ,9800.00,1513',
+    '3,03-10-2026,,UPI/P2A/333333333333/Mr Self/IDIB/Test/, ,100.00,9900.00,1513',
+  ].join('\n');
+  const r = parseStatement(readCsv(csv));
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  const [a, b, c] = r.statement.lines;
+  assert.equal(b.direction, 'debit');
+  assert.equal(b.paise, 20000);
+  assert.equal(b.balance, 980000);
+  assert.match(b.desc, /Mr Friend, Jr/);
+  assert.equal(c.direction, 'credit');
+  assert.equal(r.statement.chainBroken, 0);
+  assert.equal(a.direction, 'debit');
+});
+
+test('a debit whose amount sits in the credit column is corrected by the balance column', () => {
+  const rows = axis.map((r) => [...r]);
+  rows[7][4] = ' '; rows[7][5] = '               200.00'; // line 2: a debit placed under CR
+  const r = parseStatement(rows);
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  assert.equal(r.statement.lines[1].direction, 'debit');
+  assert.equal(r.statement.chainBroken, 0);
+  assert.ok(r.statement.warnings.some((w) => /balance column/.test(w)));
+});
