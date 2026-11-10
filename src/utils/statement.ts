@@ -154,15 +154,33 @@ function chainScore(lines: StmtLine[]) {
   return { checked, ok };
 }
 
+const trimmedLength = (row: Cell[]) => { let n = row.length; while (n > 0 && norm(row[n - 1]) === '') n--; return n; };
+
+/**
+ * Some exports don't quote the narration, so a comma inside it pushes every later column one place to the right (a debit lands in the credit
+ * column, the balance in the branch column). A row longer than the header is rejoined at the narration if that makes its amounts readable.
+ */
+function repairRow(r: Cell[], headerLen: number, cols: Cols): Cell[] {
+  const n = trimmedLength(r);
+  const extra = n - headerLen;
+  if (extra <= 0 || cols.desc < 0 || cols.desc >= headerLen) return r;
+  const merged = [...r.slice(0, cols.desc), r.slice(cols.desc, cols.desc + extra + 1).map((c) => (c == null ? '' : String(c))).join(','), ...r.slice(cols.desc + extra + 1)];
+  const money = (row: Cell[], k: number) => k >= 0 && readMoney(row[k]) != null;
+  const oddAmount = (row: Cell[]) => [cols.debit, cols.credit].some((k) => k >= 0 && norm(row[k]) !== '' && readMoney(row[k]) == null);
+  const better = cols.balance >= 0 ? money(merged, cols.balance) && !money(r, cols.balance) : oddAmount(r) && !oddAmount(merged);
+  return better ? merged : r;
+}
+
 export function parseStatement(rows: Cell[][]): StatementResult {
   const head = findHeader(rows);
   if (!head) return { ok: false, reason: "Couldn't find the transaction table. It needs columns for date, description and debit/credit (or amount)." };
   const { cols } = head;
+  const headerLen = trimmedLength(rows[head.at]);
   const lines: StmtLine[] = [];
   let skipped = 0;
   let stoppedAtTotal = false;
   for (let i = head.at + 1; i < rows.length; i++) {
-    const r = rows[i];
+    const r = repairRow(rows[i], headerLen, cols);
     const first = norm(r[0]);
     const day = readDate(r[cols.date]);
     if (!day) {
@@ -208,12 +226,24 @@ export function parseStatement(rows: Cell[][]): StatementResult {
     else if (fwd.checked === 0 && lines[0].day > lines[lines.length - 1].day) ordered = [...lines].reverse();
   }
   ordered = ordered.map((l, seq) => ({ ...l, seq }));
+  // The balance column proves which way each payment went: if it rose by exactly this amount the line is a credit, if it fell, a debit.
+  // A line whose direction contradicts that (the amount sat in the wrong column) is put right.
+  let corrected = 0;
+  for (let i = 1; i < ordered.length; i++) {
+    const a = ordered[i - 1].balance;
+    const b = ordered[i].balance;
+    const l = ordered[i];
+    if (a == null || b == null) continue;
+    const delta = b - a;
+    if (Math.abs(Math.abs(delta) - l.paise) <= 1 && delta !== 0 && (delta > 0) !== (l.direction === 'credit')) { l.direction = delta > 0 ? 'credit' : 'debit'; corrected++; }
+  }
   const score = chainScore(ordered);
   const first = ordered[0];
   const last = ordered[ordered.length - 1];
   const days = ordered.map((l) => l.day).sort();
   const warnings: string[] = [];
   if (skipped) warnings.push(`${skipped} row${skipped === 1 ? '' : 's'} without a clear amount were skipped.`);
+  if (corrected) warnings.push(`${corrected} line${corrected === 1 ? ' was' : 's were'} marked debit/credit from the balance column, because the amount column contradicted it.`);
   if (score.checked && score.ok < score.checked) warnings.push(`The balances don't add up in ${score.checked - score.ok} place${score.checked - score.ok === 1 ? '' : 's'}, so some lines may have been misread.`);
   return {
     ok: true,
