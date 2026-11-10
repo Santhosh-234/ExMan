@@ -22,7 +22,7 @@ export const readSummary = (db: SQLiteDatabase) =>
  */
 export async function deleteAllData(db: SQLiteDatabase) {
   await db.withExclusiveTransactionAsync(async (tx) => {
-    for (const t of ['edit_log', 'rules', 'patterns', 'transactions', 'merchants', 'unparsed', 'budgets', 'holdings', 'net_items', 'bills', 'ledger_ignored', 'kind_rules']) await tx.runAsync(`DELETE FROM ${t}`);
+    for (const t of ['edit_log', 'rules', 'patterns', 'transactions', 'merchants', 'unparsed', 'budgets', 'holdings', 'net_items', 'bills', 'ledger_ignored', 'kind_rules', 'statements']) await tx.runAsync(`DELETE FROM ${t}`);
     await tx.runAsync("UPDATE accounts SET merged_into = NULL");
     await tx.runAsync("DELETE FROM accounts WHERE kind != 'cash'");
     await tx.runAsync("UPDATE accounts SET balance_paise = NULL, balance_kind = NULL, balance_ts = NULL");

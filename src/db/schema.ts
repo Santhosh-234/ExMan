@@ -287,6 +287,25 @@ export const MIGRATIONS = [
     created_at INTEGER NOT NULL
   );
   `,
+  // bank statements checked against what ExMan recorded; transactions added from a statement carry its id so the import can be undone
+  `
+  CREATE TABLE statements (
+    id INTEGER PRIMARY KEY,
+    account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+    from_day TEXT NOT NULL,
+    to_day TEXT NOT NULL,
+    opening_paise INTEGER,
+    closing_paise INTEGER,
+    lines INTEGER NOT NULL,
+    matched INTEGER NOT NULL,
+    added INTEGER NOT NULL,
+    differs INTEGER NOT NULL,
+    extra INTEGER NOT NULL,
+    balance_set INTEGER NOT NULL DEFAULT 0,
+    imported_ts INTEGER NOT NULL
+  );
+  ALTER TABLE transactions ADD COLUMN stmt_id INTEGER;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
