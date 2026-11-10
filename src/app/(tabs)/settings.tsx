@@ -21,7 +21,7 @@ import { track } from '@/telemetry';
 import { apkCheckEnabled, checkApk } from '@/updates/apk';
 import { type ApkUpdate, isTrustedApkUrl } from '@/utils/apkUpdate';
 import { bucketMessages, bucketMs } from '@/telemetry/schema';
-import { Bell, DatabaseBackup, Landmark, ListChecks, MessageSquare, MessageSquareWarning, PiggyBank, Repeat, ShieldCheck, Store, Tags, Coins, Wallet, Smartphone } from 'lucide-react-native';
+import { Bell, DatabaseBackup, Landmark, ListChecks, MessageSquare, MessageSquareWarning, PiggyBank, Repeat, ShieldCheck, Store, Tags, Coins, Wallet, Smartphone, FileCheck2 } from 'lucide-react-native';
 import { Button, Card, Chip, Group, NavRow, Sheet } from '@/ui/kit';
 import { type Mode, useTheme } from '@/ui/theme';
 
@@ -211,6 +211,7 @@ export default function Settings() {
         <Group>
           <NavRow first icon={Landmark} label="Manage accounts" onPress={() => router.push('/accounts')} />
           <NavRow icon={ListChecks} label="Books check" onPress={() => router.push('/ledger')} />
+          <NavRow icon={FileCheck2} label="Check a bank statement" onPress={() => router.push('/statement')} />
         </Group>
       </Section>
 

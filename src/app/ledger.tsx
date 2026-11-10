@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { CheckCircle2 } from 'lucide-react-native';
+import { CheckCircle2, FileCheck2 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Text } from '@/ui/Text';
@@ -10,7 +10,7 @@ import { onIngested } from '@/ingest/events';
 import { useSecurity } from '@/security/store';
 import { FadeIn } from '@/ui/anim';
 import { Page } from '@/ui/insets';
-import { BackButton, Button, Card, EmptyState, PageHeader, SectionLabel, Skeleton } from '@/ui/kit';
+import { BackButton, Button, Card, EmptyState, ListRow, PageHeader, SectionLabel, Skeleton } from '@/ui/kit';
 import { useSnackbar } from '@/ui/Snackbar';
 import { useTheme } from '@/ui/theme';
 import { rupees } from '@/utils/format';
@@ -41,6 +41,7 @@ export default function Ledger() {
       <BackButton />
       <PageHeader title="Books check" subtitle="Your bank messages quote the balance after each transaction. ExMan checks that they add up." />
       <ScrollView showsVerticalScrollIndicator={false}>
+        <ListRow icon={FileCheck2} title="Check a bank statement" subtitle="Compare a downloaded statement with ExMan" onPress={() => router.push('/statement')} />
         {!gaps ? <Skeleton style={{ height: 96 }} /> : gaps.length === 0 ? (
           <EmptyState icon={<CheckCircle2 size={44} color={colors.income} />} title={checkable.length ? 'Everything adds up' : 'Not enough to check yet'} body={checkable.length ? `${checkable.length} account${checkable.length === 1 ? '' : 's'} match their balances.` : 'Once your bank messages include balances, ExMan can verify them.'} />
         ) : (
